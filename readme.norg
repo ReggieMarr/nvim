@@ -1,0 +1,14 @@
+* nvim
+  `nvim` is a personal Neovim setup, it is highly inspired
+  by [doom-nvim]{https://github.com/NTBBloodbath/doom-nvim} and covers *only* my needs.
+
+  @embed image
+  https://user-images.githubusercontent.com/36456999/186290407-68de61f6-eb54-497a-ba66-6bd2e4894d08.png
+  @end
+
+** Measuring startup time
+   In case you want to measure my configuration startup time, you can use the script called
+   `measure_nvim.sh` in `extern` directory.
+
+** License
+   As /almost/ always, this project is licensed under [GPLv3]{./LICENSE}.
