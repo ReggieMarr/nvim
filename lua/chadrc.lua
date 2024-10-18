@@ -23,7 +23,7 @@ M.ui = {
     selected_item_bg = "colored",
   },
 
-  -- transparency = true,
+  transparency = true,
 
   hl_override = highlights.override,
   hl_add = highlights.add,
@@ -604,6 +604,5 @@ M.ui = {
 -- M.plugins = "plugins"
 
 -- check core.mappings for table structure
--- M.mappings = require "mappings"
 
 return M

@@ -1,16 +1,16 @@
 -- Auto resize panes when resizing nvim window
--- autocmd("VimResized", {
---   pattern = "*",
---   command = "tabdo wincmd =",
--- })
+--autocmd("VimResized", {
+--    pattern = "*",
+--    command = "tabdo wincmd =",
+--})
 
 -- -- Conceal Settings
 -- -- in json files, conceal the quotes
 -- -- In org-mode conceal the links
 -- -- Markdown links can get concealed with this also.
 -- -- NOTE: Moved to org-mode config
--- vim.opt.conceallevel = 2
--- vim.opt.concealcursor = "nc"
+vim.opt.conceallevel = 2
+vim.opt.concealcursor = "nc"
 
 -- Folding Settings
 -- These are used for the ufo plugin
@@ -25,40 +25,40 @@ vim.g.vscode_snippets_path = "~/.config/nvim/lua/custom/snippets/json"
 vim.g.lua_snippets_path = "~/.config/nvim/lua/custom/snippets/lua"
 vim.g.snipmate_snippets_path = "~/.config/nvim/lua/custom/snippets/snipmate"
 
--- -- Remove terminal padding when inside nvim:
----- For st:
--- function Sed(from, to, fname)
---   vim.cmd(string.format("silent !sed -i 's/%s/%s/g' %s", from, to, fname))
--- end
---
--- function Reload()
---   vim.cmd(
---     string.format "silent !xrdb merge ~/.Xresources && kill -USR1 $(xprop -id $(xdotool getwindowfocus) | grep '_NET_WM_PID' | grep -oE '[[:digit:]]*$')"
---   )
--- end
---
--- function DecreasePadding()
---   Sed("st.borderpx: 20", "st.borderpx: 0", "~/.Xresources")
---   Reload()
---   Sed("st.borderpx: 0", "st.borderpx: 20", "~/.Xresources")
--- end
---
--- function IncreasePadding()
---   Reload()
--- end
---
--- vim.cmd [[
---   augroup ChangeStPadding
---    au!
---    au VimEnter * lua DecreasePadding()
---    au VimLeavePre * lua IncreasePadding()
---   augroup END
--- ]]
---
+ -- Remove terminal padding when inside nvim:
+-- For st:
+ function Sed(from, to, fname)
+   vim.cmd(string.format("silent !sed -i 's/%s/%s/g' %s", from, to, fname))
+ end
+
+ function Reload()
+   vim.cmd(
+     string.format "silent !xrdb merge ~/.Xresources && kill -USR1 $(xprop -id $(xdotool getwindowfocus) | grep '_NET_WM_PID' | grep -oE '[[:digit:]]*$')"
+   )
+ end
+
+ function DecreasePadding()
+   Sed("st.borderpx: 20", "st.borderpx: 0", "~/.Xresources")
+   Reload()
+   Sed("st.borderpx: 0", "st.borderpx: 20", "~/.Xresources")
+ end
+
+ function IncreasePadding()
+   Reload()
+ end
+
+ vim.cmd [[
+   augroup ChangeStPadding
+    au!
+    au VimEnter * lua DecreasePadding()
+    au VimLeavePre * lua IncreasePadding()
+   augroup END
+ ]]
+
 -- -- Change Cwd to current file (AWESOME)
--- vim.cmd [[
--- set autochdir
--- ]]
+vim.cmd [[
+    set autochdir
+]]
 
 ---- For alacritty:
 -- local function sed(from, to)
