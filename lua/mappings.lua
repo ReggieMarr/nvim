@@ -11,6 +11,59 @@ M.general = {
   { "<leader>fq", "<cmd> qa!<cr>", desc = "Force Quit Editor", opts = { nowait = true } },
   { "<leader>wq", "<cmd> wq<cr>", desc = "Write Quit Editor", opts = { nowait = true } },
   { "<leader>ip", "<cmd> Inspect<cr>", desc = "HL Group Under Cursor" },
+  { "<leader><leader>", "<cmd>Telescope find_files<CR>", desc = "Find file in project" },
+  { "<leader>.", "<cmd>Telescope file_browser<CR>", desc = "Browse files" },
+  { "<leader>/", "<cmd>Telescope live_grep<CR>", desc = "Search in project" },
+  { "<leader>:", "<cmd>Telescope commands<CR>", desc = "Execute command" },
+  { "<leader>bb", "<cmd>Telescope buffers<CR>", desc = "Switch buffer" },
+  { "<leader>`", "<c-^>", desc = "Switch to last buffer" },
+}
+
+M.lsp = {
+  { "<leader>lD", vim.lsp.buf.declaration, desc = "Go to declaration" },
+  { "<leader>ld", vim.lsp.buf.definition, desc = "Go to definition" },
+  { "<leader>lI", vim.lsp.buf.implementation, desc = "Go to implementation" },
+  { "<leader>lr", vim.lsp.buf.references, desc = "Find references" },
+  { "<leader>lt", vim.lsp.buf.type_definition, desc = "Go to type definition" },
+  { "<leader>lk", vim.lsp.buf.hover, desc = "Show hover information" },
+  { "<leader>la", vim.lsp.buf.code_action, desc = "Code actions" },
+  { "<leader>lf", vim.lsp.buf.formatting, desc = "Format code" },
+  { "<leader>lr", vim.lsp.buf.rename, desc = "Rename symbol" },
+}
+
+M.toggles = {
+  { "<leader>tf", "<cmd>ToggleTerm<CR>", desc = "Toggle terminal" },
+  { "<leader>tn", "<cmd>set number!<CR>", desc = "Toggle line numbers" },
+  { "<leader>tr", "<cmd>set relativenumber!<CR>", desc = "Toggle relative line numbers" },
+  { "<leader>ts", "<cmd>setlocal spell!<CR>", desc = "Toggle spell check" },
+  { "<leader>tw", "<cmd>set wrap!<CR>", desc = "Toggle word wrap" },
+}
+
+M.search = {
+  { "<leader>sb", "<cmd>Telescope current_buffer_fuzzy_find<CR>", desc = "Search in buffer" },
+  { "<leader>sf", "<cmd>Telescope find_files<CR>", desc = "Search files" },
+  { "<leader>sg", "<cmd>Telescope live_grep<CR>", desc = "Search by grep" },
+  { "<leader>sm", "<cmd>Telescope marks<CR>", desc = "Search marks" },
+  { "<leader>ss", "<cmd>Telescope lsp_document_symbols<CR>", desc = "Search symbols in file" },
+}
+
+M.project = {
+  { "<leader>pp", "<cmd>Telescope projects<CR>", desc = "Switch project" },
+  { "<leader>pf", "<cmd>Telescope find_files<CR>", desc = "Find file in project" },
+  { "<leader>pb", "<cmd>Telescope buffers<CR>", desc = "Switch to project buffer" },
+}
+
+M.files = {
+  { "<leader>ff", "<cmd>Telescope find_files<CR>", desc = "Find file" },
+  { "<leader>fr", "<cmd>Telescope oldfiles<CR>", desc = "Recent files" },
+}
+
+M.buffers = {
+  { "<leader>bb", "<cmd>Telescope buffers<CR>", desc = "Switch buffer" },
+  { "<leader>bd", "<cmd>bdelete<CR>", desc = "Delete buffer" },
+  { "<leader>bn", "<cmd>bnext<CR>", desc = "Next buffer" },
+  { "<leader>bp", "<cmd>bprevious<CR>", desc = "Previous buffer" },
+  { "<leader>bR", "<cmd>lua vim.lsp.buf.rename()<CR>", desc = "Rename buffer" },
 }
 
 -- Disabled mappings can be left as is or removed if not needed
@@ -119,78 +172,6 @@ M.dashboard = {
   { "<leader>bi", "<cmd> Nvdash<CR>", desc = "Open Dashboard" },
 }
 
-M.irc = {
-  { "<leader>xi", function()
-    extern("weechat", "vertical")
-    status.irc = true
-  end, desc = "IRC Client" },
-}
-
-M.hn = {
-  { "<leader>xh", function()
-    extern("hackernews_tui", "vertical")
-    status.hn = true
-  end, desc = "Hacker News" },
-}
-
-M.discord = {
-  { "<leader>xd", function()
-    extern("discordo", "vertical")
-    status.discord = true
-  end, desc = "Discord" },
-}
-
-M.map = {
-  { "<leader>xm", function()
-    extern("mapscii", "vertical")
-    status.worldmap = true
-  end, desc = "Open World Map" },
-}
-
-M.browser = {
-  { "<leader>xb", function()
-    extern("browsh", "vertical")
-    status.browser = true
-  end, desc = "Open Browsher" },
-  { "<leader>xl", function()
-    extern("lynx", "vertical")
-  end, desc = "Open Lynx" },
-}
-
-M.reddit = {
-  { "<leader>xr", function()
-    extern("tuir", "vertical")
-    status.reddit = true
-  end, desc = "Reddit Client" },
-}
-
-M.stackoverflow = {
-  { "<leader>xs", function()
-    local q = vim.fn.input("Query: ")
-    extern("so " .. q, "vertical")
-    status.stackoverflow = true
-  end, desc = "Query StackOverflow" },
-}
-
-M.mail = {
-  { "<leader>xq", function()
-    extern("mutt", "vertical")
-    status.mail = true
-  end, desc = "Email Client" },
-}
-
-M.ncmpcpp = {
-  { "<leader>xa", function()
-    extern("ncmpcpp", "vertical")
-  end, desc = "Music Player" },
-}
-
-M.whatsapp = {
-  { "<leader>xw", function()
-    extern("nchat", "vertical")
-    status.whatsapp = true
-  end, desc = "WhatsApp Client" },
-}
 
 -- M. = {
 --   n = {
