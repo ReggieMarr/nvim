@@ -6,9 +6,6 @@
 --
 --- Code:
 
--- Do not load Neovim runtime plugins automatically
--- vim.opt.loadplugins = false
-
 -- Manually load runtime Man plugin to use Neovim as my man pager
 vim.api.nvim_command("runtime! plugin/man.lua")
 
@@ -18,51 +15,40 @@ vim.loader.enable()
 -- Set colorscheme
 vim.g.colorscheme = "sweetie"
 
--- Set keyboard layout. I've switched to Dvorak in my workstation
--- but my laptop is still using QWERTY
+-- Set keyboard layout
 vim.g.layout = "qwerty"
 
 -- rocks.nvim config and bootstrapping {{{
 do
   -- Specifies where to install/use rocks.nvim
-  ---@diagnostic disable-next-line param-type-mismatch
-  local install_location = vim.fs.joinpath(vim.fn.stdpath("data"), "rocks")
+  local install_location = vim.fn.stdpath("data") .. "/rocks"
 
-  -- Set up configuration options related to rocks.nvim (recommended to leave as default)
+  -- Set up configuration options related to rocks.nvim
   local rocks_config = {
     rocks_path = vim.fs.normalize(install_location),
   }
-  -- I have to manually compile Lua5.1 on MacOS. Thank you, homebrew
-  if jit.os == "OSX" then
-    rocks_config.luarocks_config = {
-      variables = {
-        LUA = "/usr/local/bin/lua5.1",
-        LUA_BINDIR = "/usr/local/bin",
-        LUA_DIR = "/usr/local",
-        LUA_INCDIR = "/usr/local/include/lua",
-        LUA_VERSION = "5.1",
-      },
-    }
-  elseif vim.env.NIX_PATH then
-    -- HACK: Nix does not expose development headers by default,
-    -- so I extract the relevant header files from the lua5.1
-    -- tarball and it seems to do the trick.
-    rocks_config.luarocks_config = {
-      variables = {
-        LUA_INCDIR = vim.env.HOME .. "/Develop/Nvim/lua-inc",
-      },
-    }
-  end
+
+  -- Ubuntu-specific configuration
+  rocks_config.luarocks_config = {
+    variables = {
+      LUA = "/usr/bin/lua5.1",
+      LUA_BINDIR = "/usr/bin",
+      LUA_DIR = "/usr",
+      LUA_INCDIR = "/usr/include/lua5.1",
+      LUA_VERSION = "5.1",
+    },
+  }
+
   vim.g.rocks_nvim = rocks_config
 
-  -- Configure the package path (so that plugin code can be found)
+  -- Configure the package path
   local luarocks_path = {
     vim.fs.joinpath(rocks_config.rocks_path, "share", "lua", "5.1", "?.lua"),
     vim.fs.joinpath(rocks_config.rocks_path, "share", "lua", "5.1", "?", "init.lua"),
   }
   package.path = package.path .. ";" .. table.concat(luarocks_path, ";")
 
-  -- Configure the C path (so that e.g. tree-sitter parsers can be found)
+  -- Configure the C path
   local luarocks_cpath = {
     vim.fs.joinpath(rocks_config.rocks_path, "lib", "lua", "5.1", "?.so"),
     vim.fs.joinpath(rocks_config.rocks_path, "lib64", "lua", "5.1", "?.so"),
@@ -77,10 +63,8 @@ end
 
 -- If rocks.nvim is not installed then install it!
 if not pcall(require, "rocks") then
-  ---@diagnostic disable-next-line param-type-mismatch
-  local rocks_location = vim.fs.joinpath(vim.fn.stdpath("cache"), "rocks.nvim")
-  ---@diagnostic disable-next-line undefined-field
-  if not vim.uv.fs_stat(rocks_location) then
+  local rocks_location = vim.fn.stdpath("cache") .. "/rocks.nvim"
+  if not vim.loop.fs_stat(rocks_location) then
     -- Pull down rocks.nvim
     vim.fn.system({
       "git",
@@ -111,13 +95,6 @@ if not loaded_core then
     vim.log.levels.ERROR
   )
 end
-
--- Manually load Neovim runtime
--- WARN: enable only if using 'vim.g.loadplugins'
--- vim.defer_fn(function()
---   vim.api.nvim_command("runtime! plugin/**/*.vim")
---   vim.api.nvim_command("runtime! plugin/**/*.lua")
--- end, 0)
 
 -- vim: fdm=marker:fdl=0
 --- init.lua ends here
