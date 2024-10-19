@@ -1,608 +1,130 @@
----@type ChadrcConfig
-local M = {}
+local options = {
 
-local round = { left = "", right = "" }
-local block = { left = "█", right = "█" }
-local arrow = { left = "", right = "" }
-local angle = { left = "", right = "" }
-local slant = { left = "", right = "" }
-local group_margin = "  "
-
-local status = require("utils").status
-
--- Path to overriding theme and highlights files
-local highlights = require "highlights"
-
-M.ui = {
-  theme = "gruvchad",
-  theme_toggle = { "gruvchad", "gruvchad" },
-  lsp_semantic_tokens = false, -- needs nvim v0.9, just adds highlight groups for lsp semantic tokens
-
-  cmp = {
-    style = "default", -- flatt_dark | flat_light | default | atom | atom_colored
-    selected_item_bg = "colored",
+  base46 = {
+    theme = "nightfox", -- default theme
+    hl_add = {},
+    hl_override = {},
+    integrations = {},
+    changed_themes = {},
+    -- unless we have blur this is kind of useless
+    transparency = false,
+    theme_toggle = { "onedark", "one_light" },
   },
 
-  transparency = true,
+  ui = {
+    cmp = {
+      icons_left = false, -- only for non-atom styles!
+      lspkind_text = true,
+      style = "default", -- default/flat_light/flat_dark/atom/atom_colored
+      format_colors = {
+        tailwind = false, -- will work for css lsp too
+        icon = "󱓻",
+      },
+    },
 
-  hl_override = highlights.override,
-  hl_add = highlights.add,
+    telescope = { style = "borderless" }, -- borderless / bordered
 
-  statusline = {
-    -- theme = "vscode_colored", -- default/vscode/*vscode_colored*/minimal
-    -- separator_style = "round", -- default/*round*/*block*/arrow
-    -- modules arg here is the default table of modules
-    overriden_modules = function(modules)
-      table.insert( -- Right
-        modules,
-        3,
-        (function()
-          local hl = "%#StEncoding#"
-          local encoding = vim.bo.fileencoding or vim.bo.encoding
-          return hl .. encoding .. "  "
-        end)()
-      )
+    statusline = {
+      enabled = true,
+      theme = "default", -- default/vscode/vscode_colored/minimal
+      -- default/round/block/arrow separators work only for default statusline theme
+      -- round and block will work for minimal theme only
+      separator_style = "default",
+      order = { "mode", "cwd", "file", "num_cursor", "git", "%=", "lsp_msg", "%=", "diagnostics", "lsp"},
+      modules = {
+        num_cursor = function()
 
-      -------------------------------------------------------
-      --                    ICONS START                    --
-      -------------------------------------------------------
-      -- table.insert(
-      --   modules,
-      --   8,
-      --   (function()
-      --     local hl = "%#StGroup#"
-      --     return hl .. round.right
-      --   end)()
-      -- )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StBg#"
-          return hl .. " "
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StKernel#"
-          local icon = "" --                               
-          return hl .. icon--[[  .. " " ]]
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StDebug#"
-          local icon = ""
-          if status.debug then
-            icon = hl .. "󱇪" .. group_margin
+          local utils = require "nvchad.stl.utils"
+          local sep_style = require("nvconfig").ui.statusline.separator_style
+          local separators = utils.separators[sep_style]
+          local sep_l = separators["left"]
+          local sep_r = "%#St_sep_r#" .. separators["right"] .. " %#ST_EmptySpace#"
+          if not utils.is_activewin() then
+            return ""
           end
-          return icon
-        end)()
-      )
+          local line = vim.fn.line(".")
+          local col = vim.fn.col(".")
+          return string.format("%%#St_Pos_sep#%s%%#St_Pos_bg#󰍒 %%#St_Pos_txt#%d:%d%s", sep_l, line, col, sep_r)
+        end,
+      }
+    },
 
-      -- -- If in ~/
-      -- table.insert(
-      --   modules,
-      --   8,
-      --   (function()
-      --     local hl = "%#StHome#"
-      --     local icon = ""
-      --     local cwd = vim.fn.getcwd()
-      --     local homedir = vim.loop.os_homedir()
-      --     if cwd == homedir then
-      --       icon = hl .. "󰋜" .. group_margin
-      --     end
-      --     return icon
-      --   end)()
-      -- )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StWorld#"
-          local icon = "" -- 󰅏
-          if status.worldmap then
-            icon = hl .. "󰇧" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StReddit#"
-          local icon = ""
-          if status.reddit then
-            icon = hl .. "" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StGames#"
-          local icon = ""
-          if status.games then
-            icon = hl .. "󰊗" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StHN#"
-          local icon = ""
-          if status.hn then
-            icon = hl .. "" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StWhatsapp#"
-          local icon = ""
-          if status.whatsapp then
-            icon = hl .. "󰖣" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StStackOverflow#"
-          local icon = ""
-          if status.stackoverflow then
-            icon = hl .. "" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StDiscord#"
-          local icon = ""
-          if status.discord then
-            icon = hl .. "󰙯" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StIRC#"
-          local icon = ""
-          if status.irc then
-            icon = hl .. "󰻞" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StGit#"
-          local icon = ""
-          if status.git then
-            icon = hl .. "" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StMail#"
-          local icon = "" -- 󰛮
-          if status.mail then
-            icon = hl .. "󰶌" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StBrowser#"
-          local icon = ""
-          if status.browser then
-            icon = hl .. "󰖟" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StGithub#"
-          local icon = ""
-          if status.github then
-            icon = hl .. "" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StTranslate#"
-          local icon = ""
-          if status.translate then
-            icon = hl .. "" .. group_margin
-          end
-          return icon
-        end)()
-      )
-
-      table.insert(
-        modules,
-        8,
-        (function()
-          local hl = "%#StCody#"
-          local icon = "" -- 
-
-          if status.cody then
-            icon = hl .. "󱜙" .. group_margin
-          end
-
-          return icon
-        end)()
-      )
-
-      table.insert( -- Right
-        modules,
-        8,
-        (function()
-          local icon = ""
-          local hl = "%#StCopilot#"
-
-          if status.copilot == true then
-            icon = hl .. "" .. group_margin --   |  
-            -- else
-            --   icon = " " .. ""
-          end
-
-          return icon
-        end)()
-      )
-
-      -- table.insert(
-      --   modules,
-      --   8,
-      --   (function()
-      --     local hl = "%#StBg#"
-      --     return hl .. " "
-      --   end)()
-      -- )
-
-      -- table.insert(
-      --   modules,
-      --   8,
-      --   (function()
-      --     local hl = "%#StGroup#"
-      --     return hl .. round.left
-      --   end)()
-      -- )
-    end,
-
-    -----------------------------------------------------
-    --                    ICONS END                    --
-    -----------------------------------------------------
+    -- lazyload it when there are 1+ buffers
+    tabufline = {
+      enabled = false,
+      lazyload = false,
+    },
   },
 
   nvdash = {
     load_on_startup = true,
     header = {
-
-      -- Useful: https://emojicombos.com/
-
-      -- "         ___    ___        ",
-      -- "      ./ .-'   '-. \\.      ",
-      -- "    .'   '/     \\'   '.    ",
-      -- "    |.-../ o   o \\..-.|    ",
-      -- " (| |   /  _\\ /_  \\   | |) ",
-      -- "  \\\\\\  (_.'.'\"'.'._)  ///  ",
-      -- "   \\\\'._(..:   :..)_.'//   ",
-      -- "    \\'.__\\ .:-:. /__.'/   ",
-      -- "     '---->.___.<----'     ",
-      -- "     .'.-'/.=^=.\\'-.'.     ",
-      -- "    /.'  //     \\\\  `.\\    ",
-      -- "   ||   ||       ||   ||   ",
-      -- "    \\)  ||       ||  (/    ",
-      -- "        \\)       (/        ",
-
-      -- F_P
-      -- "          ,--'\\                          ",
-      -- "       .-/__ / \\.-\\           .--.       ",
-      -- "       \\/      / _/    .-''-./  .'\\      ",
-      -- "       (\\__.-')   \\    | /-'|.'-   \\     ",
-      -- "       \\/  \\--'    |  _/|   |      |     ",
-      -- "       /.. /  .-'  |-'  /   |      |     ",
-      -- "       \\__/  /     /   |            \\    ",
-      -- "        \\__/-''    .   .'   ' \\       \\   ",
-      -- "         |.'\\-        /   .           \\  ",
-      -- "        /, - /    \\_.'                |  ",
-      -- "        |\\/-'                      |  |  ",
-      -- "        |            /             /   \\ ",
-      -- "       .|           |             /     |",
-      -- "      / |               ______.--'   __.'",
-      -- "     |   \\ __/    /---''    `-.---'-'    ",
-      -- "     \\__/ /      /                       ",
-      -- "          `--..-'                        ",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢦⠙⢿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⢯⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢃⠛⢿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⢧⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡕⠂⠈⢻⣿⣿⣿⣿",
-      -- "⣿⣿⡅⣻⡿⢿⣿⣿⣿⡿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠿⢿⣿⡇⠀⠀⠈⣿⣿⣿⣿",
-      -- "⣿⣿⠀⠀⠀⠘⣿⣿⣿⣿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⠀⠀⠀⣹⣿⣿⣿",
-      -- "⣿⣿⠀⠀⠀⠀⣿⣿⡿⠿⠛⠻⣿⣿⣿⣿⡿⠟⠁⠈⠀⠉⠻⡆⠀⠀⠀⣿⣿⣿",
-      -- "⣿⣯⠄⠂⠀⠀⣿⡋⠀⢀⠀⠀⠀⠉⣿⣿⡀⠀⠀⠘⠓⣠⣶⣿⡀⠀⠀⠘⣿⣿",
-      -- "⣿⣫⡆⠀⠀⢀⣿⣷⣶⣄⠀⢀⣤⣴⣿⣿⣿⣶⣄⠀⣴⣿⣿⣿⠁⠀⠀⠀⠘⣿",
-      -- "⣿⣿⠁⠀⠀⡤⠙⢿⣿⣿⣷⣾⣿⡿⣿⣿⢿⠿⣿⣧⣿⣿⡿⢣⠀⠀⠀⠀⢠⣿",
-      -- "⣷⣌⠈⠀⠀⠀⠀⣆⠈⡉⢹⣿⣿⣆⡀⠀⠀⢠⣿⣿⣿⡿⢃⣼⠀⠀⠀⠀⣸⣿",
-      -- "⣿⣿⡇⠀⠀⠀⠀⠙⢿⣿⣆⠈⠛⠛⠛⠀⠀⠈⠉⠁⠀⢠⣿⠇⠀⠀⠀⠹⢿⡇",
-      -- "⣿⡫⠀⠀⠁⠀⠀⠀⠈⠻⣿⢢⣄⠀⠀⠀⠀⠀⣀⣠⣾⡾⠋⠀⠀⠀⠀⢀⠴⠋",
-      -- "⣿⣁⠄⠀⠀⠀⣀⠀⠀⠀⠈⠛⠿⣿⣿⣿⣿⣿⠿⡿⠋⠀⠀⠀⠀⠀⣀⠬⠆⢀",
-      -- "⣿⣿⣧⣄⠀⠀⠉⠀⠀⠀⠀⠀⠀⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠠⠙",
-
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠊⠉⠉⢉⠏⠻⣍⠑⢲⠢⠤⣄⣀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⣻⣿⢟⣽⠿⠯⠛⡸⢹⠀⢹⠒⣊⡡⠜⠓⠢⣄⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⢀⡜⣿⣷⣽⠓⠀⢠⢂⣣⠋⠂⣾⠼⢌⠳⢄⢀⡠⠜⣣⡀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⢠⢻⢱⣭⠷⠤⢅⠴⣡⡻⠃⠀⢠⠁⠀⢀⡱⠜⠍⢔⠊⠀⠹⡄⠀",
-      -- "⠀⠀⠀⠀⢀⣷⠌⠚⠷⠆⠠⠶⠭⢒⣁⠀⣤⠃⣀⢔⢋⡤⠊⠑⣄⠳⣄⠀⣧⠀",
-      -- "⠀⠀⠀⠀⠀⠑⠦⣀⡤⣄⠄⢄⣀⣠⣒⢦⡄⠩⠷⠦⠊⠀⠀⠀⠈⠣⡏⠢⣿⠀",
-      -- "⠀⠀⠀⠀⠀⠀⣸⢫⠟⣝⠞⣼⢲⡞⣞⠋⠋⠉⠋⠓⡄⠀⠀⠀⠀⠀⣨⠂⢸⡅",
-      -- "⠀⠀⠀⠀⠀⣰⠃⡨⠊⢀⡠⡌⢘⢇⠞⠀⠀⠀⠀⠂⠡⡄⠀⠀⢀⠞⢁⠔⢹⡇",
-      -- "⠀⠀⠀⠀⣰⣣⠞⢀⠔⢡⢢⠇⡘⠌⠀⠀⠀⠀⠀⠀⠠⡌⠢⡔⢁⡴⠁⠀⢸⠃",
-      -- "⠀⠀⠀⢠⠟⠁⠠⢊⠔⣡⢸⠀⠃⠁⠀⠀⠀⠀⠀⠀⠀⣯⠂⡀⢪⡀⠀⠀⢸⠀",
-      -- "⠀⢀⠔⣁⠐⠨⠀⠀⠈⠀⢄⠘⡀⠀⠈⢆⠀⠀⠀⠀⡠⢁⠜⠙⢦⠙⣦⠀⢸⠀",
-      -- "⡴⠁⠘⡁⣀⡡⠀⠀⠴⠒⠗⠋⠉⠉⡆⠀⠆⠄⠄⠘⠀⡎⠀⠀⠀⠑⢅⠑⢼⡀",
-      -- "⢯⣉⣓⠒⠒⠤⠤⣄⣀⣀⣀⣀⡀⠐⠁⠀⠀⠀⠒⠀⢀⡀⠀⠀⠀⠀⠀⠑⣌⣇",
-      -- "⠀⠈⢳⠄⠈⠀⠤⢄⣀⠀⢈⣉⡹⠯⡟⠁⠀⠀⠀⠀⢸⠀⠀⠂⠀⠀⡠⠚⣡⡿",
-      -- "⠀⢠⣋⣀⣀⣀⣀⠤⠭⢛⡩⠄⠒⠩⠂⢀⠄⠀⠀⠀⠈⢢⡀⠀⡠⠋⡩⠋⠀⢳",
-      -- "⠀⢹⠤⠬⠤⠬⠭⣉⣉⢃⠀⠀⣀⣀⠀⠁⠀⠀⠀⠀⡞⢺⡈⠋⡢⠊⠀⠀⠀⢸",
-      -- "⠀⠈⡆⠁⢀⠀⠀⠀⠉⠋⠉⠓⠂⠤⣀⡀⠀⠀⠀⠀⡧⠊⡠⠦⡈⠳⢄⠀⠀⠈",
-      -- "⠀⠀⢹⡜⠀⠁⠀⠀⠒⢤⡄⠤⠔⠶⠒⠛⠧⠀⠀⡼⡠⠊⠀⠀⠙⢦⡈⠳⡄⠀",
-      -- "⠀⠀⢸⠆⠀⠈⠀⠠⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⡜⢸⠀⠀⠀⠀⠀⠀⠑⢄⠈⢲",
-      -- "⠀⠀⢸⢀⠇⠀⠀⠀⠀⢀⠀⠀⠀⠀⠀⠀⡄⠊⢠⠃⠀⠀⠀⠀⠀⠀⠀⠈⡢⣸",
-      -- "⠀⠀⠈⠳⣤⣄⡀⠀⠀⠀⠈⠉⠉⠁⠒⠁⠀⠠⣏⠀⠀⠀⠀⠀⠀⢀⣔⠾⡿⠃",
-      -- "⠀⠀⠀⠀⠀⠉⠙⠛⠒⠤⠤⣤⣄⣀⣀⣀⣔⣢⣀⣉⣂⣀⣀⣠⠴⠿⠛⠋⠀ ",
-
-      -- "⠀⠀⢀⣤⣶⣶⣤⣄⡀                               ",
-      -- "⠀⢀⣿⣿⣿⣿⣿⣿⣿⡆                              ",
-      -- "⠀⠸⣿⣿⣿⣿⣿⡟⡟⡗ ⣿⠉⣿⠉⣿⡏⠹⡏⢹⡏⢹⣿⣿⠉⣿⠉⣿⡟⢋⠛⣿⠉⡟⢉⡏⠹⠏⣹⣿",
-      -- "⠀⠀⠙⠏⠯⠛⣉⢲⣧⠟ ⣿⠄⣿⠄⣿⡇⡄⠁⢸⡇⢸⣿⣿⠄⣿⠄⣿⠄⣿⣿⣿⠄⡀⢻⣿⡄⢠⣿⣿",
-      -- "⠀⠀⠠⢭⣝⣾⠿⣴⣿⠇ ⣿⣦⣤⣴⣿⣧⣿⣤⣼⣧⣬⣭⣿⣦⣤⣴⣿⣧⣤⣤⣿⣤⣷⣤⣿⣧⣼⣿⣿",
-      -- "⠀⠀⢐⣺⡿⠁⠀⠈⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀                      ",
-      -- "⠀⠀⣚⣿⠃                                   ",
-      -- "⢀⣿⣿⣿⣷⢒⣢⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣶⣶⣄⠄                ",
-      -- "⢰⣿⣿⡿⣿⣦⠬⢝⡄⠀⠀⠀⠀⠀⠀⢠⣿⠿⠿⠟⠛⠋⠁                 ",
-      -- "⠠⢿⣿⣷⠺⣿⣗⠒⠜⡄⠀⠀⠀⠀⣴⠟⠁                       ",
-      -- "⠀⣰⣿⣷⣍⡛⣯⣯⣙⡁⠀⠀⣠⡾⠁                         ",
-      -- "⠀⠨⢽⣿⣷⢍⣛⣶⢷⣼⣠⣾⠋                           ",
-      -- "⠀⠀⠘⢿⣿⣖⠬⣹⣶⣿⠟⠁                            ",
-      -- "⠀⠀⠀⠚⠿⠿⡒⠨⠛⠋                              ",
-      -- "⠀⠀⠀⠐⢒⣛⣷                                 ",
-      -- "⠀⠀⠀⢘⣻⣭⣭                                 ",
-      -- "⠀⠀⠀⡰⢚⣺⣿                                 ",
-      -- "⠀⠀⢠⣿⣿⣿⣿⣦⡄                               ",
-      -- "⠀⠀⢸⡿⢿⣿⢿⡿⠃                               ",
-      -- "⠀⠀⠘⡇⣸⣿⣿⣿⣆                               ",
-      -- "⠀⠀⠀⠀⠸⣿⡿⠉⠁                               ",
-      -- "⠀⠀⠀⠀⠀⢿⡟                                 ",
-
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣤⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⠀⠀⠀⢀⣴⠟⠉⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣷⣀⢀⣾⠿⠻⢶⣄⠀⠀⣠⣶⡿⠶⣄⣠⣾⣿⠗⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⢻⣿⣿⡿⣿⠿⣿⡿⢼⣿⣿⡿⣿⣎⡟⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⡟⠉⠛⢛⣛⡉⠀⠀⠙⠛⠻⠛⠑⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⣧⣤⣴⠿⠿⣷⣤⡤⠴⠖⠳⣄⣀⣹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣿⣀⣟⠻⢦⣀⡀⠀⠀⠀⠀⣀⡈⠻⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⡿⠉⡇⠀⠀⠛⠛⠛⠋⠉⠉⠀⠀⠀⠹⢧⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⡟⠀⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠀⠈⠑⠪⠷⠤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣾⣿⣿⣿⣦⣼⠛⢦⣤⣄⡀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠑⠢⡀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⢀⣠⠴⠲⠖⠛⠻⣿⡿⠛⠉⠉⠻⠷⣦⣽⠿⠿⠒⠚⠋⠉⠁⡞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢦⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⢀⣾⠛⠁⠀⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠤⠒⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢣⠀⠀⠀",
-      -- "⠀⠀⠀⠀⣰⡿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣑⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⡇⠀⠀",
-      -- "⠀⠀⠀⣰⣿⣁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣧⣄⠀⠀⠀⠀⠀⠀⢳⡀⠀",
-      -- "⠀⠀⠀⣿⡾⢿⣀⢀⣀⣦⣾⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡰⣫⣿⡿⠟⠻⠶⠀⠀⠀⠀⠀⢳⠀",
-      -- "⠀⠀⢀⣿⣧⡾⣿⣿⣿⣿⣿⡷⣶⣤⡀⠀⠀⠀⠀⠀⠀⠀⢀⡴⢿⣿⣧⠀⡀⠀⢀⣀⣀⢒⣤⣶⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇",
-      -- "⠀⠀⡾⠁⠙⣿⡈⠉⠙⣿⣿⣷⣬⡛⢿⣶⣶⣴⣶⣶⣶⣤⣤⠤⠾⣿⣿⣿⡿⠿⣿⠿⢿⣿⣿⣿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇",
-      -- "⠀⣸⠃⠀⠀⢸⠃⠀⠀⢸⣿⣿⣿⣿⣿⣿⣷⣾⣿⣿⠟⡉⠀⠀⠀⠈⠙⠛⠻⢿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇",
-      -- "⠀⣿⠀⠀⢀⡏⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⠿⠿⠛⠛⠉⠁⠀⠀⠀⠀⠀⠉⠠⠿⠟⠻⠟⠋⠉⢿⣿⣦⡀⢰⡀⠀⠀⠀⠀⠀⠀⠁",
-      -- "⢀⣿⡆⢀⡾⠀⠀⠀⠀⣾⠏⢿⣿⣿⣿⣯⣙⢷⡄⠀⠀⠀⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣿⣻⢿⣷⣀⣷⣄⠀⠀⠀⠀⢸⠀",
-      -- "⢸⠃⠠⣼⠃⠀⠀⣠⣾⡟⠀⠈⢿⣿⡿⠿⣿⣿⡿⠿⠿⠿⠷⣄⠈⠿⠛⠻⠶⢶⣄⣀⣀⡠⠈⢛⡿⠃⠈⢿⣿⣿⡿⠀⠀⠀⠀⠀⡀",
-      -- "⠟⠀⠀⢻⣶⣶⣾⣿⡟⠁⠀⠀⢸⣿⢅⠀⠈⣿⡇⠀⠀⠀⠀⠀⣷⠂⠀⠀⠀⠀⠐⠋⠉⠉⠀⢸⠁⠀⠀⠀⢻⣿⠛⠀⠀⠀⠀⢀⠇",
-      -- "⠀⠀⠀⠀⠹⣿⣿⠋⠀⠀⠀⠀⢸⣧⠀⠰⡀⢸⣷⣤⣤⡄⠀⠀⣿⡀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡆⠀⠀⠀⠀⡾⠀⠀⠀⠀⠀⠀⢼⡇",
-      -- "⠀⠀⠀⠀⠀⠙⢻⠄⠀⠀⠀⠀⣿⠉⠀⠀⠈⠓⢯⡉⠉⠉⢱⣶⠏⠙⠛⠚⠁⠀⠀⠀⠀⠀⣼⠇⠀⠀⠀⢀⡇⠀⠀⠀⠀⠀⠀⠀⡇",
-      -- "⠀⠀⠀⠀⠀⠀⠻⠄⠀⠀⠀⢀⣿⠀⢠⡄⠀⠀⠀⣁⠁⡀⠀⢠⠀⠀⠀⠀⠀⠀⠀⠀⢀⣐⡟⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⢠⡇",
-
-      -- "⠀⢀⣀⣀⣀⣀⣠⣤⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⣿⣿⣿⣏⠉⠈⣿⣿⣿⢦⣀⠀⠀⠀⠀⠀⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⢿⠋⠻⣿⣷⣄⡙⠛⠋⠀⠈⠹⣷⠚⠛⣟⠽⣯⠝⠋⠙⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠉⠉⠙⢿⠲⠤⣼⡿⡆⠀⢢⠀⠉⠲⠏⠀⠀⠀⣇⢻⠙⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⢸⡇⢀⡼⠁⠀⠀⢸⠟⠉⠉⠛⢦⠀⠀⢿⡼⠿⡚⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⢀⣠⣶⡶⠿⢿⡿⣿⠟⢁⣀⣠⠔⠋⠀⠀⠀⠀⠈⡇⠀⠀⠀⠀⠉⢻⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⢀⣾⡞⠁⢀⣴⡯⠞⣡⡴⠋⠀⠀⠀⠀⠀⠀⠀⠀⣰⠃⠀⠀⠀⣠⠄⣸⠆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠈⠙⠀⠀⢿⣤⠤⠞⠁⠀⠀⠀⠀⠀⠀⠀⠀⢀⡼⠃⢰⡖⠒⢤⣧⣤⣼⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⠖⠋⠀⠀⠈⡧⠀⣏⠁⢰⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠴⠋⠁⠀⠀⠀⠀⠀⠈⠓⢦⣷⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠚⠁⠀⠀⢴⠒⠒⠢⡀⠀⠀⢠⠞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⣠⠶⠋⠀⠀⠀⠀⠀⡼⢀⡶⠆⢳⣤⠔⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⢀⡴⠋⠀⠀⠀⠀⠀⠀⠸⡀⠹⣀⣸⠞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⡼⠁⠀⠀⠀⠀⠀⠀⠀⠀⠉⡶⠛⠁⠀⠀⠀⠀⠀⠀⠀⢀⣠⠴⠒⢿⡉⠛⢍⠛⠒⢤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⢰⠃⠀⠀⠀⠀⢠⡤⢤⣀⣠⠎⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⢯⡀⠀⠀⠀⢹⡆⠻⠦⠴⠃⢈⣣⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⣼⠀⠀⠀⠀⢀⣼⣀⡖⣾⠃⠀⠀⠀⠀⠀⠀⠀⠀⢠⡾⢅⣸⠁⠀⠀⠀⠸⡦⠖⠤⣀⠜⠁⠈⢷⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⡟⠀⠀⠀⠀⡏⠹⡗⢺⢻⡀⠀⠀⠀⠀⠀⠀⠀⣠⠿⠖⣉⣀⣱⠀⣀⡤⠤⢤⣄⠀⠀⠀⢀⣀⣸⠀⠀⠀⠐⠻⣗⠲⣄⠀",
-      -- "⠀⠀⠀⠀⣿⠀⠀⠀⠀⠈⠉⠉⢹⠚⢷⣀⠀⠀⠀⠀⣀⡴⠛⠒⠊⠀⠀⣠⠎⠁⠀⠀⠀⠈⢳⡀⠀⣿⣸⡿⠀⠀⠀⠀⠀⠈⣇⠘⡆",
-      -- "⠀⠀⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠸⡇⢸⠙⡟⠲⡖⠋⣯⠀⠀⠀⠀⠀⣼⠁⠀⠀⠀⠀⠀⠀⠀⡧⣎⣈⣿⠃⠀⠀⠀⠀⠀⠀⣼⣆⢻",
-      -- "⠀⠀⠀⠀⠀⢷⠀⠀⠀⠀⠀⠀⠀⠀⠈⡇⢼⡤⠃⡔⠁⠀⠀⠀⠀⣸⠃⠀⠀⠀⠀⠀⠀⠀⢰⡇⠀⠀⣯⠀⠀⠀⠀⠀⠀⢠⠷⠼⢺",
-      -- "⠀⠀⠀⠀⠀⠈⢳⣄⠀⠀⠀⠀⠀⠀⠐⠖⠚⠒⠞⠀⠀⠀⠀⠀⣰⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⢷⠀⠸⠽⠷⣄⣀⣀⣠⡶⠋⠀⢠⡟",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠉⠳⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⠞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⢯⡛⡷⠚⠁⢀⡴⠋⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠒⠒⠦⠤⠤⠤⠴⠖⠚⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠒⠲⠿⠷⠒⠛⠉⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-      -- "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⠀⠰⠛⠻⢿⣿⠿⠿⠟⡿⠿⢿⣿⠿⠿⣿⠃⠀⠟⠛⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣴⡄⠀⠘⡇⠀⣤⣤⡇⠀⣼⣿⠀⢠⡏⠀⢠⣦⠀⠀⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠀⠀⠛⠃⠀⡼⠀⠀⣿⣿⠀⠀⠛⠃⠀⢸⠁⠀⣼⡏⠀⢠⡟⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣶⣶⣶⣾⣷⣶⣾⣿⣿⣷⣶⣶⣶⣶⣿⣶⣶⣿⣷⣶⣾⣷⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-      -- "⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿",
-
-      "⠀⠀⠀⠀⣀⣀⣤⣤⣶⣶⣶⣶⣿⣿⣿⣿⣿⣿⣿⣷⣶⣶⡄⠀⠀⠀⠀⠀⠀⠀",
-      "⠀⠀⠀⠀⣿⣿⣿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠛⠛⢿⣿⡇⠀⠀⠀⠀⠀⠀⠀",
-      "⠀⠀⠀⠀⣿⡟⠡⠂⠀⢹⣿⣿⣿⣿⣿⣿⡇⠘⠁⠀⠀⣿⡇⠀⢠⣄⠀⠀⠀⠀",
-      "⠀⠀⠀⠀⢸⣗⢴⣶⣷⣷⣿⣿⣿⣿⣿⣿⣷⣤⣤⣤⣴⣿⣗⣄⣼⣷⣶⡄⠀⠀",
-      "⠀⠀⠀⢀⣾⣿⡅⠐⣶⣦⣶⠀⢰⣶⣴⣦⣦⣶⠴⠀⢠⣿⣿⣿⣿⣿⣿⡇⠀⠀",
-      "⠀⠀⢀⣾⣿⣿⣷⣬⡛⠷⣿⣿⣿⣿⣿⣿⣿⠿⠿⣠⣿⣿⣿⣿⣿⠿⠛⠀⠀⠀",
-      "⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣶⣦⣭⣭⣥⣭⣵⣶⣿⣿⣿⣿⡟⠉⠀⠀⠀⠀⠀⠀",
-      "⠀⠀⠀⠙⠇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀",
-      "⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣛⠛⠛⠛⠛⠛⢛⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀",
-      "⠀⠀⠀⠀⠀⠿⣿⣿⣿⠿⠿⠀⠀⠀⠀⠀⠸⣿⣿⣿⣿⠿⠇⠀  ⠀⠀⠀⠀",
-      "                              ",
-      "  There is no place like ~/   ",
-
-      -- "                                   ",
-      -- "   ⣴⣶⣤⡤⠦⣤⣀⣤⠆     ⣈⣭⣭⣿⣶⣿⣦⣼⣆         ",
-      -- "    ⠉⠻⢿⣿⠿⣿⣿⣶⣦⠤⠄⡠⢾⣿⣿⡿⠋⠉⠉⠻⣿⣿⡛⣦       ",
-      -- "          ⠈⢿⣿⣟⠦ ⣾⣿⣿⣷    ⠻⠿⢿⣿⣧⣄     ",
-      -- "           ⣸⣿⣿⢧ ⢻⠻⣿⣿⣷⣄⣀ ⠢⣀⡀⠈⠙⠿⠄    ",
-      -- "          ⢠⣿⣿⣿⠈  ⠡⠌⣻⣿⣿⣿⣿⣿⣿⣿⣛⣳⣤⣀⣀   ",
-      -- "   ⢠⣧⣶⣥⡤⢄ ⣸⣿⣿⠘⠄ ⢀⣴⣿⣿⡿⠛⣿⣿⣧⠈⢿⠿⠟⠛⠻⠿⠄  ",
-      -- "  ⣰⣿⣿⠛⠻⣿⣿⡦⢹⣿⣷   ⢊⣿⣿⡏  ⢸⣿⣿⡇ ⢀⣠⣄⣾⠄   ",
-      -- " ⣠⣿⠿⠛⠄⢀⣿⣿⣷⠘⢿⣿⣦⡀ ⢸⢿⣿⣿⣄ ⣸⣿⣿⡇⣪⣿⡿⠿⣿⣷⡄  ",
-      -- " ⠙⠃   ⣼⣿⡟  ⠈⠻⣿⣿⣦⣌⡇⠻⣿⣿⣷⣿⣿⣿ ⣿⣿⡇⠄⠛⠻⢷⣄ ",
-      -- "      ⢻⣿⣿⣄   ⠈⠻⣿⣿⣿⣷⣿⣿⣿⣿⣿⡟ ⠫⢿⣿⡆     ",
-      -- "       ⠻⣿⣿⣿⣿⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⡟⢀⣀⣤⣾⡿⠃     ",
+      "                            ",
+      "     ▄▄         ▄ ▄▄▄▄▄▄▄   ",
+      "   ▄▀███▄     ▄██ █████▀    ",
+      "   ██▄▀███▄   ███           ",
+      "   ███  ▀███▄ ███           ",
+      "   ███    ▀██ ███           ",
+      "   ███      ▀ ███           ",
+      "   ▀██ █████▄▀█▀▄██████▄    ",
+      "     ▀ ▀▀▀▀▀▀▀ ▀▀▀▀▀▀▀▀▀▀   ",
+      "                            ",
+      "     Powered By  eovim    ",
+      "                            ",
     },
 
     buttons = {
+      { txt = "  Find File", keys = "ff", cmd = "Telescope find_files" },
+      { txt = "  Recent Files", keys = "fo", cmd = "Telescope oldfiles" },
+      { txt = "󰈭  Find Word", keys = "fw", cmd = "Telescope live_grep" },
+      { txt = "󱥚  Themes", keys = "th", cmd = ":lua require('nvchad.themes').open()" },
+      { txt = "  Mappings", keys = "ch", cmd = "NvCheatsheet" },
+
+      { txt = "─", hl = "NvDashLazy", no_gap = true, rep = true },
+
       {
-        "  New Project",
-        "Spc n n",
-        "ProjectNew",
-      },
-      {
-        "󰁯  Restore Session",
-        "Spc q l",
-        function()
-          require("persistence").load { last = true }
+        txt = function()
+          local stats = require("lazy").stats()
+          local ms = math.floor(stats.startuptime) .. " ms"
+          return "  Loaded " .. stats.loaded .. "/" .. stats.count .. " plugins in " .. ms
         end,
+        hl = "NvDashLazy",
+        no_gap = true,
       },
-      {
-        "  File Manager",
-        "Spc .",
-        "Telescope file_browser path=%:p:h select_buffer=true",
-        -- FIXME cmd doesn't work with lazy loading!
-      },
-      {
-        "  Find File",
-        "Spc f f",
-        "Telescope find_files",
-      },
-      {
-        "  Find Project",
-        "Spc f p",
-        "lua require('telescope').extensions.project.project({display_type = 'full'})",
-      },
-      {
-        "  Find Command",
-        "Spc f c",
-        "Telescope builtin",
-      },
-      {
-        "󰈚  Recent Files",
-        "Spc f r",
-        "Telescope oldfiles",
-      },
-      {
-        "󰈭  Find Word",
-        "Spc f w",
-        "Telescope live_grep",
-      },
-      {
-        "  Bookmarks",
-        "Spc m a",
-        "Telescope marks",
-      },
-      {
-        "  Themes",
-        "Spc h t",
-        "Telescope themes",
-      },
-      {
-        "  Config",
-        "Spc o c",
-        "next ~/.config/nvim/lua/custom/*.lua",
-      },
-      {
-        "  Mappings",
-        "Spc c h",
-        "NvCheatsheet",
-      },
+
+      { txt = "─", hl = "NvDashLazy", no_gap = true, rep = true },
     },
   },
 
-  lsp = {
-    -- show function signatures i.e args as you type
-    signature = {
-      disabled = false,
-      silent = true, -- silences 'no signature help available' message from appearing
+  term = {
+    winopts = { number = false, relativenumber = false },
+    sizes = { sp = 0.3, vsp = 0.2, ["bo sp"] = 0.3, ["bo vsp"] = 0.2 },
+    float = {
+      relative = "editor",
+      row = 0.3,
+      col = 0.25,
+      width = 0.5,
+      height = 0.4,
+      border = "single",
     },
+  },
+
+  lsp = { signature = true },
+
+  cheatsheet = {
+    theme = "grid", -- simple/grid
+    excluded_groups = { "terminal (t)", "autopairs", "Nvim", "Opens" }, -- can add group name or with mode
+  },
+
+  mason = { pkgs = {} },
+
+  colorify = {
+    enabled = true,
+    mode = "virtual", -- fg, bg, virtual
+    virt_text = "󱓻 ",
+    highlight = { hex = true, lspvars = true },
   },
 }
 
--- M.plugins = "plugins"
-
--- check core.mappings for table structure
-
-return M
+local status, chadrc = pcall(require, "chadrc")
+return vim.tbl_deep_extend("force", options, status and chadrc or {})

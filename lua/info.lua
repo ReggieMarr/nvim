@@ -4,9 +4,9 @@
 local M = {}
 
 -- stylua: ignore start
-M.real_name = "Orhan KARAMAN"       -- Real Name
-M.email     = "utfeightt@gmail.com" -- Email
-M.username  = "utfeight"            -- Other  Sites
+M.real_name = "Reginald Marr"       -- Real Name
+M.email     = "reginald.t.marr@gmail.com" -- Email
+M.username  = "reggiemarr"            -- Other  Sites
 M.github    = M.username            -- Github username
 -- stylua: ignore end
 

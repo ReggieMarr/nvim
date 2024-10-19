@@ -42,16 +42,14 @@ local plugins = {
     },
   },
 
-  { -- WhichKey overrides
+  {
     "folke/which-key.nvim",
     config = function(_, opts)
-      -- stylua: ignore start
-      dofile(vim.g.base46_cache .. "whichkey")       --<-- from NvChad's config
-      require("which-key").setup(opts)               --<-- From NvChad's config'
-      require("configs.which-key").prefixes() --<-- Vimacs
-      -- stylua: ignore end
+      dofile(vim.g.base46_cache .. "whichkey")
+      local wk_config = require("configs.which-key")
+      opts = vim.tbl_deep_extend("force", opts, wk_config.opts)
+      wk_config.setup()
     end,
-    opts = require("configs.which-key").opts,
   },
 
   -- Override plugin definition options
@@ -286,6 +284,9 @@ local plugins = {
     "stevearc/overseer.nvim",
     -- commit = "19aac0426710c8fc0510e54b7a6466a03a1a7377",
 
+    dependencies = {
+      "nvim-neotest/nvim-nio",
+    },
     keys = {
       {
         "<leader>ra",
@@ -1162,8 +1163,7 @@ local plugins = {
           extensions = {
             project = {
               base_dirs = {
-                "~/Github",
-                "~/",
+                "~/Projects",
                 -- { "~/dev/src2" },
                 -- { "~/dev/src3", max_depth = 4 },
                 -- { path = "~/dev/src4" },
@@ -1183,14 +1183,6 @@ local plugins = {
             },
           },
         },
-      },
-    },
-
-    keys = {
-      {
-        "<leader>fp",
-        "<cmd>lua require'telescope'.extensions.project.project{ display_type = 'full' }<CR>",
-        desc = "Find Project",
       },
     },
 
@@ -4630,56 +4622,32 @@ local plugins = {
     },
   },
 
-  { -- Native Plugin (for of neoproj)
-    "UTFeight/neoproj",
-
-    dependencies = {
-      -- Just loading it after initialization
-      -- not a plugin dependency (just a config dependency)
-      "nvim-telescope/telescope-file-browser.nvim",
+{
+  "coffebar/neovim-project",
+  opts = {
+    projects = { -- define project roots
+      "~/projects/*",
+      "~/.config/*",
     },
-
-    cmd = {
-      "ProjectOpen",
-      "ProjectNew",
-    },
-
-    keys = {
-      -- { -- Using <leader>fp is suggested
-      --   "<leader>pf",
-      --   "<cmd> ProjectOpen<CR>",
-      --   mode = "n",
-      --   desc = "Project",
-      -- },
-      {
-        "<leader>nn",
-        "<cmd> ProjectNew<CR>",
-        mode = "n",
-        desc = "New Project",
-      },
-    },
-
-    config = function(_, opts)
-      require("neoproj").setup(opts.setup)
-      for _, template in ipairs(opts.templates) do
-        if template.repo then
-          require("neoproj").register_template {
-            name = template.name,
-
-            expand = function()
-              -- vim.cmd ":Telescope file_browser path=%:p:h select_buffer=true<CR>"
-              local cmd = require("neoproj").create_project(template.repo, template.opts)
-              os.execute(cmd)
-            end,
-          }
-        else
-          require("neoproj").register_template(template)
-        end
-      end
-    end,
-
-    opts = require("configs.neoproj").opts,
+    picker = {
+      type = "telescope", -- or "fzf-lua"
+    }
   },
+  init = function()
+    -- enable saving the state of plugins in the session
+    vim.opt.sessionoptions:append("globals") -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
+  end,
+  dependencies = {
+    { "nvim-lua/plenary.nvim" },
+    -- optional picker
+    { "nvim-telescope/telescope.nvim", tag = "0.1.4" },
+    -- optional picker
+    { "ibhagwan/fzf-lua" },
+    { "Shatur/neovim-session-manager" },
+  },
+  lazy = false,
+  priority = 100,
+},
 
   {
     "mrjones2014/smart-splits.nvim",
@@ -4755,6 +4723,19 @@ local plugins = {
         desc = "Normal Mode",
       },
     },
+  },
+  {
+    "bagohart/minimal-narrow-region.nvim",
+    config = function()
+      require("minimal-narrow-region").setup({
+        -- You can add any configuration options here
+      })
+    end,
+    -- If you want to lazy-load the plugin, you can specify when to load it
+    -- For example, to load it on command:
+    -- cmd = { "NarrowRegion", "NarrowUndo" },
+    -- Or to load it when certain keys are pressed:
+    keys = { "<leader>nr", "<leader>nu" },
   },
 }
 
