@@ -163,20 +163,31 @@ local custom_find_files = function()
         path = parent,
         select_buffer = true,
         initial_mode = "normal",
-        cwd_to_path = true,
+        cwd_to_path = false,  -- Changed this to false
         respect_gitignore = false,
         hidden = true,
         theme = "ivy",
         attach_mappings = function(fb_prompt_bufnr, map)
           actions.select_default:replace(function()
-            local picker = action_state.get_current_picker(fb_prompt_bufnr)
             local selection = action_state.get_selected_entry()
-            if selection and selection.Path:absolute() == cwd then
-              actions.close(fb_prompt_bufnr)
-              vim.cmd("cd " .. vim.fn.fnameescape(selection.Path:absolute()))
-              builtin.find_files()
-            -- else
-            --   actions.select_default:original()(fb_prompt_bufnr)
+            if selection then
+              if selection.Path:is_dir() then
+                if selection.Path:absolute() == cwd then
+                  actions.close(fb_prompt_bufnr)
+                  vim.cmd("cd " .. vim.fn.fnameescape(selection.Path:absolute()))
+                  builtin.find_files()
+                else
+                  actions.close(fb_prompt_bufnr)
+                  vim.cmd("cd " .. vim.fn.fnameescape(selection.Path:absolute()))
+                  telescope.extensions.file_browser.file_browser({
+                    path = selection.Path:absolute(),
+                    select_buffer = true,
+                    initial_mode = "normal",
+                  })
+                end
+              else
+                actions.file_edit(fb_prompt_bufnr)
+              end
             end
           end)
           return true
@@ -189,6 +200,18 @@ local custom_find_files = function()
         switch_to_parent_dir()
       else
         return true
+      end
+    end)
+
+    -- Ensure default select action opens the file
+    actions.select_default:replace(function()
+      local selection = action_state.get_selected_entry()
+      if selection then
+        local filename = selection[1]
+        if filename then
+          actions.close(prompt_bufnr)
+          vim.cmd("edit " .. vim.fn.fnameescape(filename))
+        end
       end
     end)
 
@@ -677,3 +700,63 @@ local function neogit_find_file()
   }):find()
 end
 map("n", "<leader>gf", neogit_find_file, { desc = "Neogit find file in branch" })
+
+local function toggle_ignore_submodules()
+  local function read_file(path)
+    local file = io.open(path, "r")
+    if not file then return {} end
+    local content = file:read("*all")
+    file:close()
+    return vim.split(content, "\n")
+  end
+
+  local function write_file(path, lines)
+    local file = io.open(path, "w")
+    if not file then return false end
+    file:write(table.concat(lines, "\n"))
+    file:close()
+    return true
+  end
+
+  local project_root = vim.fn.getcwd()
+  local gitmodules_file = project_root .. "/.gitmodules"
+  local ignore_file = project_root .. "/.ignore"
+
+  local submodules = {}
+  for line in io.lines(gitmodules_file) do
+    if line:match("^%s*path%s*=%s*(.+)") then
+      table.insert(submodules, line:match("^%s*path%s*=%s*(.+)"))
+    end
+  end
+
+  local current_ignored = read_file(ignore_file)
+
+  local function prompt_for_submodules()
+    local choices = vim.fn.inputlist(vim.list_extend({"Select submodules to ignore:"}, submodules))
+    local selected = {}
+    for _, choice in ipairs(choices) do
+      if choice > 0 and choice <= #submodules then
+        table.insert(selected, submodules[choice])
+      end
+    end
+    return selected
+  end
+
+  vim.fn.timer_start(1000, function()
+    if vim.fn.getchar(1) ~= 0 then
+      local to_ignore = prompt_for_submodules()
+      write_file(ignore_file, to_ignore)
+    else
+      if #current_ignored > 0 then
+        write_file(ignore_file, {})
+      else
+        write_file(ignore_file, submodules)
+      end
+    end
+    print("Submodule ignoring has been toggled.")
+    -- Here you might want to add code to invalidate any relevant caches
+  end)
+end
+
+-- Set up the keybinding
+vim.api.nvim_set_keymap('n', '<C-*>', ':lua toggle_ignore_submodules()<CR>', {noremap = true, silent = true})
