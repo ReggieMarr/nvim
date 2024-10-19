@@ -97,3 +97,7 @@ vim.api.nvim_create_user_command("Soq", "lua run_soq(<q-args>)", {
   nargs = "*",
   -- complete = "shellcmd",
 })
+
+-- by default no line nums in the column
+vim.opt.number = false
+vim.opt.relativenumber = false
