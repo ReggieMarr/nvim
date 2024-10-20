@@ -55,52 +55,19 @@ local plugins = {
   { 'nvim-telescope/telescope-fzf-native.nvim', 
     build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release' },
 
-  -- Override plugin definition options
+  --Override plugin definition options
   { -- Overriding NvChad Telescope options. (Dirty hack)
     "nvim-telescope/telescope.nvim",
-
     opts = {
       defaults = {
-        -- sorting_strategy = "ascending",
-        -- theme = "ivy",
-        -- layout_config = {
-        --   prompt_position = "top",
-        -- },       
-    vimgrep_arguments = {
-      "rg",
-      "--color=never",
-      "--no-heading",
-      "--with-filename",
-      "--path-seperator /",
-      "--line-number",
-      "--smart-case",
-      "--line-buffered",
-      "--null",
-      "--search-zip",
-      "--max-columns=1000",
-      "prompt_prefix=4",
-    },
-    -- file_ignore_patterns = {}, -- Adjust as needed
-    path_display = { "truncate" },
-        mappings = {
-          i = {
-            -- remap TAB to CR
-            -- ["<CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_worse,
-            -- ["<S-CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_better,
-            -- Emacs style TAB nav
-            ["<TAB>"] = telescope_actions.select_default,
-            ["<A-p>"] = telescope_layout.toggle_preview,
-          },
-          n = {
-            -- remap TAB to CR
-            -- ["<CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_worse,
-            -- ["<S-CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_better,
-            -- Emacs style TAB nav
-            ["<TAB>"] = telescope_actions.select_default,
-            ["<A-p>"] = telescope_layout.toggle_preview,
-          },
-        },
+        selection_strategy = "follow",
+        sorting_strategy = "ascending",
+        layout_strategy = "horizontal",
+        prompt_prefix = "   ",
+        wrap_results = true,
+        scroll_strategy = "cycle",
       },
+      extensions_list = { "mapper", "project", "fzf" },
     },
 
     -- Toggles preview window

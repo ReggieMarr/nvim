@@ -194,12 +194,9 @@ local custom_find_files = function()
         end
       })
     end
-
     map("i", "<bs>", function()
-      if action_state.get_current_line() == "" then
+      if action_state.get_current_line() == ".." then
         switch_to_parent_dir()
-      else
-        return true
       end
     end)
 
