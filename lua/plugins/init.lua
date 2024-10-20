@@ -12,5 +12,4 @@ return {
       require "configs.lspconfig"
     end,
   },
-
 }

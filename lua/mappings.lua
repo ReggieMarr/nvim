@@ -141,7 +141,7 @@ map("n", "<leader>sm", "<cmd>Telescope marks<CR>", { desc = "Search marks" })
 map("n", "<leader>ss", "<cmd>Telescope lsp_document_symbols<CR>", { desc = "Search symbols in file" })
 
 -- Project
-map("n", "<leader>pp", function() require('telescope').extensions.project.project{} end, { desc = "Switch project" })
+map("n", "<leader>pp", "<cmd>Telescope neovim-project<CR>", { desc = "Switch project" })
 map("n", "<leader>pf", function() require('telescope.builtin').find_files() end, { desc = "Find file in project" })
 map("n", "<leader>pb", function() require('telescope.builtin').buffers() end, { desc = "Switch to project buffer" })
 
@@ -194,12 +194,9 @@ local custom_find_files = function()
         end
       })
     end
-
     map("i", "<bs>", function()
-      if action_state.get_current_line() == "" then
+      if action_state.get_current_line() == ".." then
         switch_to_parent_dir()
-      else
-        return true
       end
     end)
 
