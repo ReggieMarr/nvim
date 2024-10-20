@@ -1,5 +1,6 @@
 -- TODO: Remove telescope as a dependency and lazy load plugins later for squeezed performance.conf
 local telescope_actions = require "telescope.actions"
+local telescope_layout = require("telescope.actions.layout")
 local overrides = require "configs.overrides"
 
 -- Loaded plugins etc.
@@ -51,6 +52,8 @@ local plugins = {
       wk_config.setup()
     end,
   },
+  { 'nvim-telescope/telescope-fzf-native.nvim', 
+    build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release' },
 
   -- Override plugin definition options
   { -- Overriding NvChad Telescope options. (Dirty hack)
@@ -58,6 +61,27 @@ local plugins = {
 
     opts = {
       defaults = {
+        -- sorting_strategy = "ascending",
+        -- theme = "ivy",
+        -- layout_config = {
+        --   prompt_position = "top",
+        -- },       
+    vimgrep_arguments = {
+      "rg",
+      "--color=never",
+      "--no-heading",
+      "--with-filename",
+      "--path-seperator /",
+      "--line-number",
+      "--smart-case",
+      "--line-buffered",
+      "--null",
+      "--search-zip",
+      "--max-columns=1000",
+      "prompt_prefix=4",
+    },
+    -- file_ignore_patterns = {}, -- Adjust as needed
+    path_display = { "truncate" },
         mappings = {
           i = {
             -- remap TAB to CR
@@ -65,6 +89,7 @@ local plugins = {
             -- ["<S-CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_better,
             -- Emacs style TAB nav
             ["<TAB>"] = telescope_actions.select_default,
+            ["<A-p>"] = telescope_layout.toggle_preview,
           },
           n = {
             -- remap TAB to CR
@@ -72,6 +97,7 @@ local plugins = {
             -- ["<S-CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_better,
             -- Emacs style TAB nav
             ["<TAB>"] = telescope_actions.select_default,
+            ["<A-p>"] = telescope_layout.toggle_preview,
           },
         },
       },
@@ -4622,32 +4648,32 @@ local plugins = {
     },
   },
 
-{
-  "coffebar/neovim-project",
-  opts = {
-    projects = { -- define project roots
-      "~/projects/*",
-      "~/.config/*",
+  {
+    "coffebar/neovim-project",
+    opts = {
+      projects = { -- define project roots
+        "~/Projects/*",
+        "~/.config/*",
+      },
+      picker = {
+        type = "telescope", -- or "fzf-lua"
+      }
     },
-    picker = {
-      type = "telescope", -- or "fzf-lua"
-    }
+    init = function()
+      -- enable saving the state of plugins in the session
+      vim.opt.sessionoptions:append("globals") -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
+    end,
+    dependencies = {
+      { "nvim-lua/plenary.nvim" },
+      -- optional picker
+      { "nvim-telescope/telescope.nvim", tag = "0.1.4" },
+      -- optional picker
+      { "ibhagwan/fzf-lua" },
+      { "Shatur/neovim-session-manager" },
+    },
+    lazy = false,
+    priority = 100,
   },
-  init = function()
-    -- enable saving the state of plugins in the session
-    vim.opt.sessionoptions:append("globals") -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
-  end,
-  dependencies = {
-    { "nvim-lua/plenary.nvim" },
-    -- optional picker
-    { "nvim-telescope/telescope.nvim", tag = "0.1.4" },
-    -- optional picker
-    { "ibhagwan/fzf-lua" },
-    { "Shatur/neovim-session-manager" },
-  },
-  lazy = false,
-  priority = 100,
-},
 
   {
     "mrjones2014/smart-splits.nvim",
