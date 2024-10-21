@@ -143,7 +143,7 @@ map("n", "<leader>ss", "<cmd>Telescope lsp_document_symbols<CR>", { desc = "Sear
 
 -- Project
 map("n", "<leader>pp", ":NeovimProjectDiscover<CR>", { desc = "Switch project" })
-map("n", "<leader>pf", function() require('telescope.builtin').find_files() end, { desc = "Find file in project" })
+map("n", "<leader>pf", function() require('telescope.builtin').git_files() end, { desc = "Find file in project" })
 map("n", "<leader>pb", function() require('telescope.builtin').buffers() end, { desc = "Switch to project buffer" })
 
 -- Files
@@ -320,8 +320,6 @@ map('n', '<leader>fY', function() yank_buffer_path(true) end, {desc = "Yank buff
 map('n', '<leader>fc', '<cmd>e .editorconfig<CR>', {desc = "Find EditorConfig file"})
 map('n', '<leader>fd', '<cmd>Telescope file_browser<CR>', {desc = "File browser"})
 map('n', '<leader>fe', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Find file in neovim config"})
--- map("n", "<leader>ff", function() custom_find_files() end, { desc = "DWIM Find file" })
--- map("n", "<leader><leader>", function() custom_find_files() end, { desc = "DWIM Find file" })
 map('n', '<leader>fl', '<cmd>Telescope live_grep<CR>', {desc = "Live grep (like locate)"})
 map('n', '<leader>fp', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Find file in private config"})
 map('n', '<leader>fr', '<cmd>Telescope oldfiles<CR>', {desc = "Recent files"})

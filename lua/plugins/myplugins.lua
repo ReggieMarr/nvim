@@ -56,47 +56,190 @@ local plugins = {
     build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release' },
 
   --Override plugin definition options
-  { -- Overriding NvChad Telescope options.
+  {
     "nvim-telescope/telescope.nvim",
     opts = {
       defaults = {
-        select_buffer=true,
-        grouped=true,
-        collapse_dirs=true,
+        select_buffer = true,
+        grouped = true,
+        collapse_dirs = true,
         mappings = {
           i = {
-            -- remap TAB to CR
-            -- ["<CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_worse,
-            -- ["<S-CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_better,
-            -- Emacs style TAB nav
-            ["<TAB>"] = telescope_actions.select_default,
+            ["<TAB>"] = require("telescope.actions").select_default,
           },
           n = {
-            -- remap TAB to CR
-            -- ["<CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_worse,
-            -- ["<S-CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_better,
-            -- Emacs style TAB nav
-            ["<TAB>"] = telescope_actions.select_default,
+            ["<TAB>"] = require("telescope.actions").select_default,
           },
         },
       },
     },
   },
 
-  { -- (Emacs) Dired-like Optional file manager for telescope-project.nvim
+  {
     "nvim-telescope/telescope-file-browser.nvim",
     dependencies = {
-      {
-        "nvim-telescope/telescope.nvim",
-      },
-      {
-        "nvim-lua/plenary.nvim",
-      },
+      "nvim-telescope/telescope.nvim",
+      "nvim-lua/plenary.nvim",
     },
+    config = function()
+      local telescope = require("telescope")
+      local fb_actions = require "telescope".extensions.file_browser.actions
+      local Path = require("plenary.path")
+      local builtin = require("telescope.builtin")
+
+      local function get_git_root(path)
+        local git_cmd = vim.fn.system(string.format("cd %s && git rev-parse --show-toplevel", path))
+        local git_root = string.gsub(git_cmd, "\n", "")
+        return git_root ~= "" and git_root or nil
+      end
+      local grep_git_files_from_browser = function(prompt_bufnr)
+        local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+        local path
+        if current_picker.finder.files then
+          path = current_picker.finder.path
+        else
+          local selection = require("telescope.actions.state").get_selected_entry()
+          path = selection and selection.Path:absolute() or current_picker.finder.path
+        end
+        -- Get the git root
+        local git_root = get_git_root(path)
+        if not git_root then
+          print("Not a git repository")
+          return
+        end
+        -- Calculate the relative path from git root to the selected path
+        local relative_path = Path:new(path):make_relative(git_root)
+
+        require("telescope.actions").close(prompt_bufnr)
+
+        builtin.live_grep({
+          cwd = git_root,
+          search_dirs = {path},
+          additional_args = function()
+            return {
+              "--hidden",
+              "-g",
+              "!.git",
+              "-g",
+              relative_path .. "/**"
+            }
+          end
+        })
+      end
+
+      local git_files_from_browser = function(prompt_bufnr)
+        local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+        local path
+        if current_picker.finder.files then
+          path = current_picker.finder.path
+        else
+          local selection = require("telescope.actions.state").get_selected_entry()
+          path = selection and selection.Path:absolute() or current_picker.finder.path
+        end
+
+        -- Get the git root
+        local git_root = get_git_root(path)
+        if not git_root then
+          print("Not a git repository")
+          return
+        end
+
+        -- Calculate the relative path from git root to the selected path
+        local relative_path = Path:new(path):make_relative(git_root)
+
+        require("telescope.actions").close(prompt_bufnr)
+
+        builtin.git_files({
+          cwd = git_root,
+          git_command = {
+            "git",
+            "ls-files",
+            "--exclude-standard",
+            "--cached",
+            "--",
+            relative_path
+          },
+        })
+      end
+      local find_file_from_browser = function(prompt_bufnr)
+        local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+        local path
+        if current_picker.finder.files then
+          path = current_picker.finder.path
+        else
+          local selection = require("telescope.actions.state").get_selected_entry()
+          path = selection and selection.Path:absolute() or current_picker.finder.path
+        end
+        require("telescope.actions").close(prompt_bufnr)
+        require("telescope.builtin").find_files({ cwd = path })
+      end
+
+      local search_files_from_browser = function(prompt_bufnr)
+        local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+        local path
+        if current_picker.finder.files then
+          path = current_picker.finder.path
+        else
+          local selection = require("telescope.actions.state").get_selected_entry()
+          path = selection and selection.Path:absolute() or current_picker.finder.path
+        end
+        require("telescope.actions").close(prompt_bufnr)
+        require("telescope.builtin").live_grep({ cwd = path })
+      end
+
+      local open_in_file_browser = function(prompt_bufnr)
+        local selection = require("telescope.actions.state").get_selected_entry()
+        if selection then
+          if selection.Path:is_dir() then
+            fb_actions.open_dir(prompt_bufnr, nil, selection.Path:absolute())
+          else
+            require("telescope.actions").select_default(prompt_bufnr)
+          end
+        end
+      end
+
+      telescope.setup {
+        extensions = {
+          file_browser = {
+            select_buffer = true,
+            grouped = true,
+            collapse_dirs = true,
+            mappings = {
+              ["i"] = {
+                -- TODO it'd be nice be be able to switch between these
+                ["<C-f>"] = git_files_from_browser,
+                ["<C-F>"] = find_file_from_browser,
+
+                ["<C-s>"] = search_files_from_browser,
+                ["<C-S>"] = git_files_from_browser,
+              },
+              ["n"] = {
+                -- TODO it'd be nice be be able to switch between these
+                ["f"] = git_files_from_browser,
+                ["F"] = find_file_from_browser,
+
+                ["s"] = search_files_from_browser,
+                ["S"] = git_files_from_browser,
+
+                ["h"] = fb_actions.goto_parent_dir,
+                ["l"] = open_in_file_browser,
+              },
+            },
+          },
+        },
+      }
+
+      telescope.load_extension("file_browser")
+    end,
     keys = {
       {
         "<leader>.",
-        ":Telescope file_browser path=%:p:h select_buffer=true<CR>",
+        function()
+          require("telescope").extensions.file_browser.file_browser({
+            path = "%:p:h",
+            select_buffer = true,
+          })
+        end,
         desc = "File Manager",
       },
     },
