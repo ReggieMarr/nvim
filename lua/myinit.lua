@@ -25,6 +25,14 @@ vim.g.vscode_snippets_path = "~/.config/nvim/lua/custom/snippets/json"
 vim.g.lua_snippets_path = "~/.config/nvim/lua/custom/snippets/lua"
 vim.g.snipmate_snippets_path = "~/.config/nvim/lua/custom/snippets/snipmate"
 
+-- editing style
+-- Allow visual selection of blocks of text 
+-- that don't end on the same column number
+vim.opt.virtualedit = "block"
+-- Get command preview in a context buffer
+vim.opt.inccommand = "split"
+vim.opt.wrap = false
+
  -- Remove terminal padding when inside nvim:
 -- For st:
  function Sed(from, to, fname)

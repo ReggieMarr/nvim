@@ -11,6 +11,7 @@ return {
     },
   },
 
+  -- TODO why are these disabled ?
   performance = {
     rtp = {
       disabled_plugins = {

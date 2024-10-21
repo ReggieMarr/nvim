@@ -56,34 +56,50 @@ local plugins = {
     build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release' },
 
   --Override plugin definition options
-  { -- Overriding NvChad Telescope options. (Dirty hack)
+  { -- Overriding NvChad Telescope options.
     "nvim-telescope/telescope.nvim",
     opts = {
       defaults = {
-        selection_strategy = "follow",
-        sorting_strategy = "ascending",
-        layout_strategy = "horizontal",
-        prompt_prefix = "   ",
-        wrap_results = true,
-        scroll_strategy = "cycle",
+        select_buffer=true,
+        grouped=true,
+        collapse_dirs=true,
+        mappings = {
+          i = {
+            -- remap TAB to CR
+            -- ["<CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_worse,
+            -- ["<S-CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_better,
+            -- Emacs style TAB nav
+            ["<TAB>"] = telescope_actions.select_default,
+          },
+          n = {
+            -- remap TAB to CR
+            -- ["<CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_worse,
+            -- ["<S-CR>"] = telescope_actions.toggle_selection + telescope_actions.move_selection_better,
+            -- Emacs style TAB nav
+            ["<TAB>"] = telescope_actions.select_default,
+          },
+        },
       },
-      extensions_list = { "mapper", "project", "fzf" },
     },
+  },
 
-    -- Toggles preview window
-    -- opts = function()
-    --   local settings = require "nvchad.configs.telescope"
-    --
-    --   settings.defaults.mappings.i = {
-    --     ["<leader>tp"] = require("telescope.actions.layout").toggle_preview,
-    --   }
-    --   settings.extensions_list = {
-    --     "themes",
-    --     "terms",
-    --   }
-    --
-    --   return settings
-    -- end,
+  { -- (Emacs) Dired-like Optional file manager for telescope-project.nvim
+    "nvim-telescope/telescope-file-browser.nvim",
+    dependencies = {
+      {
+        "nvim-telescope/telescope.nvim",
+      },
+      {
+        "nvim-lua/plenary.nvim",
+      },
+    },
+    keys = {
+      {
+        "<leader>.",
+        ":Telescope file_browser path=%:p:h select_buffer=true<CR>",
+        desc = "File Manager",
+      },
+    },
   },
 
   {
@@ -91,7 +107,7 @@ local plugins = {
     dependencies = {
       -- format & linting
       {
-        "jose-elias-alvarez/null-ls.nvim",
+        "nvimtools/none-ls.nvim",
         config = function()
           require "configs.null-ls"
         end,
@@ -105,6 +121,17 @@ local plugins = {
   },
 
   -- override plugin configs
+  {
+      "jay-babu/mason-null-ls.nvim",
+      event = { "BufReadPre", "BufNewFile" },
+      dependencies = {
+        "williamboman/mason.nvim",
+        "nvimtools/none-ls.nvim",
+      },
+      config = function()
+        require "configs.null-ls"
+      end,
+  },
   {
     "williamboman/mason.nvim",
     opts = overrides.mason,
@@ -1096,60 +1123,16 @@ local plugins = {
     },
   },
 
-  { -- (Emacs) Dired-like Optional file manager for telescope-project.nvim
-    "nvim-telescope/telescope-file-browser.nvim",
-
-    dependencies = {
-      {
-        "nvim-telescope/telescope.nvim",
-        opts = {
-          extensions = {
-            file_browser = {
-              theme = "ivy",
-              -- disables netrw and use telescope-file-browser in its place
-              hijack_netrw = true,
-              -- mappings = {
-              --   ["i"] = {
-              --     -- your custom insert mode mappings
-              --     -- ["<TAB>"] = require("telescope").extensions.file_browser.actions.open, -- TODO
-              --   },
-              --   ["n"] = {
-              --     -- your custom normal mode mappings
-              --   },
-              -- },
-            },
-          },
-        },
-      },
-      {
-        "nvim-lua/plenary.nvim",
-      },
-    },
-
-    keys = {
-      {
-        "<leader>.",
-        ":Telescope file_browser path=%:p:h select_buffer=true<CR>",
-        desc = "File Manager",
-      },
-    },
-
-    config = function()
-      -- To get telescope-file-browser loaded and working with telescope,
-      -- you need to call load_extension, somewhere after setup function:
-      require("telescope").load_extension "file_browser"
-    end,
-  },
-
   { -- Telescope projects
     -- Migrated to project.nvim
     "nvim-telescope/telescope-project.nvim",
+    
 
     -- if you want to enable custom hook
     dependencies = {
-      -- {
-      -- "ThePrimeagen/harpoon",
-      -- }
+      {
+        "ThePrimeagen/harpoon",
+      },
       {
         "nvim-telescope/telescope.nvim",
         opts = {

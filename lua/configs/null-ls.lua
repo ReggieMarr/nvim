@@ -46,8 +46,9 @@ local sources = {
 
   -- Shell
   b.formatting.shfmt,
-  b.code_actions.shellcheck,
-  b.diagnostics.shellcheck.with { diagnostics_format = "#{m} [#{c}]" },
+  -- Deprecated
+  -- b.code_actions.shellcheck,
+  -- b.diagnostics.shellcheck.with { diagnostics_format = "#{m} [#{c}]" },
 
   -- Cpp
   b.formatting.clang_format,

@@ -118,7 +118,8 @@ map("n", "<leader>fq", "<cmd>qa!<cr>", { desc = "Force Quit Editor", nowait = tr
 map("n", "<leader>wq", "<cmd>wq<cr>", { desc = "Write Quit Editor", nowait = true })
 map("n", "<leader>ip", "<cmd>Inspect<cr>", { desc = "HL Group Under Cursor" })
 map("n", "<leader><leader>", "<cmd>Telescope find_files<CR>", { desc = "Find file in project" })
-map("n", "<leader>.", "<cmd>Telescope file_browser<CR>", { desc = "Browse files" })
+-- already defined in myplugins.lua
+-- map("n", "<leader>.", "<cmd>Telescope file_browser<CR>", { desc = "Browse files" })
 map("n", "<leader>/", "<cmd>Telescope live_grep<CR>", { desc = "Search in project" })
 
 -- bringing M-x to neovim
@@ -141,7 +142,7 @@ map("n", "<leader>sm", "<cmd>Telescope marks<CR>", { desc = "Search marks" })
 map("n", "<leader>ss", "<cmd>Telescope lsp_document_symbols<CR>", { desc = "Search symbols in file" })
 
 -- Project
-map("n", "<leader>pp", "<cmd>Telescope neovim-project<CR>", { desc = "Switch project" })
+map("n", "<leader>pp", ":NeovimProjectDiscover<CR>", { desc = "Switch project" })
 map("n", "<leader>pf", function() require('telescope.builtin').find_files() end, { desc = "Find file in project" })
 map("n", "<leader>pb", function() require('telescope.builtin').buffers() end, { desc = "Switch to project buffer" })
 
@@ -319,8 +320,8 @@ map('n', '<leader>fY', function() yank_buffer_path(true) end, {desc = "Yank buff
 map('n', '<leader>fc', '<cmd>e .editorconfig<CR>', {desc = "Find EditorConfig file"})
 map('n', '<leader>fd', '<cmd>Telescope file_browser<CR>', {desc = "File browser"})
 map('n', '<leader>fe', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Find file in neovim config"})
-map("n", "<leader>ff", function() custom_find_files() end, { desc = "DWIM Find file" })
-map("n", "<leader><leader>", function() custom_find_files() end, { desc = "DWIM Find file" })
+-- map("n", "<leader>ff", function() custom_find_files() end, { desc = "DWIM Find file" })
+-- map("n", "<leader><leader>", function() custom_find_files() end, { desc = "DWIM Find file" })
 map('n', '<leader>fl', '<cmd>Telescope live_grep<CR>', {desc = "Live grep (like locate)"})
 map('n', '<leader>fp', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Find file in private config"})
 map('n', '<leader>fr', '<cmd>Telescope oldfiles<CR>', {desc = "Recent files"})
@@ -620,6 +621,9 @@ local function split_and_follow(cmd)
     vim.cmd("wincmd w")
   end
 end
+
+-- Toggle line wrapping
+map('n', '<leader>tw', ':set wrap!<CR>', {desc = "Delete window"})
 
 -- Window navigation
 map('n', '<leader>wd', '<C-w>c', {desc = "Delete window"})
