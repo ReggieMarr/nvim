@@ -63,8 +63,30 @@ local plugins = {
         select_buffer = true,
         grouped = true,
         collapse_dirs = true,
+        scroll_strategy = "limit",
+        layout_strategy = "horizontal",
+        cycle_layout_list = { "horizontal", "vertical" },
+        layout_config = {
+          horizontal = {
+            width = 0.9,
+            height = 0.9,
+            preview_width = 0.5,
+            preview_cutoff = 120,
+            prompt_position = "top",
+          },
+        },
+        sorting_strategy = "ascending",
+        selection_strategy = "closest",
+        winblend = 0,
+        results_title = false,
+        prompt_prefix = "   ",
+        prompt_title = false,
         mappings = {
           i = {
+            ["<C-j>"] = require("telescope.actions").move_selection_next,
+            ["<C-k>"] = require("telescope.actions").move_selection_previous,
+            ["<C-u>"] = false,
+            ["<C-d>"] = false,
             ["<TAB>"] = require("telescope.actions").select_default,
           },
           n = {
@@ -72,7 +94,50 @@ local plugins = {
           },
         },
       },
+      pickers = {
+        buffers = {
+          theme = "dropdown",
+          previewer = false,
+          layout_config = {
+            width = 0.5,
+            height = 0.4,
+          },
+          mappings = {
+            i = {
+              ["<C-d>"] = require("telescope.actions").delete_buffer,
+            },
+            n = {
+              ["dd"] = require("telescope.actions").delete_buffer,
+            },
+          },
+        },
+        current_buffer_fuzzy_find = {
+          theme = "dropdown",
+          previewer = false,
+          layout_config = {
+            width = 0.5,
+            height = 0.4,
+          },
+        },
+      },
     },
+    config = function(_, opts)
+      local telescope = require("telescope")
+      telescope.setup(opts)
+
+      -- Override the current_buffer_fuzzy_find picker
+      local builtin = require("telescope.builtin")
+      vim.keymap.set("n", "<leader>/", function()
+        builtin.current_buffer_fuzzy_find(require("telescope.themes").get_dropdown({
+          winblend = 10,
+          previewer = false,
+          layout_config = {
+            width = 0.5,
+            height = 0.4,
+          },
+        }))
+      end, { desc = "Fuzzy search in current buffer" })
+    end,
   },
 
   -- TODO make nav a plugin
@@ -124,6 +189,7 @@ local plugins = {
       { "<leader>sD", function() require("configs.nav").live_grep_from_buffer() end, desc = "Live grep from buffer directory" },
       { "<leader>sf", function() require("telescope.builtin").git_files({ cwd = vim.fn.expand("%:p:h") }) end, desc = "Search files from buffer directory (including hidden)" },
       { "<leader>sF", function() require("telescope.builtin").find_files({ cwd = vim.fn.expand("%:p:h"), hidden=true }) end, desc = "Search files from buffer directory" },
+      { "<leader>pp", ":NeovimProjectDiscover<CR>", { desc = "Switch project" }},
     },
   },
 
@@ -164,9 +230,8 @@ local plugins = {
     },
 
     config = function()
-      require "nvchad.configs.lspconfig"
       require "configs.lspconfig"
-    end, -- Override to setup mason-lspconfig
+    end,
   },
 
   -- override plugin configs
@@ -204,20 +269,20 @@ local plugins = {
     end,
   },
 
-  {
-    "zbirenbaum/copilot.lua",
-
-    cmd = "Copilot",
-
-    event = "InsertEnter",
-
-    config = function(_, opts)
-      require("copilot").setup(opts)
-      status.copilot = true
-    end,
-
-    opts = require("configs.copilot").opts,
-  },
+  -- {
+  --   "zbirenbaum/copilot.lua",
+  --
+  --   cmd = "Copilot",
+  --
+  --   event = "InsertEnter",
+  --
+  --   config = function(_, opts)
+  --     require("copilot").setup(opts)
+  --     status.copilot = true
+  --   end,
+  --
+  --   opts = require("configs.copilot").opts,
+  -- },
 
   -- C++ development
   -- Nice but limited cpp codegen features which I'll (probably) not use (if you want create keymapps)
@@ -3614,147 +3679,8 @@ local plugins = {
 
       {
         "lukas-reineke/headlines.nvim",
-
         dependencies = "nvim-treesitter",
-
-        config = function()
-          require("headlines").setup {
-            markdown = {
-              query = vim.treesitter.query.parse(
-                "markdown",
-                [[
-                (atx_heading [
-                    (atx_h1_marker)
-                    (atx_h2_marker)
-                    (atx_h3_marker)
-                    (atx_h4_marker)
-                    (atx_h5_marker)
-                    (atx_h6_marker)
-                ] @headline)
-
-                (thematic_break) @dash
-
-                (fenced_code_block) @codeblock
-
-                (block_quote_marker) @quote
-                (block_quote (paragraph (inline (block_continuation) @quote)))
-            ]]
-              ),
-              headline_highlights = { "Headline" },
-              codeblock_highlight = "CodeBlock",
-              dash_highlight = "Dash",
-              dash_string = "-",
-              quote_highlight = "Quote",
-              quote_string = "┃",
-              fat_headlines = true,
-              fat_headline_upper_string = "▃",
-              fat_headline_lower_string = "🬂",
-            },
-            -- rmd = {
-            --  query = vim.treesitter.query.parse (
-            --     "markdown",
-            --     [[
-            --       (atx_heading [
-            --           (atx_h1_marker)
-            --           (atx_h2_marker)
-            --           (atx_h3_marker)
-            --           (atx_h4_marker)
-            --           (atx_h5_marker)
-            --           (atx_h6_marker)
-            --       ] @headline)
-            --
-            --       (thematic_break) @dash
-            --
-            --       (fenced_code_block) @codeblock
-            --
-            --       (block_quote_marker) @quote
-            --       (block_quote (paragraph (inline (block_continuation) @quote)))
-            --   ]]
-            --   ),
-            --   treesitter_language = "markdown",
-            --   headline_highlights = { "Headline" },
-            --   codeblock_highlight = "CodeBlock",
-            --   dash_highlight = "Dash",
-            --   dash_string = "-",
-            --   quote_highlight = "Quote",
-            --   quote_string = "┃",
-            --   fat_headlines = true,
-            --   fat_headline_upper_string = "▃",
-            --   fat_headline_lower_string = "🬂",
-            -- },
-            -- norg = {
-            --  query = vim.treesitter.query.parse (
-            --     "norg",
-            --     [[
-            --       [
-            --           (heading1_prefix)
-            --           (heading2_prefix)
-            --           (heading3_prefix)
-            --           (heading4_prefix)
-            --           (heading5_prefix)
-            --           (heading6_prefix)
-            --       ] @headline
-            --
-            --       (weak_paragraph_delimiter) @dash
-            --       (strong_paragraph_delimiter) @doubledash
-            --
-            --       ([(ranged_tag
-            --           name: (tag_name) @_name
-            --           (#eq? @_name "code")
-            --       )
-            --       (ranged_verbatim_tag
-            --           name: (tag_name) @_name
-            --           (#eq? @_name "code")
-            --       )] @codeblock (#offset! @codeblock 0 0 1 0))
-            --
-            --       (quote1_prefix) @quote
-            --   ]]
-            --   ),
-            --   headline_highlights = { "Headline" },
-            --   codeblock_highlight = "CodeBlock",
-            --   dash_highlight = "Dash",
-            --   dash_string = "-",
-            --   doubledash_highlight = "DoubleDash",
-            --   doubledash_string = "=",
-            --   quote_highlight = "Quote",
-            --   quote_string = "┃",
-            --   fat_headlines = true,
-            --   fat_headline_upper_string = "▃",
-            --   fat_headline_lower_string = "🬂",
-            -- },
-            org = {
-              query = vim.treesitter.query.parse(
-                "org",
-                [[
-                (headline (stars) @headline)
-
-                (
-                    (expr) @dash
-                    (#match? @dash "^-----+$")
-                )
-
-                (block
-                    name: (expr) @_name
-                    (#eq? @_name "SRC")
-                ) @codeblock
-
-                (paragraph . (expr) @quote
-                    (#eq? @quote ">")
-                )
-            ]]
-              ),
-              headline_highlights = { "Headline1", "Headline2", "Headline3", "Headline4", "Headline5" },
-              codeblock_highlight = "CodeBlock",
-              dash_highlight = "Dash",
-              dash_string = "-",
-              quote_highlight = "Quote",
-              quote_string = "┃",
-              fat_headlines = true,
-              fat_headline_upper_string = "▃",
-              fat_headline_lower_string = "▀", -- 🬂
-            },
-          }
-        end,
+        config = true,
       },
 
       {
@@ -3772,12 +3698,6 @@ local plugins = {
     event = "BufEnter *.org",
 
     config = function()
-      -- Load treesitter grammar for org
-      require("orgmode").setup_ts_grammar()
-
-      -- Setup treesitter
-      -- require("nvim-treesitter.configs").setup
-
       -- Custom Menu
       local Menu = require "org-modern.menu"
       -- Setup orgmode

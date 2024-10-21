@@ -44,20 +44,6 @@ function M.browser_setup()
         relative_path
       },
     })
-    -- require("telescope.builtin").find_files({ 
-    --   cwd = path,
-    --   -- cwd = git_root,
-    --   -- prompt_title = "Git Grep",
-    --   additional_args = function()
-    --     return {
-    --       "--glob=!.git/*",
-    --       "-g",
-    --       -- NOTE we should see if we can just pull in the git_command
-    --       -- from git files to keep things consistent
-    --       "$(git ls-files --exclude-standard --cached -- " .. path .. ")"
-    --     }
-    --   end
-    -- })
 
   end
 
