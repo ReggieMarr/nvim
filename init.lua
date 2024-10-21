@@ -40,6 +40,7 @@ end)
 
 -- TODO put these in their own plugin file
 require("telescope").load_extension "file_browser"
+require('telescope').load_extension "git_grep"
 -- require("telescope").load_extension "projects"
 
 vim.keymap.set('n', '<leader>ff', ':Telescope file_browser<CR>', { noremap = true, silent = true, desc = "Find files (current dir)" })

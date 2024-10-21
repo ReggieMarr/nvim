@@ -21,8 +21,8 @@ vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "switch window up" })
 
 vim.keymap.set("n", "<Esc>", "<cmd>noh<CR>", { desc = "general clear highlights" })
 
-vim.keymap.set("n", "<C-s>", "<cmd>w<CR>", { desc = "general save file" })
-vim.keymap.set("n", "<C-c>", "<cmd>%y+<CR>", { desc = "general copy whole file" })
+-- vim.keymap.set("n", "<C-s>", "<cmd>w<CR>", { desc = "general save file" })
+-- vim.keymap.set("n", "<C-c>", "<cmd>%y+<CR>", { desc = "general copy whole file" })
 
 vim.keymap.set("n", "<leader>n", "<cmd>set nu!<CR>", { desc = "toggle line number" })
 vim.keymap.set("n", "<leader>rn", "<cmd>set rnu!<CR>", { desc = "toggle relative number" })
@@ -123,101 +123,32 @@ map("n", "<leader><leader>", "<cmd>Telescope find_files<CR>", { desc = "Find fil
 map("n", "<leader>/", "<cmd>Telescope live_grep<CR>", { desc = "Search in project" })
 
 -- bringing M-x to neovim
-map("n", "<A-x>", "<cmd>Telescope commands<CR>", { desc = "Execute command" })
+-- TODO create something that combines keymaps, commands, and functions
+map("n", "<M-x>", "<cmd>Telescope keymaps<CR>", { desc = "Execute command" })
 map("n", "<leader>bb", "<cmd>Telescope buffers<CR>", { desc = "Switch buffer" })
 map("n", "<leader>`", "<c-^>", { desc = "Switch to last buffer" })
 
 -- Toggles
-map("n", "<leader>tf", "<cmd>ToggleTerm<CR>", { desc = "Toggle terminal" })
+-- TODO figure out what the equivalent neovim command would be too this
+-- map("n", "<leader>tf", "<cmd>ToggleTerm<CR>", { desc = "Toggle terminal" })
 map("n", "<leader>tn", "<cmd>set number!<CR>", { desc = "Toggle line numbers" })
 map("n", "<leader>tr", "<cmd>set relativenumber!<CR>", { desc = "Toggle relative line numbers" })
 map("n", "<leader>ts", "<cmd>setlocal spell!<CR>", { desc = "Toggle spell check" })
 map("n", "<leader>tw", "<cmd>set wrap!<CR>", { desc = "Toggle word wrap" })
 
 -- Search
-map("n", "<leader>sb", "<cmd>Telescope current_buffer_fuzzy_find<CR>", { desc = "Search in buffer" })
-map("n", "<leader>sf", "<cmd>Telescope find_files<CR>", { desc = "Search files" })
 map("n", "<leader>sg", "<cmd>Telescope live_grep<CR>", { desc = "Search by grep" })
+map("n", "<leader>sb", "<cmd>Telescope current_buffer_fuzzy_find<CR>", { desc = "Search in buffer" })
 map("n", "<leader>sm", "<cmd>Telescope marks<CR>", { desc = "Search marks" })
 map("n", "<leader>ss", "<cmd>Telescope lsp_document_symbols<CR>", { desc = "Search symbols in file" })
+map("n", "<leader>sv", "<cmd>Telescope vim_options<CR>", { desc = "Search vim_options" })
 
 -- Project
+map("n", "<leader>pf", "<cmd>Telescope git_files<CR>", { desc = "Find file in project" })
+map("n", "<leader>pF", function() require('telescope.builtin').find_files() end, { desc = "Find file in project" })
 map("n", "<leader>pp", ":NeovimProjectDiscover<CR>", { desc = "Switch project" })
-map("n", "<leader>pf", function() require('telescope.builtin').git_files() end, { desc = "Find file in project" })
+
 map("n", "<leader>pb", function() require('telescope.builtin').buffers() end, { desc = "Switch to project buffer" })
-
--- Files
-local telescope = require("telescope")
-local builtin = require("telescope.builtin")
-local actions = require("telescope.actions")
-local action_state = require("telescope.actions.state")
-
-local custom_find_files = function()
-  local opts = {}
-  opts.attach_mappings = function(prompt_bufnr, map)
-    local function switch_to_parent_dir()
-      actions.close(prompt_bufnr)
-      local cwd = vim.fn.getcwd()
-      local parent = vim.fn.fnamemodify(cwd, ":h")
-      
-      telescope.extensions.file_browser.file_browser({
-        path = parent,
-        select_buffer = true,
-        initial_mode = "normal",
-        cwd_to_path = false,  -- Changed this to false
-        respect_gitignore = false,
-        hidden = true,
-        theme = "ivy",
-        attach_mappings = function(fb_prompt_bufnr, map)
-          actions.select_default:replace(function()
-            local selection = action_state.get_selected_entry()
-            if selection then
-              if selection.Path:is_dir() then
-                if selection.Path:absolute() == cwd then
-                  actions.close(fb_prompt_bufnr)
-                  vim.cmd("cd " .. vim.fn.fnameescape(selection.Path:absolute()))
-                  builtin.find_files()
-                else
-                  actions.close(fb_prompt_bufnr)
-                  vim.cmd("cd " .. vim.fn.fnameescape(selection.Path:absolute()))
-                  telescope.extensions.file_browser.file_browser({
-                    path = selection.Path:absolute(),
-                    select_buffer = true,
-                    initial_mode = "normal",
-                  })
-                end
-              else
-                actions.file_edit(fb_prompt_bufnr)
-              end
-            end
-          end)
-          return true
-        end
-      })
-    end
-    map("i", "<bs>", function()
-      if action_state.get_current_line() == ".." then
-        switch_to_parent_dir()
-      end
-    end)
-
-    -- Ensure default select action opens the file
-    actions.select_default:replace(function()
-      local selection = action_state.get_selected_entry()
-      if selection then
-        local filename = selection[1]
-        if filename then
-          actions.close(prompt_bufnr)
-          vim.cmd("edit " .. vim.fn.fnameescape(filename))
-        end
-      end
-    end)
-
-    return true
-  end
-
-  builtin.find_files(opts)
-end
 
 -- Buffers
 map("n", "<leader>bb", "<cmd>Telescope buffers<CR>", { desc = "Switch buffer" })
@@ -311,7 +242,6 @@ end
 map('n', '<leader>fC', copy_this_file, {desc = "Copy this file"})
 map('n', '<leader>fD', delete_this_file, {desc = "Delete this file"})
 map('n', '<leader>fE', '<cmd>Telescope file_browser cwd=~/.config/nvim<CR>', {desc = "Browse in neovim config"})
-map('n', '<leader>fF', '<cmd>Telescope find_files cwd=%:p:h<CR>', {desc = "Find file under here"})
 map('n', '<leader>fP', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Open private config"})
 map('n', '<leader>fR', move_this_file, {desc = "Move this file"})
 map('n', '<leader>fS', '<cmd>saveas<CR>', {desc = "Save as"})
@@ -320,7 +250,8 @@ map('n', '<leader>fY', function() yank_buffer_path(true) end, {desc = "Yank buff
 map('n', '<leader>fc', '<cmd>e .editorconfig<CR>', {desc = "Find EditorConfig file"})
 map('n', '<leader>fd', '<cmd>Telescope file_browser<CR>', {desc = "File browser"})
 map('n', '<leader>fe', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Find file in neovim config"})
-map('n', '<leader>fl', '<cmd>Telescope live_grep<CR>', {desc = "Live grep (like locate)"})
+-- TODO replace this with a locate like grepper
+-- map('n', '<leader>fl', '<cmd>Telescope live_grep<CR>', {desc = "Live grep (like locate)"})
 map('n', '<leader>fp', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Find file in private config"})
 map('n', '<leader>fr', '<cmd>Telescope oldfiles<CR>', {desc = "Recent files"})
 map('n', '<leader>fs', '<cmd>w<CR>', {desc = "Save buffer"})
@@ -759,3 +690,4 @@ end
 
 -- Set up the keybinding
 vim.api.nvim_set_keymap('n', '<C-*>', ':lua toggle_ignore_submodules()<CR>', {noremap = true, silent = true})
+

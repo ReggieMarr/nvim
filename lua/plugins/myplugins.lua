@@ -75,6 +75,11 @@ local plugins = {
     },
   },
 
+  -- TODO make nav a plugin
+  {
+      'davvid/telescope-git-grep.nvim'
+  },
+
   {
     "nvim-telescope/telescope-file-browser.nvim",
     dependencies = {
@@ -82,167 +87,68 @@ local plugins = {
       "nvim-lua/plenary.nvim",
     },
     config = function()
-      local telescope = require("telescope")
-      local fb_actions = require "telescope".extensions.file_browser.actions
-      local Path = require("plenary.path")
-      local builtin = require("telescope.builtin")
-
-      local function get_git_root(path)
-        local git_cmd = vim.fn.system(string.format("cd %s && git rev-parse --show-toplevel", path))
-        local git_root = string.gsub(git_cmd, "\n", "")
-        return git_root ~= "" and git_root or nil
-      end
-      local grep_git_files_from_browser = function(prompt_bufnr)
-        local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
-        local path
-        if current_picker.finder.files then
-          path = current_picker.finder.path
-        else
-          local selection = require("telescope.actions.state").get_selected_entry()
-          path = selection and selection.Path:absolute() or current_picker.finder.path
-        end
-        -- Get the git root
-        local git_root = get_git_root(path)
-        if not git_root then
-          print("Not a git repository")
-          return
-        end
-        -- Calculate the relative path from git root to the selected path
-        local relative_path = Path:new(path):make_relative(git_root)
-
-        require("telescope.actions").close(prompt_bufnr)
-
-        builtin.live_grep({
-          cwd = git_root,
-          search_dirs = {path},
-          additional_args = function()
-            return {
-              "--hidden",
-              "-g",
-              "!.git",
-              "-g",
-              relative_path .. "/**"
-            }
-          end
-        })
-      end
-
-      local git_files_from_browser = function(prompt_bufnr)
-        local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
-        local path
-        if current_picker.finder.files then
-          path = current_picker.finder.path
-        else
-          local selection = require("telescope.actions.state").get_selected_entry()
-          path = selection and selection.Path:absolute() or current_picker.finder.path
-        end
-
-        -- Get the git root
-        local git_root = get_git_root(path)
-        if not git_root then
-          print("Not a git repository")
-          return
-        end
-
-        -- Calculate the relative path from git root to the selected path
-        local relative_path = Path:new(path):make_relative(git_root)
-
-        require("telescope.actions").close(prompt_bufnr)
-
-        builtin.git_files({
-          cwd = git_root,
-          git_command = {
-            "git",
-            "ls-files",
-            "--exclude-standard",
-            "--cached",
-            "--",
-            relative_path
-          },
-        })
-      end
-      local find_file_from_browser = function(prompt_bufnr)
-        local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
-        local path
-        if current_picker.finder.files then
-          path = current_picker.finder.path
-        else
-          local selection = require("telescope.actions.state").get_selected_entry()
-          path = selection and selection.Path:absolute() or current_picker.finder.path
-        end
-        require("telescope.actions").close(prompt_bufnr)
-        require("telescope.builtin").find_files({ cwd = path })
-      end
-
-      local search_files_from_browser = function(prompt_bufnr)
-        local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
-        local path
-        if current_picker.finder.files then
-          path = current_picker.finder.path
-        else
-          local selection = require("telescope.actions.state").get_selected_entry()
-          path = selection and selection.Path:absolute() or current_picker.finder.path
-        end
-        require("telescope.actions").close(prompt_bufnr)
-        require("telescope.builtin").live_grep({ cwd = path })
-      end
-
-      local open_in_file_browser = function(prompt_bufnr)
-        local selection = require("telescope.actions.state").get_selected_entry()
-        if selection then
-          if selection.Path:is_dir() then
-            fb_actions.open_dir(prompt_bufnr, nil, selection.Path:absolute())
-          else
-            require("telescope.actions").select_default(prompt_bufnr)
-          end
-        end
-      end
-
-      telescope.setup {
-        extensions = {
-          file_browser = {
-            select_buffer = true,
-            grouped = true,
-            collapse_dirs = true,
-            mappings = {
-              ["i"] = {
-                -- TODO it'd be nice be be able to switch between these
-                ["<C-f>"] = git_files_from_browser,
-                ["<C-F>"] = find_file_from_browser,
-
-                ["<C-s>"] = search_files_from_browser,
-                ["<C-S>"] = git_files_from_browser,
-              },
-              ["n"] = {
-                -- TODO it'd be nice be be able to switch between these
-                ["f"] = git_files_from_browser,
-                ["F"] = find_file_from_browser,
-
-                ["s"] = search_files_from_browser,
-                ["S"] = git_files_from_browser,
-
-                ["h"] = fb_actions.goto_parent_dir,
-                ["l"] = open_in_file_browser,
-              },
-            },
-          },
-        },
-      }
-
-      telescope.load_extension("file_browser")
+      require "configs.nav".browser_setup()
     end,
-    keys = {
-      {
-        "<leader>.",
-        function()
-          require("telescope").extensions.file_browser.file_browser({
-            path = "%:p:h",
-            select_buffer = true,
-          })
-        end,
-        desc = "File Manager",
+  },
+  {
+    "coffebar/neovim-project",
+    opts = {
+      projects = { -- define project roots
+        "~/Projects/*",
+        "~/.config/*",
       },
+      picker = {
+        type = "telescope", -- or "fzf-lua"
+      }
     },
+    init = function()
+      -- enable saving the state of plugins in the session
+      vim.opt.sessionoptions:append("globals") -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
+    end,
+    dependencies = {
+      { "nvim-lua/plenary.nvim" },
+      { "nvim-telescope/telescope.nvim", tag = "0.1.4" },
+      { "ibhagwan/fzf-lua" },
+      { "Shatur/neovim-session-manager" },
+      { "nvim-telescope/telescope-file-browser.nvim" },
+      { "davvid/telescope-git-grep.nvim" },
+    },
+    lazy = false,
+    priority = 100,
+    keys = {
+      { '<leader>fF', '<cmd>Telescope find_files cwd=%:p:h<CR>', {desc = "Find file under here"}},
+      { '<leader>ff', function() require("configs.nav").file_browser() end, {desc = "Browse file under here"}},
+      { "<leader>.", function() require("configs.nav").file_browser() end, desc = "File Manager" },
+      { "<leader>sp", function() require("configs.nav").git_grep_files_from_project() end, desc = "Search git files from project root" },
+      { "<leader>sd", function() require("configs.nav").git_grep_files_from_buffer() end, desc = "Search git files from buffer directory" },
+      { "<leader>sD", function() require("configs.nav").live_grep_from_buffer() end, desc = "Live grep from buffer directory" },
+      { "<leader>sf", function() require("telescope.builtin").git_files({ cwd = vim.fn.expand("%:p:h") }) end, desc = "Search files from buffer directory (including hidden)" },
+      { "<leader>sF", function() require("telescope.builtin").find_files({ cwd = vim.fn.expand("%:p:h"), hidden=true }) end, desc = "Search files from buffer directory" },
+    },
+  },
+
+  {
+    "Zeioth/hot-reload.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    event = "BufEnter",
+    opts = function()
+      local config_dir = vim.fn.stdpath("config") .. "/lua/"
+      return {
+        -- Files to be hot-reloaded when modified.
+        reload_files = {
+          config_dir .. "init.lua",
+          config_dir .. "myinit.lua",
+          config_dir .. "chadrc.lua",
+          config_dir .. "/plugins/myplugins",
+          config_dir .. "/config/*",
+        },
+        -- Things to do after hot-reload trigger.
+        reload_callback = function()
+          vim.cmd(":silent! colorscheme " .. vim.g.default_colorscheme) -- nvim     colorscheme reload command.
+          vim.cmd(":silent! doautocmd ColorScheme")                     -- heirline colorscheme reload event.
+        end
+      }
+    end
   },
 
   {
@@ -4739,33 +4645,6 @@ local plugins = {
       },
       mappings = {},
     },
-  },
-
-  {
-    "coffebar/neovim-project",
-    opts = {
-      projects = { -- define project roots
-        "~/Projects/*",
-        "~/.config/*",
-      },
-      picker = {
-        type = "telescope", -- or "fzf-lua"
-      }
-    },
-    init = function()
-      -- enable saving the state of plugins in the session
-      vim.opt.sessionoptions:append("globals") -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
-    end,
-    dependencies = {
-      { "nvim-lua/plenary.nvim" },
-      -- optional picker
-      { "nvim-telescope/telescope.nvim", tag = "0.1.4" },
-      -- optional picker
-      { "ibhagwan/fzf-lua" },
-      { "Shatur/neovim-session-manager" },
-    },
-    lazy = false,
-    priority = 100,
   },
 
   {
