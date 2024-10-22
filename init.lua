@@ -60,3 +60,5 @@ vim.api.nvim_create_autocmd("User", {
     on_project_open()
   end,
 })
+
+require "sniprun"
