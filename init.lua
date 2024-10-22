@@ -29,15 +29,14 @@ require("lazy").setup({
 dofile(vim.g.base46_cache .. "defaults")
 dofile(vim.g.base46_cache .. "statusline")
 
--- require "options"
--- require "nvchad.autocmds"
+require "options"
+require "nvchad.autocmds"
 
 require 'myinit'
-require "mappings"
 
--- vim.schedule(function()
---   require "mappings"
--- end)
+vim.schedule(function()
+  require "mappings"
+end)
 
 -- TODO put these in their own plugin file
 require("telescope").load_extension "file_browser"

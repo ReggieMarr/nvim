@@ -10,10 +10,6 @@ local status = require("utils").status
 local plugins = {
 
   {
-    "nvim-treesitter/nvim-treesitter",
-  },
-
-  {
     "folke/which-key.nvim",
     config = function(_, opts)
       dofile(vim.g.base46_cache .. "whichkey")
@@ -23,218 +19,106 @@ local plugins = {
     end,
   },
 
-  -- -- pulled from https://github.com/igorlfs/dotfiles/blob/main/nvim/.config/nvim/lua/plugins/nvim-dap.lua
-  -- {
-  --     "mfussenegger/nvim-dap",
-  --     dependencies = {
-  --         -- Runs preLaunchTask / postDebugTask if present
-  --         { "stevearc/overseer.nvim", config = true },
-  --         "rcarriga/nvim-dap-ui",
-  --     },
-  --     keys = {
-  --         {
-  --             "<leader>db",
-  --             function() require("dap").list_breakpoints() end,
-  --             desc = "DAP Breakpoints",
-  --         },
-  --         {
-  --             "<leader>ds",
-  --             function()
-  --                 local widgets = require("dap.ui.widgets")
-  --                 widgets.centered_float(widgets.scopes, { border = "rounded" })
-  --             end,
-  --             desc = "DAP Scopes",
-  --         },
-  --         { "<F1>", function() require("dap.ui.widgets").hover(nil, { border = "rounded" }) end },
-  --         { "<F4>", "<CMD>DapDisconnect<CR>", desc = "DAP Disconnect" },
-  --         { "<F16>", "<CMD>DapTerminate<CR>", desc = "DAP Terminate" },
-  --         { "<F5>", "<CMD>DapContinue<CR>", desc = "DAP Continue" },
-  --         { "<F17>", function() require("dap").run_last() end, desc = "Run Last" },
-  --         { "<F6>", function() require("dap").run_to_cursor() end, desc = "Run to Cursor" },
-  --         { "<F9>", "<CMD>DapToggleBreakpoint<CR>", desc = "Toggle Breakpoint" },
-  --         {
-  --             "<F21>",
-  --             function()
-  --                 vim.ui.input(
-  --                     { prompt = "Breakpoint condition: " },
-  --                     function(input) require("dap").set_breakpoint(input) end
-  --                 )
-  --             end,
-  --             desc = "Conditional Breakpoint",
-  --         },
-  --         { "<F10>", "<CMD>DapStepOver<CR>", desc = "Step Over" },
-  --         { "<F11>", "<CMD>DapStepInto<CR>", desc = "Step Into" },
-  --         { "<F12>", "<CMD>DapStepOut<CR>", desc = "Step Out" },
-  --     },
-  --     config = function()
-  --         -- Signs
-  --         for _, group in pairs({
-  --             "DapBreakpoint",
-  --             "DapBreakpointCondition",
-  --             "DapBreakpointRejected",
-  --             "DapLogPoint",
-  --         }) do
-  --             vim.fn.sign_define(group, { text = "●", texthl = group })
-  --         end
-  --
-  --         -- Setup
-  --
-  --         -- Decides when and how to jump when stopping at a breakpoint
-  --         -- The order matters!
-  --         --
-  --         -- (1) If the line with the breakpoint is visible, don't jump at all
-  --         -- (2) If the buffer is opened in a tab, jump to it instead
-  --         -- (3) Else, create a new tab with the buffer
-  --         --
-  --         -- This avoid unnecessary jumps
-  --         require("dap").defaults.fallback.switchbuf = "usevisible,usetab,newtab"
-  --
-  --         -- Adapters
-  --         -- C, C++, Rust
-  --         require("plugins.dap.codelldb")
-  --         -- Python
-  --         require("plugins.dap.debugpy")
-  --         -- JS, TS
-  --         require("plugins.dap.js-debug-adapter")
-  --     end,
-  -- },
-  {
-    "nvim-telescope/telescope.nvim",
-    -- opts = {
-    --   defaults = {
-    --     vimgrep_arguments = {
-    --       "rg",
-    --       "--color=never",
-    --       "--no-heading",
-    --       "--with-filename",
-    --       "--line-number",
-    --       "--column",
-    --       "--smart-case",
-    --     },
-    --     select_buffer = true,
-    --     grouped = true,
-    --     collapse_dirs = true,
-    --     scroll_strategy = "limit",
-    --     layout_strategy = "horizontal",
-    --     -- layout_strategy = "bottom_pane",
-    --     cycle_layout_list = { "horizontal", "vertical" },
-    --     layout_config = {
-    --       horizontal = {
-    --         -- width = 0.9,
-    --         -- height = 0.9,
-    --         preview_width = 0.5,
-    --         -- preview_cutoff = 120,
-    --         preview_cutoff = 0,
-    --         prompt_position = "top",
-    --       },
-    --       height = math.floor(vim.o.lines / 2),
-    --       width = vim.o.columns,
-    --     },
-    --     sorting_strategy = "ascending",
-    --     --selection_strategy = "closest",
-    --     selection_strategy = "reset",
-    --       file_sorter = require("telescope.sorters").get_fuzzy_file,
-    --       file_ignore_patterns = {},
-    --       generic_sorter = require("telescope.sorters").get_generic_fuzzy_sorter,
-    --       path_display = { "absolute" },
-    --       winblend = 0,
-    --       border = {},
-    --       borderchars = { " ", " ", " ", " ", " ", " ", " ", " " },
-    --       color_devicons = true,
-    --       use_less = true,
-    --       set_env = { ["COLORTERM"] = "truecolor" }, -- default = nil,
-    --       file_previewer = require("telescope.previewers").vim_buffer_cat.new,
-    --       grep_previewer = require("telescope.previewers").vim_buffer_vimgrep.new,
-    --       qflist_previewer = require("telescope.previewers").vim_buffer_qflist.new,
-    --       -- Developer configurations: Not meant for general override
-    --       buffer_previewer_maker = require("telescope.previewers").buffer_previewer_maker,
-    --     results_title = false,
-    --     prompt_prefix = "   ",
-    --     prompt_title = false,
-    --     mappings = {
-    --       i = {
-    --         ["<C-j>"] = require("telescope.actions").move_selection_next,
-    --         ["<C-k>"] = require("telescope.actions").move_selection_previous,
-    --         ["<C-u>"] = false,
-    --         ["<C-d>"] = false,
-    --         ["<TAB>"] = require("telescope.actions").select_default,
-    --       },
-    --       n = {
-    --         ["<TAB>"] = require("telescope.actions").select_default,
-    --       },
-    --     },
-    --   },
-    --   pickers = {
-    --     buffers = {
-    --       theme = "dropdown",
-    --       previewer = false,
-    --       layout_config = {
-    --         width = 0.5,
-    --         height = 0.4,
-    --       },
-    --       mappings = {
-    --         i = {
-    --           ["<C-d>"] = require("telescope.actions").delete_buffer,
-    --         },
-    --         n = {
-    --           ["dd"] = require("telescope.actions").delete_buffer,
-    --         },
-    --       },
-    --     },
-    --     current_buffer_fuzzy_find = {
-    --       theme = "dropdown",
-    --       previewer = false,
-    --       layout_config = {
-    --         width = 0.5,
-    --         height = 0.4,
-    --       },
-    --     },
-    --   },
-    -- },
-    dependencies = {
-          { 'nvim-telescope/telescope-fzf-native.nvim',
-            build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release' 
-          },
-          "folke/noice.nvim",
-    },
+-- {
+--   "nvim-telescope/telescope.nvim",
+--   opts = {
+--     defaults = {
+--       layout_strategy = "horizontal",
+--       layout_config = {
+--         horizontal = {
+--           height = 0.8,
+--           width = 0.6,
+--           prompt_position = "top",
+--           preview_width = 0, -- Disable preview
+--         },
+--       },
+--       -- Disable preview completely
+--       previewer = false,
+--       -- Results customization
+--       results_win_options = {
+--         winblend = 0,
+--         winhighlight = "Normal:Normal",
+--       },
+--       -- Scrolling behavior
+--       scroll_strategy = "limit",
+--       scroll_speed = 1,
+--       -- Results behavior
+--       sorting_strategy = "descending",
+--       selection_strategy = "closest",
+--       results_title = false,
+--       -- Entry display
+--       entry_prefix = "  ",
+--       selection_caret = "▶ ",
+--       -- Custom results mappings
+--       mappings = {
+--         i = {
+--           ["<C-u>"] = require("telescope.actions").results_scrolling_up,
+--           ["<C-d>"] = require("telescope.actions").results_scrolling_down,
+--           ["<C-j>"] = require("telescope.actions").move_selection_next,
+--           ["<C-k>"] = require("telescope.actions").move_selection_previous,
+--         },
+--       },
+--     },
+--   },
+--   config = function(_, opts)
+--     local telescope = require("telescope")
+--     -- Apply the configuration
+--     telescope.setup(vim.tbl_deep_extend("force", opts, {
+--       defaults = {
+--         entry_maker = function(entry)
+--           return {
+--             value = entry,
+--             display = function(entry)
+--               return entry.value
+--             end,
+--             ordinal = entry,
+--           }
+--         end,
+--       },
+--     }))
+--   end,
+-- },
+{
+  "nvim-telescope/telescope.nvim",
+  branch = "master",  -- Force latest master branch
+  version = false,    -- Disable version tags
+  opts = {
+    defaults = {
+      layout_strategy = "horizontal",
+      layout_config = {
+        horizontal = {
+          height = 0.8,
+          width = 0.6,
+          prompt_position = "top",
+        },
+      },
+      sorting_strategy = "ascending",
+      scroll_strategy = "cycle",
+      
+      -- Force results positioning
+      attach_mappings = function(prompt_bufnr)
+        require("telescope.actions.set").register_hook("results_accumulated", function(results)
+          if #results > 0 then
+            local picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+            picker:set_selection(0)
+          end
+        end)
+        return true
+      end,
 
-    config = function()
-        local telescope = require("telescope")
-        telescope.load_extension("noice")
-
-        local actions = require("telescope.actions")
-        telescope.setup({
-            defaults = {
-                sorting_strategy = "ascending",
-                path_display = { "filename_first" },
-                layout_config = {
-                    prompt_position = "top",
-                    anchor = "N",
-                },
-                mappings = {
-                    i = {
-                        ["<Tab>"] = actions.move_selection_next,
-                        ["<S-Tab>"] = actions.move_selection_previous,
-                        ["<C-n>"] = actions.toggle_selection + actions.move_selection_worse,
-                        ["<C-p>"] = actions.toggle_selection + actions.move_selection_better,
-                    },
-                },
-            },
-            pickers = {
-                lsp_references = {
-                    show_line = false,
-                },
-                find_files = {
-                    hidden = true,
-                },
-                live_grep = {
-                    additional_args = { "--hidden" },
-                },
-            },
+      -- Custom sorter to work better with ascending sort
+      generic_sorter = function(opts)
+        local Sorter = require("telescope.sorters").Sorter
+        return Sorter:new({
+          scoring_function = function(_, prompt, line)
+            return -require("telescope.algos.fzy").score(prompt, line)
+          end,
+          highlighter = require("telescope.highlighters").fuzzy_highlighter,
         })
-        telescope.load_extension("fzf")
-    end,
+      end,
+    },
   },
+},
 
   {
       'davvid/telescope-git-grep.nvim'
@@ -689,43 +573,6 @@ local plugins = {
     },
   },
 
-  { -- Smooth scrolling
-    "karb94/neoscroll.nvim",
-
-    config = function(_, opts)
-      require("neoscroll").setup(opts)
-    end,
-
-    keys = {
-      {
-        "<leader>ms",
-        "",
-        mode = "n",
-        desc = "Enable Smooth Scrolling",
-      },
-    },
-
-    opts = {
-      -- All these keys will be mapped to their corresponding default scrolling animation
-      mappings = { "<C-u>", "<C-d>", "<C-b>", "<C-f>", "<C-y>", "<C-e>", "zt", "zz", "zb" },
-      hide_cursor = true, -- Hide cursor while scrolling
-      stop_eof = true, -- Stop at <EOF> when scrolling downwards
-      respect_scrolloff = false, -- Stop scrolling when the cursor reaches the scrolloff margin of the file
-      cursor_scrolls_alone = true, -- The cursor will keep on scrolling even if the window cannot scroll further
-      easing_function = "sine", -- Default easing function == nil
-      pre_hook = nil, -- Function to run before the scrolling animation starts
-      post_hook = nil, -- Function to run after the scrolling animation ends
-      performance_mode = false, -- Disable "Performance Mode" on all buffers.
-    },
-
-    -- You can create your own scrolling mappings using the following lua functions:
-    --
-    --     scroll(lines, move_cursor, time[, easing])
-    --     zt(half_win_time[, easing])
-    --     zz(half_win_time[, easing])
-    --     zb(half_win_time[, easing])
-  },
-
   {
     "michaelb/sniprun",
     build = "sh ./install.sh",
@@ -774,161 +621,6 @@ local plugins = {
     end,
   },
 
-
-  {
-    "nfrid/markdown-togglecheck",
-
-    keys = {
-      {
-        "<leader>cml",
-        function()
-          require("markdown-togglecheck").toggle()
-        end,
-        mode = "n",
-        desc = "Toggle Markdown Checkbox",
-      },
-    },
-
-    dependencies = {
-      "nfrid/treesitter-utils",
-    },
-
-    ft = {
-      "markdown",
-    },
-  },
-
-  { -- markdown-mode
-    "jakewvincent/mkdnflow.nvim",
-
-    keys = {
-      {
-        "<leader>cmm",
-        "<cmd> Mkdnflow<CR>",
-        mode = "n",
-        desc = "Markdown Mode",
-      },
-    },
-
-    ft = {
-      "markdown",
-    },
-
-    config = function(_, opts)
-      require("mkdnflow").setup(opts)
-    end,
-
-    opts = {
-
-      modules = {
-        bib = true,
-        buffers = true,
-        conceal = true,
-        cursor = true,
-        folds = true,
-        links = true,
-        lists = true,
-        maps = true,
-        paths = true,
-        tables = true,
-        yaml = false,
-      },
-      filetypes = { md = true, rmd = true, markdown = true },
-      create_dirs = true,
-      perspective = {
-        priority = "first",
-        fallback = "current",
-        root_tell = false,
-        nvim_wd_heel = false,
-        update = false,
-      },
-      wrap = false,
-      bib = {
-        default_path = nil,
-        find_in_root = true,
-      },
-      silent = false,
-      links = {
-        style = "markdown",
-        name_is_source = false,
-        conceal = false,
-        context = 0,
-        implicit_extension = nil,
-        transform_implicit = false,
-        transform_explicit = function(text)
-          text = text:gsub(" ", "-")
-          text = text:lower()
-          text = os.date "%Y-%m-%d_" .. text
-          return text
-        end,
-      },
-      new_file_template = {
-        use_template = false,
-        placeholders = {
-          before = {
-            title = "link_title",
-            date = "os_date",
-          },
-          after = {},
-        },
-        template = "# {{ title }}",
-      },
-      to_do = {
-        symbols = { " ", "-", "X" },
-        update_parents = true,
-        not_started = " ",
-        in_progress = "-",
-        complete = "X",
-      },
-      tables = {
-        trim_whitespace = true,
-        format_on_move = true,
-        auto_extend_rows = false,
-        auto_extend_cols = false,
-      },
-      yaml = {
-        bib = { override = false },
-      },
-      mappings = {
-        MkdnEnter = { { "n", "v" }, "<CR>" },
-        MkdnTab = false,
-        MkdnSTab = false,
-        MkdnNextLink = { "n", "<Tab>" },
-        MkdnPrevLink = { "n", "<S-Tab>" },
-        MkdnNextHeading = { "n", "]]" },
-        MkdnPrevHeading = { "n", "[[" },
-        MkdnGoBack = { "n", "<BS>" },
-        MkdnGoForward = { "n", "<Del>" },
-        MkdnCreateLink = false, -- see MkdnEnter
-        MkdnCreateLinkFromClipboard = { { "n", "v" }, "<leader>p" }, -- see MkdnEnter
-        MkdnFollowLink = false, -- see MkdnEnter
-        MkdnDestroyLink = { "n", "<M-CR>" },
-        MkdnTagSpan = { "v", "<M-CR>" },
-        MkdnMoveSource = { "n", "<F2>" },
-        MkdnYankAnchorLink = { "n", "yaa" },
-        MkdnYankFileAnchorLink = { "n", "yfa" },
-        MkdnIncreaseHeading = { "n", "+" },
-        MkdnDecreaseHeading = { "n", "-" },
-        MkdnToggleToDo = { { "n", "v" }, "<C-Space>" },
-        MkdnNewListItem = { "i", "<CR>" },
-        MkdnNewListItemBelowInsert = { "n", "o" },
-        MkdnNewListItemAboveInsert = { "n", "O" },
-        MkdnExtendList = false,
-        MkdnUpdateNumbering = { "n", "<leader>nn" },
-        MkdnTableNextCell = { "i", "<Tab>" },
-        MkdnTablePrevCell = { "i", "<S-Tab>" },
-        MkdnTableNextRow = false,
-        MkdnTablePrevRow = { "i", "<M-CR>" },
-        MkdnTableNewRowBelow = { "n", "<leader>ir" },
-        MkdnTableNewRowAbove = { "n", "<leader>iR" },
-        MkdnTableNewColAfter = { "n", "<leader>ic" },
-        MkdnTableNewColBefore = { "n", "<leader>iC" },
-        MkdnFoldSection = { "n", "<leader>f" },
-        MkdnUnfoldSection = { "n", "<leader>F" },
-      },
-    },
-  },
-
   {
     -- NOTE: cmp sources are listed in configs/cmp.lua
     "nvim-orgmode/orgmode",
@@ -952,26 +644,6 @@ local plugins = {
         config = function(_, opts)
           require("org-bullets").setup(opts)
         end,
-
-        -- opts = {
-        --   concealcursor = false, -- If false then when the cursor is on a line underlying characters are visible
-        --   symbols = {
-        --     -- list symbol
-        --     list = "•",
-        --     -- headlines can be a list
-        --     headlines = { "◉", "○", "✸", "✿" },
-        --     -- or a function that receives the defaults and returns a list
-        --     headlines = function(default_list)
-        --       table.insert(default_list, "♥")
-        --       return default_list
-        --     end,
-        --     checkboxes = {
-        --       half = { "", "OrgTSCheckboxHalfChecked" },
-        --       done = { "✓", "OrgDone" },
-        --       todo = { "˟", "OrgTODO" },
-        --     },
-        --   },
-        -- },
       },
 
       {
@@ -1071,7 +743,98 @@ local plugins = {
     },
   },
 
+  { -- TODO FIXME:
+    "AckslD/nvim-neoclip.lua",
+    dependencies = {
+      -- -- Restore from last session
+      -- { "kkharji/sqlite.lua", module = "sqlite" }, -- packer style
 
+      -- you'll need at least one of these
+      { "nvim-telescope/telescope.nvim" },
+      -- {'ibhagwan/fzf-lua'},
+    },
+
+    config = function(_, opts)
+      require("neoclip").setup(opts)
+      require("telescope").load_extension "neoclip"
+    end,
+
+    keys = {
+      { "<leader>yp", "<cmd>Telescope neoclip<cr>", mode = "n", desc = "Telescope Yanks" },
+
+      { -- NOTE: Macros are recorded after this plugin is loaded
+        "<leader>ym",
+        function()
+          require("telescope").extensions.macroscope.default()
+        end,
+        mode = "n",
+        desc = "Telescope Macros",
+      },
+    },
+
+    opts = {
+      history = 1000,
+      enable_persistent_history = false,
+      length_limit = 1048576,
+      continuous_sync = false,
+      db_path = vim.fn.stdpath "data" .. "/databases/neoclip.sqlite3",
+      filter = nil,
+      preview = true,
+      prompt = nil,
+      default_register = '"',
+      default_register_macros = "q",
+      enable_macro_history = true,
+      content_spec_column = true,
+      disable_keycodes_parsing = false,
+      on_select = {
+        move_to_front = false,
+        close_telescope = true,
+      },
+      on_paste = {
+        set_reg = false,
+        move_to_front = false,
+        close_telescope = true,
+      },
+      on_replay = {
+        set_reg = false,
+        move_to_front = false,
+        close_telescope = true,
+      },
+      on_custom_action = {
+        close_telescope = true,
+      },
+      keys = {
+        telescope = {
+          i = {
+            select = "<cr>",
+            paste = "<c-p>",
+            paste_behind = "<c-k>",
+            replay = "<c-q>", -- replay a macro
+            delete = "<c-d>", -- delete an entry
+            edit = "<c-e>", -- edit an entry
+            custom = {},
+          },
+          n = {
+            select = "<cr>",
+            paste = "p",
+            --- It is possible to map to more than one key.
+            -- paste = { 'p', '<c-p>' },
+            paste_behind = "P",
+            replay = "q",
+            delete = "d",
+            edit = "e",
+            custom = {},
+          },
+        },
+        fzf = {
+          select = "default",
+          paste = "ctrl-p",
+          paste_behind = "ctrl-k",
+          custom = {},
+        },
+      },
+    },
+  },
 }
 
 return plugins
