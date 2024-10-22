@@ -9,6 +9,15 @@ Developed valuing the following attributes:
 * Focused
 * Introspective
 
+## Installation
+
+Like any other nvim config, install nvim version >= 0.9 I'm using 10.0
+```bash
+git clone https://github.com/ReggieMarr/nvim.git ~/.config/nvim
+```
+
+Then run ```:MasonInstallAll``` && ```:Lazy update```
+They made need to be run a couple times
 ## Progress
 
 [-] [TODO](2024-10-20_todo.md) Project management features
@@ -30,6 +39,20 @@ Developed valuing the following attributes:
     [-] [FIXME](2024-10-20_todo.md) Fix `checkhealth`
 [-] [TODO](2024-10-20_todo.md) Misc
     [-] [TODO](2024-10-20_todo.md) Fuzzy Execute Commands - `M-x`
+
+## Known issues
+
+### ```:checkhealth which-key ``` errors
+For some reason I get this fairly often
+```
+There were issues reported with your **which-key** mappings.
+Use `:checkhealth which-key` to find out more.
+```
+It seems to just be a nuisance error and ```:checkhealth which-key``` doesn't illumintate anything
+
+## Telescope hides desired results
+Results fed into Telescope either aren't sorting properly or something.
+Right now when we search something that has a ton of results the closest results appear hidden.
 
 ## Resources
 
