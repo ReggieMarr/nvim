@@ -24,6 +24,7 @@ vim.o.foldenable = true
 vim.g.vscode_snippets_path = "~/.config/nvim/lua/custom/snippets/json"
 vim.g.lua_snippets_path = "~/.config/nvim/lua/custom/snippets/lua"
 vim.g.snipmate_snippets_path = "~/.config/nvim/lua/custom/snippets/snipmate"
+vim.opt.timeoutlen = 1000  -- Increase this value if needed
 
 -- editing style
 -- Allow visual selection of blocks of text 
@@ -32,7 +33,7 @@ vim.opt.virtualedit = "block"
 -- Get command preview in a context buffer
 vim.opt.inccommand = "split"
 vim.opt.wrap = false
-
+vim.opt.selection = "exclusive"  -- More like traditional GUI editors
  -- Remove terminal padding when inside nvim:
 -- For st:
  function Sed(from, to, fname)

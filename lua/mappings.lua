@@ -692,3 +692,7 @@ end
 -- Set up the keybinding
 vim.api.nvim_set_keymap('n', '<C-*>', ':lua toggle_ignore_submodules()<CR>', {noremap = true, silent = true})
 
+-- Sticky visual mode
+vim.keymap.set("v", "<", "<gv", { noremap = true, silent = true })
+vim.keymap.set("v", ">", ">gv", { noremap = true, silent = true })
+vim.keymap.set("v", "p", "pgv", { noremap = true, silent = true })
