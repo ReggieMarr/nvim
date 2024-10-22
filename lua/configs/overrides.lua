@@ -2,18 +2,30 @@ local M = {}
 
 M.treesitter = {
   ensure_installed = {
+    -- defaults
     "vim",
     "lua",
+    -- web dev
     "html",
     "css",
     "javascript",
     "typescript",
     "tsx",
+    "json",
+    -- "vue", "svelte",
+    -- Systems programming
     "c",
     "cpp",
+    "cmake",
     "rust",
+    -- Note
+    "org",
     "markdown",
     "markdown_inline",
+    -- Script
+    "bash",
+    "cmake",
+    "python",
   },
   indent = {
     enable = true,
@@ -24,7 +36,7 @@ M.treesitter = {
 }
 
 M.mason = {
-  install_root_dir = os.getenv "HOME" .. "/.local/share/nvim/mason/bin",
+  install_root_dir = os.getenv "HOME" .. "/.local/share/nvim/mason/",
   ensure_installed = {
     -- lua stuff
     "lua-language-server",

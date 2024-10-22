@@ -11,36 +11,6 @@ local plugins = {
 
   {
     "nvim-treesitter/nvim-treesitter",
-    opts = {
-      ensure_installed = {
-        -- defaults
-        "vim",
-        "lua",
-        -- web dev
-        "html",
-        "css",
-        "javascript",
-        "typescript",
-        -- "tsx",
-        "json",
-        -- "vue", "svelte",
-
-        -- low level
-        "c",
-        "cpp",
-        "cmake",
-        "rust",
-        "zig",
-
-        -- Note
-        "org",
-
-        -- Script
-        "bash",
-        "cmake",
-        "python",
-      },
-    },
   },
 
   {
@@ -246,8 +216,10 @@ local plugins = {
         require "configs.null-ls"
       end,
   },
+
   {
     "williamboman/mason.nvim",
+    "williamboman/mason-lspconfig.nvim",
     opts = overrides.mason,
   },
 
