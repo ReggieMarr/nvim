@@ -1,7 +1,7 @@
 local nvlsp = require "nvchad.configs.lspconfig"
 local lspconfig = require "lspconfig"
 
-nvlsp.defaults() -- loads nvchad's defaults
+-- nvlsp.defaults() -- loads nvchad's defaults
 
 -- LSP mappings
 local function setup_lsp_mappings(client, bufnr)

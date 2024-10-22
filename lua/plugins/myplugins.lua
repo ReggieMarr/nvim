@@ -22,91 +22,51 @@ local plugins = {
       wk_config.setup()
     end,
   },
-  { 'nvim-telescope/telescope-fzf-native.nvim', 
-    build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release' },
 
   --Override plugin definition options
   {
     "nvim-telescope/telescope.nvim",
-    opts = {
-      defaults = {
-        select_buffer = true,
-        grouped = true,
-        collapse_dirs = true,
-        scroll_strategy = "limit",
-        layout_strategy = "horizontal",
-        cycle_layout_list = { "horizontal", "vertical" },
-        layout_config = {
-          horizontal = {
-            width = 0.9,
-            height = 0.9,
-            preview_width = 0.5,
-            preview_cutoff = 120,
-            prompt_position = "top",
-          },
+    cmd = "Telescope",
+    dependencies = {
+        { 'nvim-telescope/telescope-fzf-native.nvim', 
+          build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release' 
         },
-        sorting_strategy = "ascending",
-        selection_strategy = "closest",
-        winblend = 0,
-        results_title = false,
-        prompt_prefix = "   ",
-        prompt_title = false,
-        mappings = {
-          i = {
-            ["<C-j>"] = require("telescope.actions").move_selection_next,
-            ["<C-k>"] = require("telescope.actions").move_selection_previous,
-            ["<C-u>"] = false,
-            ["<C-d>"] = false,
-            ["<TAB>"] = require("telescope.actions").select_default,
-          },
-          n = {
-            ["<TAB>"] = require("telescope.actions").select_default,
-          },
-        },
-      },
-      pickers = {
-        buffers = {
-          theme = "dropdown",
-          previewer = false,
-          layout_config = {
-            width = 0.5,
-            height = 0.4,
-          },
-          mappings = {
-            i = {
-              ["<C-d>"] = require("telescope.actions").delete_buffer,
-            },
-            n = {
-              ["dd"] = require("telescope.actions").delete_buffer,
-            },
-          },
-        },
-        current_buffer_fuzzy_find = {
-          theme = "dropdown",
-          previewer = false,
-          layout_config = {
-            width = 0.5,
-            height = 0.4,
-          },
-        },
-      },
+        "folke/noice.nvim",
     },
-    config = function(_, opts)
-      local telescope = require("telescope")
-      telescope.setup(opts)
+    config = function()
+        local telescope = require("telescope")
+        telescope.load_extension("noice")
 
-      -- Override the current_buffer_fuzzy_find picker
-      local builtin = require("telescope.builtin")
-      vim.keymap.set("n", "<leader>/", function()
-        builtin.current_buffer_fuzzy_find(require("telescope.themes").get_dropdown({
-          winblend = 10,
-          previewer = false,
-          layout_config = {
-            width = 0.5,
-            height = 0.4,
-          },
-        }))
-      end, { desc = "Fuzzy search in current buffer" })
+        local actions = require("telescope.actions")
+        telescope.setup({
+            defaults = {
+                sorting_strategy = "ascending",
+                path_display = { "filename_first" },
+                layout_config = {
+                    prompt_position = "top",
+                },
+                mappings = {
+                    i = {
+                        ["<Tab>"] = actions.move_selection_next,
+                        ["<S-Tab>"] = actions.move_selection_previous,
+                        ["<C-n>"] = actions.toggle_selection + actions.move_selection_worse,
+                        ["<C-p>"] = actions.toggle_selection + actions.move_selection_better,
+                    },
+                },
+            },
+            pickers = {
+                lsp_references = {
+                    show_line = false,
+                },
+                find_files = {
+                    hidden = true,
+                },
+                live_grep = {
+                    additional_args = { "--hidden" },
+                },
+            },
+        })
+        telescope.load_extension("fzf")
     end,
   },
 
@@ -142,7 +102,7 @@ local plugins = {
     end,
     dependencies = {
       { "nvim-lua/plenary.nvim" },
-      { "nvim-telescope/telescope.nvim", tag = "0.1.4" },
+      { "nvim-telescope/telescope.nvim"},
       { "ibhagwan/fzf-lua" },
       { "Shatur/neovim-session-manager" },
       { "nvim-telescope/telescope-file-browser.nvim" },
@@ -328,28 +288,6 @@ local plugins = {
     },
   },
 
-  -- { -- Emoji Picker
-  --   -- MOVED: to nerdy.nvim
-  --   "ziontee113/icon-picker.nvim",
-  --
-  --   keys = {
-  --     {
-  --       "<leader>fe",
-  --       ":PickEverything<CR>",
-  --       mode = "n",
-  --       desc = "Glyph Picker",
-  --     }, -- Gigantic Search Base
-  --   },
-  --
-  --   config = function(_, opts)
-  --     require("icon-picker").setup(opts)
-  --   end,
-  --
-  --   opts = {
-  --     disable_legacy_commands = false,
-  --   },
-  -- },
-
   {
     "hrsh7th/nvim-cmp",
     dependencies = require("configs.cmp").dependencies,
@@ -482,26 +420,6 @@ local plugins = {
     end,
   },
 
-  -- { -- Diagnostics as a scrollbar (JetBrains feature)
-  --   -- NOTE: I deprecate this plugin from CamelVim. This is optional because of the bad performance satellite.nvim has.
-  --   -- Opened a issue about this (#51)
-  --
-  -- --  "lewis6991/satellite.nvim", -- Bad performance But Beautiful
-  --   "dstein64/nvim-scrollview", -- Better performance
-  --   lazy = false, -- Load on startup
-  --
-  --   cmd = { "SatelliteEnable", "SatelliteDisable" },
-  --
-  --   keys = {
-  --     { -- This plugin lacks a toggle function
-  --       "<leader>sd",
-  --       ":SatelliteDisable<CR>",
-  --       mode = "n",
-  --       desc = "Toggle Satellite",
-  --     },
-  --   },
-  -- },
-
   { -- This plugin overrides the default vim selector ui (e.g <leader>ca)
     "stevearc/dressing.nvim",
 
@@ -515,31 +433,6 @@ local plugins = {
       default_prompt = "❯ ",
     },
   },
-
-  -- { -- TODO replace this with automaton
-  --   "stevearc/overseer.nvim",
-  --
-  --   dependencies = { "stevearc/dressing.nvim" },
-  --
-  --   keys = {
-  --     { "<leader>tt", ":OverseerToggle<CR>", mode = "n", desc = "Toggle Task Runner UI" },
-  --     { "<leader>tr", ":OverseerRun<CR>", mode = "n", desc = "Run tasks" },
-  --   },
-  --
-  --   config = function()
-  --     require("overseer").setup()
-  --   end,
-  --
-  --   opts = {},
-  -- },
-
-  -- { -- Using flash.nvim now
-  --   "ggandor/leap.nvim",
-  --   config = function()
-  --     require("leap").add_default_mappings()
-  --   end,
-  --   lazy = false, -- leap takes care of lazy loading by itself
-  -- },
 
   { -- Minimap
     "gorbit99/codewindow.nvim",
@@ -588,60 +481,6 @@ local plugins = {
     end,
 
     opts = {},
-  },
-
-  -- { -- Default nvim motions are good enough
-  --   "willothy/moveline.nvim",
-  --   event = "VeryLazy",
-  --
-  --   --    keys = {
-  --   --      { "<C-M-j>", ':lua require("moveline").down<CR>', mode = "n", desc = "Move line down" },
-  --   --      { "<C-M-k>", ':lua require("moveline").up<CR>', mode = "n", desc = "Move line up" },
-  --   --
-  --   --      { "<C-M-j>", ':lua require("moveline").block_down<CR>', mode = "v", desc = "Move line down" },
-  --   --      { "<C-M-k>", ':lua require("moveline").block_up<CR>', mode = "v", desc = "Move line up" },
-  --   --    },
-  --
-  --   config = function()
-  --     local moveline = require "moveline"
-  --
-  --     -- My terminal has it's own M-j/k bindings so:
-  --     vim.keymap.set("n", "<C-M-k>", moveline.up)
-  --     vim.keymap.set("n", "<C-M-j>", moveline.down)
-  --     vim.keymap.set("v", "<C-M-k>", moveline.block_up)
-  --     vim.keymap.set("v", "<C-M-j>", moveline.block_down)
-  --   end,
-  --   build = "make",
-  -- },
-
-  { -- One of the most useful plugins I've ever seen
-    "rktjmp/paperplanes.nvim",
-
-    keys = {
-      {
-        "<leader><leader>p",
-        ":PP<CR>",
-        mode = "n",
-        desc = "Send Buffer to Pastebin Client",
-      },
-      {
-        "<leader><leader>p",
-        ":PP<CR>",
-        mode = "v",
-        desc = "Send Seleceted Code to Pastebin Client",
-      },
-    },
-
-    config = function(_, opts)
-      require("paperplanes").setup(opts)
-    end,
-
-    opts = {
-      register = "+",
-      provider = "0x0.st",
-      provider_options = {},
-      notifier = vim.notify or print,
-    },
   },
 
   {
