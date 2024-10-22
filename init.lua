@@ -29,14 +29,15 @@ require("lazy").setup({
 dofile(vim.g.base46_cache .. "defaults")
 dofile(vim.g.base46_cache .. "statusline")
 
-require "options"
-require "nvchad.autocmds"
+-- require "options"
+-- require "nvchad.autocmds"
 
 require 'myinit'
+require "mappings"
 
-vim.schedule(function()
-  require "mappings"
-end)
+-- vim.schedule(function()
+--   require "mappings"
+-- end)
 
 -- TODO put these in their own plugin file
 require("telescope").load_extension "file_browser"
@@ -60,5 +61,35 @@ vim.api.nvim_create_autocmd("User", {
     on_project_open()
   end,
 })
-
-require "sniprun"
+--
+-- require "sniprun"
+--
+-- local overseer = require("overseer")
+-- -- Add a custom template for run.sh scripts
+-- overseer.register_template({
+--   name = "run.sh task",
+--   detect = {
+--     filename = "run.sh",
+--   },
+--   builder = function(params)
+--     -- Parse the run.sh file to extract available tasks
+--     local tasks = {}
+--     for line in io.lines(params.filename) do
+--       local task = line:match('^%s*"([^"]+)"%)') -- Adjust this regex based on your script structure
+--       if task then
+--         table.insert(tasks, task)
+--       end
+--     end
+--
+--     -- Create a task for each detected command
+--     return tasks:map(function(task)
+--       return {
+--         name = "run.sh: " .. task,
+--         cmd = { "./run.sh", task },
+--         components = { "default" },
+--       }
+--     end)
+--   end,
+-- })
+--
+-- vim.o.errorformat = vim.o.errorformat .. [[,%f:%l:%c: %t%*[^:]: %m]]

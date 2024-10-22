@@ -696,3 +696,21 @@ vim.api.nvim_set_keymap('n', '<C-*>', ':lua toggle_ignore_submodules()<CR>', {no
 vim.keymap.set("v", "<", "<gv", { noremap = true, silent = true })
 vim.keymap.set("v", ">", ">gv", { noremap = true, silent = true })
 vim.keymap.set("v", "p", "pgv", { noremap = true, silent = true })
+local function prevent_visual_exit()
+    local mode = vim.api.nvim_get_mode().mode
+    if mode:sub(1,1) == 'v' then  -- if in any visual mode
+        local key = vim.fn.getchar()
+        if key == 27 then  -- ESC key
+            return '<Esc>'
+        elseif string.char(key) == 'y' then  -- yank
+            return 'y'
+        elseif string.char(key) == 'd' then  -- delete
+            return 'd'
+        else
+            return ''
+        end
+    end
+    return ''
+end
+
+vim.keymap.set('v', '<expr>', prevent_visual_exit)
