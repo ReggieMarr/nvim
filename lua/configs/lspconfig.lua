@@ -1,9 +1,7 @@
-local capabilities = require("nvchad.configs.lspconfig").capabilities
-
+local nvlsp = require "nvchad.configs.lspconfig"
 local lspconfig = require "lspconfig"
 
--- List of language servers to set up
-local servers = { "cssls", "clangd", "rust_analyzer", "cmake" }
+nvlsp.defaults() -- loads nvchad's defaults
 
 -- LSP mappings
 local function setup_lsp_mappings(client, bufnr)
@@ -22,7 +20,8 @@ local function setup_lsp_mappings(client, bufnr)
   vim.keymap.set('n', '<leader>lI', function() telescope.lsp_implementations() end, opts("Go to implementation"))
   vim.keymap.set('n', '<leader>lr', function() telescope.lsp_references() end, opts("Show references"))
   vim.keymap.set('n', '<leader>lt', function() telescope.lsp_type_definitions() end, opts("Go to type definition"))
-  vim.keymap.set('n', '<leader>la', function() telescope.lsp_code_actions() end, opts("Code action"))
+  vim.keymap.set('n', '<leader>la', vim.lsp.buf.code_action, opts("Code action"))
+  vim.keymap.set('n', '<leader>lh', vim.lsp.buf.signature_help, opts("Show signature help"))
   vim.keymap.set('n', '<leader>lq', function() telescope.diagnostics() end, opts("Show diagnostics"))
   vim.keymap.set('n', '<leader>ls', function() telescope.lsp_document_symbols() end, opts("Document symbols"))
   vim.keymap.set('n', '<leader>lS', function() telescope.lsp_dynamic_workspace_symbols() end, opts("Workspace symbols"))
@@ -62,37 +61,26 @@ local function setup_lsp_mappings(client, bufnr)
   end
 end
 
-
-local function on_attach(client, bufnr)
+local function custom_on_attach(client, bufnr)
     setup_lsp_mappings(client, bufnr)
     vim.keymap.set("n", "gd", "<cmd> Telescope lsp_definitions<cr>", { buffer = bufnr })
 end
 
--- Problem: clangd uses a different offset encoding (UTF-16) compared to other LSP servers (UTF-8).
--- This can cause conflicts and warnings about "multiple different client offset_encodings".
--- Solution: We create a specialized setup for clangd to use UTF-16 encoding.
+local servers = { "html", "cssls", "clangd", "rust_analyzer", "cmake" }
 
--- Create a specialized setup function for clangd
-local function setup_clangd()
-    local clangd_capabilities = vim.deepcopy(capabilities)
-    clangd_capabilities.offsetEncoding = { "utf-16" }
-    
-    lspconfig.clangd.setup {
-        on_attach = on_attach,
-        capabilities = clangd_capabilities,
-        -- Add any other clangd-specific settings here
+for _, lsp in ipairs(servers) do
+    local custom_capabilities = nvlsp.capabilities
+
+    -- Special handling for clangd
+    if lsp == "clangd" then
+        custom_capabilities = vim.tbl_deep_extend("force", custom_capabilities or {}, {
+            offsetEncoding = { "utf-16" }
+        })
+    end
+
+    lspconfig[lsp].setup {
+      on_attach = custom_on_attach,
+      on_init = nvlsp.on_init,
+      capabilities = custom_capabilities,
     }
 end
-
--- Set up other language servers
-for _, lsp in ipairs(servers) do
-    if lsp ~= "clangd" then  -- We handle clangd separately
-        lspconfig[lsp].setup {
-            on_attach = on_attach,
-            capabilities = capabilities,
-        }
-    end
-end
-
--- Set up clangd with specialized configuration
-setup_clangd()
