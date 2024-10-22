@@ -2583,11 +2583,11 @@ local plugins = {
   {
     "michaelb/sniprun",
     build = "sh ./install.sh",
-    config = function(_, opts)
-      require("sniprun").setup(opts)
-    end,
     keys = require("configs.sniprun").keys,
     opts = require("configs.sniprun").opts,
+    -- config = function(_, opts)
+    --   require("sniprun").setup(opts)
+    -- end,
   },
 
   ------- GAMES -------
