@@ -54,6 +54,7 @@ local plugins = {
 
   {
     "folke/which-key.nvim",
+    lazy = false,
     config = function(_, opts)
       dofile(vim.g.base46_cache .. "whichkey")
       -- TODO update these configs to match my nmenonics and uncomment this
@@ -254,6 +255,8 @@ local plugins = {
       { "Shatur/neovim-session-manager" },
       { "nvim-telescope/telescope-file-browser.nvim" },
       { "davvid/telescope-git-grep.nvim" },
+      -- TODO should this really be here ?
+      { "Zeioth/compiler.nvim" },
     },
     priority = 100,
     keys = {
@@ -422,8 +425,22 @@ local plugins = {
     },
     opts = {
       formatters_by_ft = tools.formatters,
+      formatters = {
+        checkmake = {
+          -- Add any specific checkmake configuration if needed
+          args = { "--format='{line}: {error}'" },
+        },
+      },
       -- Extract format_on_save logic to a separate function for reusability
       format_on_save = function(bufnr)
+        -- Add special handling for Makefiles
+        local ft = vim.bo[bufnr].filetype
+        if ft == "make" or ft == "makefile" then
+          -- Ensure tabs are preserved
+          vim.bo[bufnr].expandtab = false
+          vim.bo[bufnr].tabstop = 8
+          vim.bo[bufnr].shiftwidth = 8
+        end
         return require("configs.conform").format_on_save_handler(bufnr)
       end,
     },
@@ -517,6 +534,7 @@ local plugins = {
           "c",
           "cpp",
           "cmake",
+          "make",
           "rust",
           -- Note
           "org",
@@ -533,6 +551,7 @@ local plugins = {
           disable = {
             "c",
             "cpp",
+            "make",
           },
         },
         highlight = {
@@ -625,77 +644,106 @@ local plugins = {
     "Zeioth/compiler.nvim",
     keys = {
       {
-        "<leader>rr",
-        ":CompilerOpen<CR>",
+        "<leader>cc",
+        function()
+          -- Get the overseer tasks
+          local overseer = require "overseer"
+          local tasks = overseer.list_tasks()
+          local running_tasks = {}
+
+          -- Find running compilation tasks
+          for _, task in ipairs(tasks) do
+            if task.status == "RUNNING" then
+              table.insert(running_tasks, task)
+            end
+          end
+
+          -- Get the most recent task (if any)
+          local most_recent_task = tasks[#tasks]
+
+          if #running_tasks > 0 then
+            vim.notify("Stopping running compilation", vim.log.levels.INFO)
+            vim.cmd "CompilerStop"
+            vim.cmd "CompilerToggleResults"
+          elseif most_recent_task then
+            vim.notify("Redoing last compilation", vim.log.levels.INFO)
+            vim.cmd "CompilerRedo"
+          else
+            vim.notify("Opening compiler menu", vim.log.levels.INFO)
+            vim.cmd "CompilerOpen"
+          end
+        end,
         mode = "n",
-        desc = "Run Project",
+        desc = "Compiler DWIM",
       },
       {
-        "<leader>rt",
+        "<leader>cs",
+        ":CompilerStop<CR>",
+        mode = "n",
+        desc = "Stop the current compilation",
+      },
+      {
+        "<leader>cr",
+        ":CompilerRedo<CR>",
+        mode = "n",
+        desc = "Perform the last compilation command",
+      },
+      {
+        "<leader>cd",
         ":CompilerToggleResults<CR>",
         mode = "n",
         desc = "Toggle Results",
       },
     },
 
+    opts = {},
+
     cmd = {
       "CompilerOpen",
       "CompilerToggleResults",
       "CompilerRedo",
+      "CompilerStop",
     },
 
     dependencies = {
-      "stevearc/overseer.nvim",
-    },
 
-    opts = {},
-  },
+      { -- The task runner for compiler.nvim + daily tasks
+        "stevearc/overseer.nvim",
+        -- commit = "19aac0426710c8fc0510e54b7a6466a03a1a7377",
 
-  { -- The task runner for compiler.nvim + daily tasks
-    "stevearc/overseer.nvim",
-    -- commit = "19aac0426710c8fc0510e54b7a6466a03a1a7377",
+        dependencies = {
+          "nvim-neotest/nvim-nio",
+          { -- This plugin overrides the default vim selector ui (e.g <leader>ca)
+            "stevearc/dressing.nvim",
+            config = function(_, opts)
+              require("dressing").setup(opts)
+            end,
 
-    dependencies = {
-      "nvim-neotest/nvim-nio",
-      { -- This plugin overrides the default vim selector ui (e.g <leader>ca)
-        "stevearc/dressing.nvim",
-        config = function(_, opts)
-          require("dressing").setup(opts)
-        end,
+            opts = {
+              default_prompt = "❯ ",
+            },
+          },
+        },
+
+        cmd = {
+          "CompilerOpen",
+          "CompilerToggleResults",
+          "CompilerRedo",
+          "CompilerStop",
+        },
 
         opts = {
-          default_prompt = "❯ ",
-        },
-      },
-    },
-    keys = {
-      {
-        "<leader>ra",
-        function()
-          vim.cmd [[OverseerRun]]
-          vim.cmd [[OverseerOpen]]
-        end,
-        mode = "n",
-        desc = "Run Task",
-      },
-    },
-
-    cmd = {
-      "CompilerOpen",
-      "CompilerToggleResults",
-      "CompilerRedo",
-    },
-
-    opts = {
-      task_list = {
-        direction = "bottom",
-        min_height = 25,
-        max_height = 25,
-        default_detail = 1,
-        bindings = {
-          ["q"] = function()
-            vim.cmd "OverseerClose"
-          end,
+          task_list = {
+            direction = "bottom",
+            min_height = 25,
+            max_height = 25,
+            default_detail = 1,
+            bindings = {
+              ["q"] = function()
+                vim.cmd "OverseerClose"
+              end,
+            },
+          },
         },
       },
     },
@@ -1203,7 +1251,7 @@ local plugins = {
 
     keys = {
       {
-        "<leader>cd",
+        "<leader>rd",
         "<cmd>lua require('neogen').generate()<CR>",
         mode = "n",
         desc = "Generate Base Documentation",
@@ -1211,19 +1259,36 @@ local plugins = {
     },
   },
 
-  { -- Regexplainer
-    "tomiis4/Hypersonic.nvim",
-    config = function(_, opts)
-      require("hypersonic").setup(opts)
-    end,
-
-    opts = {},
-
+  {
+    -- NOTE requires we install ripgrep like so:
+    -- cargo install ripgrep --features pcre2
+    -- this should be done with mason
+    "chrisgrieser/nvim-rip-substitute",
+    cmd = "RipSubstitute",
     keys = {
-      { "<leader>re", "<cmd>Hypersonic<cr>", mode = { "n", "v" }, desc = "RegExplain" },
+      {
+        "<leader>rr",
+        function()
+          require("rip-substitute").sub()
+        end,
+        mode = { "n", "x" },
+        desc = " Regex replace",
+      },
     },
   },
-
+  -- { -- Regexplainer
+  --   "tomiis4/Hypersonic.nvim",
+  --   config = function(_, opts)
+  --     require("hypersonic").setup(opts)
+  --   end,
+  --
+  --   opts = {},
+  --
+  --   keys = {
+  --     { "<leader>re", "<cmd>Hypersonic<cr>", mode = { "n", "v" }, desc = "RegExplain" },
+  --   },
+  -- },
+  --
   {
     "jay-babu/mason-nvim-dap.nvim",
 

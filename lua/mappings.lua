@@ -1,9 +1,9 @@
 -- Helper function to set keymaps
 local function map(mode, lhs, rhs, opts)
-    opts = opts or {}
-    opts.noremap = opts.noremap == nil and true or opts.noremap
-    opts.silent = opts.silent == nil and true or opts.silent
-    vim.keymap.set(mode, lhs, rhs, opts)
+  opts = opts or {}
+  opts.noremap = opts.noremap == nil and true or opts.noremap
+  opts.silent = opts.silent == nil and true or opts.silent
+  vim.keymap.set(mode, lhs, rhs, opts)
 end
 -- require "nvchad.mappings"
 -- TODO this is just manually placing these for now
@@ -21,12 +21,9 @@ vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "switch window up" })
 
 vim.keymap.set("n", "<Esc>", "<cmd>noh<CR>", { desc = "general clear highlights" })
 
--- vim.keymap.set("n", "<C-s>", "<cmd>w<CR>", { desc = "general save file" })
--- vim.keymap.set("n", "<C-c>", "<cmd>%y+<CR>", { desc = "general copy whole file" })
-
-vim.keymap.set("n", "<leader>n", "<cmd>set nu!<CR>", { desc = "toggle line number" })
-vim.keymap.set("n", "<leader>rn", "<cmd>set rnu!<CR>", { desc = "toggle relative number" })
-vim.keymap.set("n", "<leader>ch", "<cmd>NvCheatsheet<CR>", { desc = "toggle nvcheatsheet" })
+vim.keymap.set("n", "<leader>tr", "<cmd>set rnu!<CR>", { desc = "toggle relative number" })
+-- NOTE review if needed
+-- vim.keymap.set("n", "<leader>ch", "<cmd>NvCheatsheet<CR>", { desc = "toggle nvcheatsheet" })
 
 vim.keymap.set("n", "<leader>fm", function()
   require("conform").format { lsp_fallback = true }
@@ -49,7 +46,6 @@ end, { desc = "buffer goto prev" })
 vim.keymap.set("n", "<leader>x", function()
   require("nvchad.tabufline").close_buffer()
 end, { desc = "buffer close" })
-
 
 -- nvimtree
 vim.keymap.set("n", "<C-n>", "<cmd>NvimTreeToggle<CR>", { desc = "nvimtree toggle window" })
@@ -130,10 +126,14 @@ map("n", "<leader>si", "<cmd>Telescope treesitter<CR>", { desc = "Search objects
 
 -- Project
 map("n", "<leader>pf", "<cmd>Telescope git_files<CR>", { desc = "Find file in project" })
-map("n", "<leader>pF", function() require('telescope.builtin').find_files() end, { desc = "Find file in project" })
+map("n", "<leader>pF", function()
+  require("telescope.builtin").find_files()
+end, { desc = "Find file in project" })
 map("n", "<leader>pp", ":NeovimProjectDiscover<CR>", { desc = "Switch project" })
 
-map("n", "<leader>pb", function() require('telescope.builtin').buffers() end, { desc = "Switch to project buffer" })
+map("n", "<leader>pb", function()
+  require("telescope.builtin").buffers()
+end, { desc = "Switch to project buffer" })
 
 -- Buffers
 map("n", "<leader>bb", "<cmd>Telescope buffers<CR>", { desc = "Switch buffer" })
@@ -143,145 +143,149 @@ map("n", "<leader>bp", "<cmd>bprevious<CR>", { desc = "Previous buffer" })
 map("n", "<leader>bR", "<cmd>lua vim.lsp.buf.rename()<CR>", { desc = "Rename buffer" })
 -- Toggling Conceal
 local function search_project_for_symbol_at_point()
-  local word = vim.fn.expand("<cword>")
+  local word = vim.fn.expand "<cword>"
   local search_dirs = {}
-  
-  if vim.fn.exists("*ProjectRootGet") == 1 then
+
+  if vim.fn.exists "*ProjectRootGet" == 1 then
     -- If you're using projectroot plugin
-    search_dirs = {vim.fn.ProjectRootGet()}
-  elseif vim.fn.exists("*FugitiveWorkTree") == 1 then
+    search_dirs = { vim.fn.ProjectRootGet() }
+  elseif vim.fn.exists "*FugitiveWorkTree" == 1 then
     -- If you're using vim-fugitive
-    search_dirs = {vim.fn.FugitiveWorkTree()}
+    search_dirs = { vim.fn.FugitiveWorkTree() }
   else
     -- Fallback to current working directory
-    search_dirs = {vim.fn.getcwd()}
+    search_dirs = { vim.fn.getcwd() }
   end
 
-  require('telescope.builtin').grep_string({
+  require("telescope.builtin").grep_string {
     search = word,
     search_dirs = search_dirs,
     prompt_title = 'Search for "' .. word .. '" in project',
     use_regex = false,
     word_match = "-w",
     only_sort_text = true,
-    sorter = require('telescope.sorters').get_fzy_sorter(),
-  })
+    sorter = require("telescope.sorters").get_fzy_sorter(),
+  }
 end
 
 local function map(mode, lhs, rhs, opts)
-    opts = opts or {}
-    opts.noremap = opts.noremap == nil and true or opts.noremap
-    opts.silent = opts.silent == nil and true or opts.silent
-    vim.keymap.set(mode, lhs, rhs, opts)
+  opts = opts or {}
+  opts.noremap = opts.noremap == nil and true or opts.noremap
+  opts.silent = opts.silent == nil and true or opts.silent
+  vim.keymap.set(mode, lhs, rhs, opts)
 end
 
-map('n', '<leader>*', search_project_for_symbol_at_point, {desc = "Search project for symbol at point"})
+map("n", "<leader>*", search_project_for_symbol_at_point, { desc = "Search project for symbol at point" })
 local function map(mode, lhs, rhs, opts)
-    opts = opts or {}
-    opts.noremap = opts.noremap == nil and true or opts.noremap
-    opts.silent = opts.silent == nil and true or opts.silent
-    vim.keymap.set(mode, lhs, rhs, opts)
+  opts = opts or {}
+  opts.noremap = opts.noremap == nil and true or opts.noremap
+  opts.silent = opts.silent == nil and true or opts.silent
+  vim.keymap.set(mode, lhs, rhs, opts)
 end
 
 -- Helper functions
 local function copy_this_file()
-    local src = vim.fn.expand('%:p')
-    local dst = vim.fn.input('Copy to: ', src, 'file')
-    vim.fn.system('cp ' .. vim.fn.shellescape(src) .. ' ' .. vim.fn.shellescape(dst))
-    print('File copied to ' .. dst)
+  local src = vim.fn.expand "%:p"
+  local dst = vim.fn.input("Copy to: ", src, "file")
+  vim.fn.system("cp " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(dst))
+  print("File copied to " .. dst)
 end
 
 local function delete_this_file()
-    local file = vim.fn.expand('%:p')
-    local choice = vim.fn.input('Delete ' .. file .. '? (y/n): ')
-    if choice:lower() == 'y' then
-        vim.cmd('bdelete!')
-        vim.fn.delete(file)
-        print('File deleted: ' .. file)
-    end
+  local file = vim.fn.expand "%:p"
+  local choice = vim.fn.input("Delete " .. file .. "? (y/n): ")
+  if choice:lower() == "y" then
+    vim.cmd "bdelete!"
+    vim.fn.delete(file)
+    print("File deleted: " .. file)
+  end
 end
 
 local function move_this_file()
-    local src = vim.fn.expand('%:p')
-    local dst = vim.fn.input('Move to: ', src, 'file')
-    vim.fn.system('mv ' .. vim.fn.shellescape(src) .. ' ' .. vim.fn.shellescape(dst))
-    vim.cmd('edit ' .. vim.fn.fnameescape(dst))
-    print('File moved to ' .. dst)
+  local src = vim.fn.expand "%:p"
+  local dst = vim.fn.input("Move to: ", src, "file")
+  vim.fn.system("mv " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(dst))
+  vim.cmd("edit " .. vim.fn.fnameescape(dst))
+  print("File moved to " .. dst)
 end
 
 local function sudo_edit()
-    local file = vim.fn.expand('%')
-    vim.cmd('w !sudo tee > /dev/null %')
+  local file = vim.fn.expand "%"
+  vim.cmd "w !sudo tee > /dev/null %"
 end
 
 local function yank_buffer_path(relative)
-    local path = vim.fn.expand('%:p')
-    if relative then
-        path = vim.fn.fnamemodify(path, ':.')
-    end
-    vim.fn.setreg('+', path)
-    print('Yanked: ' .. path)
+  local path = vim.fn.expand "%:p"
+  if relative then
+    path = vim.fn.fnamemodify(path, ":.")
+  end
+  vim.fn.setreg("+", path)
+  print("Yanked: " .. path)
 end
 
 -- Keybindings
-map('n', '<leader>fC', copy_this_file, {desc = "Copy this file"})
-map('n', '<leader>fD', delete_this_file, {desc = "Delete this file"})
-map('n', '<leader>fE', '<cmd>Telescope file_browser cwd=~/.config/nvim<CR>', {desc = "Browse in neovim config"})
-map('n', '<leader>fP', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Open private config"})
-map('n', '<leader>fR', move_this_file, {desc = "Move this file"})
-map('n', '<leader>fS', '<cmd>saveas<CR>', {desc = "Save as"})
-map('n', '<leader>fU', sudo_edit, {desc = "Sudo edit this file"})
-map('n', '<leader>fY', function() yank_buffer_path(true) end, {desc = "Yank buffer path (relative)"})
-map('n', '<leader>fc', '<cmd>e .editorconfig<CR>', {desc = "Find EditorConfig file"})
-map('n', '<leader>fd', '<cmd>Telescope file_browser<CR>', {desc = "File browser"})
-map('n', '<leader>fe', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Find file in neovim config"})
+map("n", "<leader>fC", copy_this_file, { desc = "Copy this file" })
+map("n", "<leader>fD", delete_this_file, { desc = "Delete this file" })
+map("n", "<leader>fE", "<cmd>Telescope file_browser cwd=~/.config/nvim<CR>", { desc = "Browse in neovim config" })
+map("n", "<leader>fP", "<cmd>Telescope find_files cwd=~/.config/nvim<CR>", { desc = "Open private config" })
+map("n", "<leader>fR", move_this_file, { desc = "Move this file" })
+map("n", "<leader>fS", "<cmd>saveas<CR>", { desc = "Save as" })
+map("n", "<leader>fU", sudo_edit, { desc = "Sudo edit this file" })
+map("n", "<leader>fY", function()
+  yank_buffer_path(true)
+end, { desc = "Yank buffer path (relative)" })
+map("n", "<leader>fc", "<cmd>e .editorconfig<CR>", { desc = "Find EditorConfig file" })
+map("n", "<leader>fd", "<cmd>Telescope file_browser<CR>", { desc = "File browser" })
+map("n", "<leader>fe", "<cmd>Telescope find_files cwd=~/.config/nvim<CR>", { desc = "Find file in neovim config" })
 -- TODO replace this with a locate like grepper
 -- map('n', '<leader>fl', '<cmd>Telescope live_grep<CR>', {desc = "Live grep (like locate)"})
-map('n', '<leader>fp', '<cmd>Telescope find_files cwd=~/.config/nvim<CR>', {desc = "Find file in private config"})
-map('n', '<leader>fr', '<cmd>Telescope oldfiles<CR>', {desc = "Recent files"})
-map('n', '<leader>fs', '<cmd>w<CR>', {desc = "Save buffer"})
-map('n', '<leader>fu', '<cmd>e sudo:%%<CR>', {desc = "Sudo find file"})
-map('n', '<leader>fy', function() yank_buffer_path(false) end, {desc = "Yank buffer path"})
+map("n", "<leader>fp", "<cmd>Telescope find_files cwd=~/.config/nvim<CR>", { desc = "Find file in private config" })
+map("n", "<leader>fr", "<cmd>Telescope oldfiles<CR>", { desc = "Recent files" })
+map("n", "<leader>fs", "<cmd>w<CR>", { desc = "Save buffer" })
+map("n", "<leader>fu", "<cmd>e sudo:%%<CR>", { desc = "Sudo find file" })
+map("n", "<leader>fy", function()
+  yank_buffer_path(false)
+end, { desc = "Yank buffer path" })
 
 -- Function to save all and quit
 local function save_all_and_quit()
-    vim.cmd('wa')
-    vim.cmd('qa!')
+  vim.cmd "wa"
+  vim.cmd "qa!"
 end
 
 -- Set up the mapping
 -- Option 1: Emacs-like keybinding
-map('n', '<C-x><C-c>', save_all_and_quit, {desc = "Save all and quit (like Emacs C-x C-c)"})
+map("n", "<C-x><C-c>", save_all_and_quit, { desc = "Save all and quit (like Emacs C-x C-c)" })
 
 -- Option 2: Leader-based mapping
-map('n', '<leader>qq', save_all_and_quit, {desc = "Save all and quit (like Emacs C-x C-c)"})
+map("n", "<leader>qq", save_all_and_quit, { desc = "Save all and quit (like Emacs C-x C-c)" })
 
 local function map(mode, lhs, rhs, opts)
-    opts = opts or {}
-    opts.noremap = opts.noremap == nil and true or opts.noremap
-    opts.silent = opts.silent == nil and true or opts.silent
-    vim.keymap.set(mode, lhs, rhs, opts)
+  opts = opts or {}
+  opts.noremap = opts.noremap == nil and true or opts.noremap
+  opts.silent = opts.silent == nil and true or opts.silent
+  vim.keymap.set(mode, lhs, rhs, opts)
 end
 
 -- Neogit keybindings
-map('n', '<leader>gG', function()
-    require('neogit').open({ cwd = vim.fn.expand('%:p:h') })
-end, {desc = "Neogit status here"})
+map("n", "<leader>gG", function()
+  require("neogit").open { cwd = vim.fn.expand "%:p:h" }
+end, { desc = "Neogit status here" })
 
-map('n', '<leader>gL', function()
-    require('neogit').open({ 'log', '--', vim.fn.expand('%:p') })
-end, {desc = "Neogit log current file"})
+map("n", "<leader>gL", function()
+  require("neogit").open { "log", "--", vim.fn.expand "%:p" }
+end, { desc = "Neogit log current file" })
 
-map('n', '<leader>gB', function()
-    vim.cmd('Neogit blame')
-end, {desc = "Neogit blame"})
+map("n", "<leader>gB", function()
+  vim.cmd "Neogit blame"
+end, { desc = "Neogit blame" })
 
-map('n', '<leader>gC', function()
-    local url = vim.fn.input('Enter repository URL: ')
-    if url ~= '' then
-        require('neogit').clone(url)
-    end
-end, {desc = "Neogit clone"})
+map("n", "<leader>gC", function()
+  local url = vim.fn.input "Enter repository URL: "
+  if url ~= "" then
+    require("neogit").clone(url)
+  end
+end, { desc = "Neogit clone" })
 
 -- Improved toggle_maximize_buffer function
 local maximized = false
@@ -309,8 +313,8 @@ local function toggle_zoom()
 
   local function zoom_session_file()
     if not vim.t.zoom_session_file then
-      vim.t.zoom_session_file = fn.tempname() .. '_' .. api.nvim_tabpage_get_number(0)
-      
+      vim.t.zoom_session_file = fn.tempname() .. "_" .. api.nvim_tabpage_get_number(0)
+
       api.nvim_create_autocmd("TabClosed", {
         group = api.nvim_create_augroup("ZoomCleanup", { clear = true }),
         callback = function()
@@ -325,86 +329,88 @@ local function toggle_zoom()
 
   if is_zoomed() then
     api.nvim_exec_autocmds("User", { pattern = "ZoomPre" })
-    
+
     local cursor_pos = api.nvim_win_get_cursor(0)
     local current_buffer = api.nvim_get_current_buf()
-    
-    vim.cmd('silent! source ' .. zoom_session_file())
-    
+
+    vim.cmd("silent! source " .. zoom_session_file())
+
     fn.setqflist(vim.t.qflist or {})
-    
+
     api.nvim_set_current_buf(current_buffer)
     set_zoomed(false)
     api.nvim_win_set_cursor(0, cursor_pos)
     api.nvim_exec_autocmds("User", { pattern = "ZoomPost" })
   else
-    if is_only_window() then return end
-    
+    if is_only_window() then
+      return
+    end
+
     local old_sessionoptions = vim.o.sessionoptions
     local old_session = vim.v.this_session
-    
-    vim.o.sessionoptions = 'blank,buffers,curdir,terminal,help'
-    
+
+    vim.o.sessionoptions = "blank,buffers,curdir,terminal,help"
+
     vim.t.qflist = fn.getqflist()
-    vim.cmd('mksession! ' .. zoom_session_file())
-    vim.cmd('only')
+    vim.cmd("mksession! " .. zoom_session_file())
+    vim.cmd "only"
     set_zoomed(true)
-    
+
     vim.v.this_session = old_session
     vim.o.sessionoptions = old_sessionoptions
   end
 end
 
 -- You can now use this function directly in your keymapping
-vim.keymap.set('n', '<leader>wf', toggle_zoom, {desc = "Toggle zoom"})
+vim.keymap.set("n", "<leader>wf", toggle_zoom, { desc = "Toggle zoom" })
 
 local function get_all_buffers()
-    local buffers = {}
-    local log_buffers = {}
-    for buffer = 1, vim.fn.bufnr('$') do
-        local bufname = vim.fn.bufname(buffer)
-        local buftype = vim.fn.getbufvar(buffer, '&buftype')
-        local filetype = vim.fn.getbufvar(buffer, '&filetype')
+  local buffers = {}
+  local log_buffers = {}
+  for buffer = 1, vim.fn.bufnr "$" do
+    local bufname = vim.fn.bufname(buffer)
+    local buftype = vim.fn.getbufvar(buffer, "&buftype")
+    local filetype = vim.fn.getbufvar(buffer, "&filetype")
 
-        -- Check if it's a log buffer
-        if buftype == 'log' or filetype == 'log' or string.match(bufname, '%.log$') then
-            table.insert(log_buffers, {
-                buffer = buffer,
-                filename = bufname ~= '' and bufname or '[Log]',
-                filetype = 'log'
-            })
-        elseif vim.fn.buflisted(buffer) == 1 or buftype ~= '' then
-            table.insert(buffers, {
-                buffer = buffer,
-                filename = bufname ~= '' and bufname or '[No Name]',
-                filetype = filetype ~= '' and filetype or buftype
-            })
-        end
+    -- Check if it's a log buffer
+    if buftype == "log" or filetype == "log" or string.match(bufname, "%.log$") then
+      table.insert(log_buffers, {
+        buffer = buffer,
+        filename = bufname ~= "" and bufname or "[Log]",
+        filetype = "log",
+      })
+    elseif vim.fn.buflisted(buffer) == 1 or buftype ~= "" then
+      table.insert(buffers, {
+        buffer = buffer,
+        filename = bufname ~= "" and bufname or "[No Name]",
+        filetype = filetype ~= "" and filetype or buftype,
+      })
     end
+  end
 
-    -- Add Neovim's message buffer
+  -- Add Neovim's message buffer
+  table.insert(log_buffers, {
+    buffer = -1, -- Special identifier for messages
+    filename = "[Messages]",
+    filetype = "messages",
+  })
+
+  -- Add LSP log if it exists
+  local lsp_log_path = vim.lsp.get_log_path()
+  if vim.fn.filereadable(lsp_log_path) == 1 then
     table.insert(log_buffers, {
-        buffer = -1,  -- Special identifier for messages
-        filename = '[Messages]',
-        filetype = 'messages'
+      buffer = -2, -- Special identifier for LSP log
+      filename = "[LSP Log]",
+      filetype = "lsp_log",
     })
+  end
 
-    -- Add LSP log if it exists
-    local lsp_log_path = vim.lsp.get_log_path()
-    if vim.fn.filereadable(lsp_log_path) == 1 then
-        table.insert(log_buffers, {
-            buffer = -2,  -- Special identifier for LSP log
-            filename = '[LSP Log]',
-            filetype = 'lsp_log'
-        })
-    end
+  -- Combine regular buffers and log buffers
+  for _, log_buffer in ipairs(log_buffers) do
+    table.insert(buffers, 1, log_buffer) -- Insert at the beginning
+  end
 
-    -- Combine regular buffers and log buffers
-    for _, log_buffer in ipairs(log_buffers) do
-        table.insert(buffers, 1, log_buffer)  -- Insert at the beginning
-    end
-
-    return buffers
+  return buffers
 end
 
 local pickers = require "telescope.pickers"
@@ -414,50 +420,52 @@ local actions = require "telescope.actions"
 local action_state = require "telescope.actions.state"
 
 local function all_buffers()
-    local buffers = get_all_buffers()
+  local buffers = get_all_buffers()
 
-    pickers.new({}, {
-        prompt_title = "All Buffers and Logs",
-        finder = finders.new_table {
-            results = buffers,
-            entry_maker = function(entry)
-                return {
-                    value = entry,
-                    display = string.format("[%s] %s", entry.filetype, entry.filename),
-                    ordinal = entry.filename,
-                }
-            end
-        },
-        sorter = conf.generic_sorter({}),
-        attach_mappings = function(prompt_bufnr, map)
-            actions.select_default:replace(function()
-                actions.close(prompt_bufnr)
-                local selection = action_state.get_selected_entry()
-                if selection.value.buffer == -1 then
-                    -- Show messages
-                    vim.cmd('messages')
-                elseif selection.value.buffer == -2 then
-                    -- Open LSP log
-                    vim.cmd('edit ' .. vim.lsp.get_log_path())
-                else
-                    vim.api.nvim_set_current_buf(selection.value.buffer)
-                end
-            end)
-            return true
+  pickers
+    .new({}, {
+      prompt_title = "All Buffers and Logs",
+      finder = finders.new_table {
+        results = buffers,
+        entry_maker = function(entry)
+          return {
+            value = entry,
+            display = string.format("[%s] %s", entry.filetype, entry.filename),
+            ordinal = entry.filename,
+          }
         end,
-    }):find()
+      },
+      sorter = conf.generic_sorter {},
+      attach_mappings = function(prompt_bufnr, map)
+        actions.select_default:replace(function()
+          actions.close(prompt_bufnr)
+          local selection = action_state.get_selected_entry()
+          if selection.value.buffer == -1 then
+            -- Show messages
+            vim.cmd "messages"
+          elseif selection.value.buffer == -2 then
+            -- Open LSP log
+            vim.cmd("edit " .. vim.lsp.get_log_path())
+          else
+            vim.api.nvim_set_current_buf(selection.value.buffer)
+          end
+        end)
+        return true
+      end,
+    })
+    :find()
 end
 
-map('n', '<leader><', all_buffers, { noremap = true, silent = true, desc = "Show all buffers and logs" })
+map("n", "<leader><", all_buffers, { noremap = true, silent = true, desc = "Show all buffers and logs" })
 
 vim.api.nvim_create_user_command("NvChadFiles", function()
-  require("telescope.builtin").find_files({
+  require("telescope.builtin").find_files {
     prompt_title = "NvChad Files",
-    cwd = vim.fn.stdpath("data"),
-  })
+    cwd = vim.fn.stdpath "data",
+  }
 end, {})
 
-vim.api.nvim_set_keymap("n", "<leader>fn", ":NvChadFiles<CR>", {noremap = true, silent = true})
+vim.api.nvim_set_keymap("n", "<leader>fn", ":NvChadFiles<CR>", { noremap = true, silent = true })
 
 local lookup_key = function()
   local ok, which_key = pcall(require, "which-key")
@@ -485,12 +493,12 @@ local lookup_key = function()
     vim.notify("Mode: " .. (mapping.mode or "N/A"), vim.log.levels.INFO)
   end
 
-  which_key.show_command_center({
+  which_key.show_command_center {
     {
       key = "",
       label = "Press a key to lookup its mapping",
       action = function()
-        vim.ui.input({prompt = "Enter key: "}, function(input)
+        vim.ui.input({ prompt = "Enter key: " }, function(input)
           if input then
             local mapping = get_key_mapping(input)
             if mapping then
@@ -502,10 +510,12 @@ local lookup_key = function()
         end)
       end,
     },
-  })
+  }
 end
 
-map("n", "<leader>hk", function() lookup_key() end, { desc = "Look up key source" })
+map("n", "<leader>hk", function()
+  lookup_key()
+end, { desc = "Look up key source" })
 
 -- Helper function to move windows
 local function move_window(direction)
@@ -514,16 +524,16 @@ local function move_window(direction)
   local newwin = vim.api.nvim_get_current_win()
   if curwin == newwin then
     if direction == "h" then
-      vim.cmd("wincmd l")
+      vim.cmd "wincmd l"
     elseif direction == "l" then
-      vim.cmd("wincmd h")
+      vim.cmd "wincmd h"
     elseif direction == "j" then
-      vim.cmd("wincmd k")
+      vim.cmd "wincmd k"
     elseif direction == "k" then
-      vim.cmd("wincmd j")
+      vim.cmd "wincmd j"
     end
   end
-  vim.cmd("wincmd x")
+  vim.cmd "wincmd x"
 end
 
 -- Window split and follow
@@ -532,31 +542,43 @@ local function split_and_follow(cmd)
   vim.cmd(cmd)
   local newwin = vim.api.nvim_get_current_win()
   if curwin == newwin then
-    vim.cmd("wincmd w")
+    vim.cmd "wincmd w"
   end
 end
 
 -- Toggle line wrapping
-map('n', '<leader>tw', ':set wrap!<CR>', {desc = "Delete window"})
+map("n", "<leader>tw", ":set wrap!<CR>", { desc = "Delete window" })
 
 -- Window navigation
-map('n', '<leader>wd', '<C-w>c', {desc = "Delete window"})
-map('n', '<leader>ww', '<C-w>w', {desc = "Switch windows"})
-map('n', '<leader>wh', '<C-w>h', {desc = "Window left"})
-map('n', '<leader>wj', '<C-w>j', {desc = "Window down"})
-map('n', '<leader>wk', '<C-w>k', {desc = "Window up"})
-map('n', '<leader>wl', '<C-w>l', {desc = "Window right"})
+map("n", "<leader>wd", "<C-w>c", { desc = "Delete window" })
+map("n", "<leader>ww", "<C-w>w", { desc = "Switch windows" })
+map("n", "<leader>wh", "<C-w>h", { desc = "Window left" })
+map("n", "<leader>wj", "<C-w>j", { desc = "Window down" })
+map("n", "<leader>wk", "<C-w>k", { desc = "Window up" })
+map("n", "<leader>wl", "<C-w>l", { desc = "Window right" })
 map("n", "<C-w>w", "<C-w>w", { desc = "Other window" })
 
 -- Window splitting
-map("n", "<leader>ws", function() split_and_follow("split") end, { desc = "Split window horizontally and follow" })
-map("n", "<leader>wv", function() split_and_follow("vsplit") end, { desc = "Split window vertically and follow" })
+map("n", "<leader>ws", function()
+  split_and_follow "split"
+end, { desc = "Split window horizontally and follow" })
+map("n", "<leader>wv", function()
+  split_and_follow "vsplit"
+end, { desc = "Split window vertically and follow" })
 
 -- Window moving
-map("n", "<leader>wH", function() move_window("h") end, { desc = "Move window left" })
-map("n", "<leader>wJ", function() move_window("j") end, { desc = "Move window down" })
-map("n", "<leader>wK", function() move_window("k") end, { desc = "Move window up" })
-map("n", "<leader>wL", function() move_window("l") end, { desc = "Move window right" })
+map("n", "<leader>wH", function()
+  move_window "h"
+end, { desc = "Move window left" })
+map("n", "<leader>wJ", function()
+  move_window "j"
+end, { desc = "Move window down" })
+map("n", "<leader>wK", function()
+  move_window "k"
+end, { desc = "Move window up" })
+map("n", "<leader>wL", function()
+  move_window "l"
+end, { desc = "Move window right" })
 
 -- Additional window commands
 map("n", "<leader>wc", "<C-w>c", { desc = "Close window" })
@@ -565,69 +587,75 @@ map("n", "<leader>w=", "<C-w>=", { desc = "Balance windows" })
 map("n", "<leader>wt", "<C-w>T", { desc = "Move window to new tab" })
 
 local function neogit_find_file()
-  local neogit = require("neogit")
-  local actions = require("telescope.actions")
-  local action_state = require("telescope.actions.state")
-  local pickers = require("telescope.pickers")
-  local finders = require("telescope.finders")
+  local neogit = require "neogit"
+  local actions = require "telescope.actions"
+  local action_state = require "telescope.actions.state"
+  local pickers = require "telescope.pickers"
+  local finders = require "telescope.finders"
   local conf = require("telescope.config").values
 
   -- Get the list of branches
-  local branches = vim.fn.systemlist("git branch --all | sed 's/^[ *]*//'")
+  local branches = vim.fn.systemlist "git branch --all | sed 's/^[ *]*//'"
 
-  pickers.new({}, {
-    prompt_title = "Select Branch/Revision",
-    finder = finders.new_table {
-      results = branches
-    },
-    sorter = conf.generic_sorter({}),
-    attach_mappings = function(prompt_bufnr, map)
-      actions.select_default:replace(function()
-        actions.close(prompt_bufnr)
-        local selection = action_state.get_selected_entry()
-        local branch = selection[1]
+  pickers
+    .new({}, {
+      prompt_title = "Select Branch/Revision",
+      finder = finders.new_table {
+        results = branches,
+      },
+      sorter = conf.generic_sorter {},
+      attach_mappings = function(prompt_bufnr, map)
+        actions.select_default:replace(function()
+          actions.close(prompt_bufnr)
+          local selection = action_state.get_selected_entry()
+          local branch = selection[1]
 
-        -- Now use Telescope to pick a file from the selected branch
-        require("telescope.builtin").git_files({
-          prompt_title = "Find File in " .. branch,
-          cwd = vim.fn.getcwd(),
-          git_command = { "git", "ls-tree", "-r", "--name-only", branch },
-          attach_mappings = function(prompt_bufnr, map)
-            actions.select_default:replace(function()
-              actions.close(prompt_bufnr)
-              local selection = action_state.get_selected_entry()
-              local file = selection[1]
-              
-              -- Open the file in a new buffer
-              vim.cmd("enew")
-              vim.cmd("silent !git show " .. branch .. ":" .. file .. " > " .. vim.fn.tempname())
-              vim.cmd("edit " .. vim.fn.tempname())
-              vim.cmd("set buftype=nofile")
-              vim.cmd("set readonly")
-              vim.cmd("file " .. branch .. ":" .. file)
-            end)
-            return true
-          end,
-        })
-      end)
-      return true
-    end,
-  }):find()
+          -- Now use Telescope to pick a file from the selected branch
+          require("telescope.builtin").git_files {
+            prompt_title = "Find File in " .. branch,
+            cwd = vim.fn.getcwd(),
+            git_command = { "git", "ls-tree", "-r", "--name-only", branch },
+            attach_mappings = function(prompt_bufnr, map)
+              actions.select_default:replace(function()
+                actions.close(prompt_bufnr)
+                local selection = action_state.get_selected_entry()
+                local file = selection[1]
+
+                -- Open the file in a new buffer
+                vim.cmd "enew"
+                vim.cmd("silent !git show " .. branch .. ":" .. file .. " > " .. vim.fn.tempname())
+                vim.cmd("edit " .. vim.fn.tempname())
+                vim.cmd "set buftype=nofile"
+                vim.cmd "set readonly"
+                vim.cmd("file " .. branch .. ":" .. file)
+              end)
+              return true
+            end,
+          }
+        end)
+        return true
+      end,
+    })
+    :find()
 end
 map("n", "<leader>gf", neogit_find_file, { desc = "Neogit find file in branch" })
 
 local function toggle_ignore_submodules()
   local function read_file(path)
     local file = io.open(path, "r")
-    if not file then return {} end
-    local content = file:read("*all")
+    if not file then
+      return {}
+    end
+    local content = file:read "*all"
     file:close()
     return vim.split(content, "\n")
   end
 
   local function write_file(path, lines)
     local file = io.open(path, "w")
-    if not file then return false end
+    if not file then
+      return false
+    end
     file:write(table.concat(lines, "\n"))
     file:close()
     return true
@@ -639,15 +667,15 @@ local function toggle_ignore_submodules()
 
   local submodules = {}
   for line in io.lines(gitmodules_file) do
-    if line:match("^%s*path%s*=%s*(.+)") then
-      table.insert(submodules, line:match("^%s*path%s*=%s*(.+)"))
+    if line:match "^%s*path%s*=%s*(.+)" then
+      table.insert(submodules, line:match "^%s*path%s*=%s*(.+)")
     end
   end
 
   local current_ignored = read_file(ignore_file)
 
   local function prompt_for_submodules()
-    local choices = vim.fn.inputlist(vim.list_extend({"Select submodules to ignore:"}, submodules))
+    local choices = vim.fn.inputlist(vim.list_extend({ "Select submodules to ignore:" }, submodules))
     local selected = {}
     for _, choice in ipairs(choices) do
       if choice > 0 and choice <= #submodules then
@@ -668,13 +696,13 @@ local function toggle_ignore_submodules()
         write_file(ignore_file, submodules)
       end
     end
-    print("Submodule ignoring has been toggled.")
+    print "Submodule ignoring has been toggled."
     -- Here you might want to add code to invalidate any relevant caches
   end)
 end
 
 -- Set up the keybinding
-vim.api.nvim_set_keymap('n', '<C-*>', ':lua toggle_ignore_submodules()<CR>', {noremap = true, silent = true})
+vim.api.nvim_set_keymap("n", "<C-*>", ":lua toggle_ignore_submodules()<CR>", { noremap = true, silent = true })
 
 -- Sticky visual mode
 vim.keymap.set("v", "<", "<gv", { noremap = true, silent = true })

@@ -28,6 +28,14 @@ return {
     },
     rust = {
       "rustfmt",
+      -- Add make/makefile configuration
+      make = {
+        "checkmake", -- or "gmake"
+      },
+      -- just to be double sure
+      makefile = {
+        "checkmake", -- or "gmake"
+      },
     },
   },
 

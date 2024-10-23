@@ -217,38 +217,3 @@ vim.keymap.set("n", "<leader><leader>", function()
     select_buffer = true,
   }
 end, { noremap = true, silent = true, desc = "Find files (project root)" })
-
-vim.api.nvim_create_user_command("CheckFormatting", function()
-  local bufnr = vim.api.nvim_get_current_buf()
-  local clients = vim.lsp.get_active_clients { bufnr = bufnr }
-
-  print "Active LSP clients:"
-  for _, client in ipairs(clients) do
-    print(
-      string.format(
-        "Client %s: range formatting = %s",
-        client.name,
-        client.server_capabilities.documentRangeFormattingProvider
-      )
-    )
-  end
-
-  print "\nFormat modifications context:"
-  print(vim.inspect(vim.b[bufnr].lsp_format_modifications_context))
-end, {})
-
-vim.api.nvim_create_user_command("TestFormatRange", function()
-  local bufnr = vim.api.nvim_get_current_buf()
-  local client = vim.lsp.get_active_clients({ bufnr = bufnr })[1]
-
-  if client then
-    require("conform").format {
-      bufnr = bufnr,
-      async = false,
-      range = {
-        start = { 1, 0 },
-        ["end"] = { 5, 0 },
-      },
-    }
-  end
-end, {})

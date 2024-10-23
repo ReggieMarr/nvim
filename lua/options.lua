@@ -25,22 +25,32 @@ vim.o.foldenable = true
 vim.g.vscode_snippets_path = "~/.config/nvim/lua/custom/snippets/json"
 vim.g.lua_snippets_path = "~/.config/nvim/lua/custom/snippets/lua"
 vim.g.snipmate_snippets_path = "~/.config/nvim/lua/custom/snippets/snipmate"
-vim.opt.timeoutlen = 1000  -- Increase this value if needed
+vim.opt.timeoutlen = 1000 -- Increase this value if needed
 
 -- editing style
--- Allow visual selection of blocks of text 
+-- Allow visual selection of blocks of text
 -- that don't end on the same column number
 vim.opt.virtualedit = "block"
 -- Get command preview in a context buffer
 vim.opt.inccommand = "split"
 vim.opt.wrap = false
-vim.opt.selection = "exclusive"  -- More like traditional GUI editors
+vim.opt.selection = "exclusive" -- More like traditional GUI editors
 
 -- Enable automatic indentation
--- vim.opt.autoindent = true  -- Copy indent from current line when starting a new line
--- vim.opt.smartindent = true -- Do smart autoindenting when starting a new line
--- vim.opt.cindent = true     -- Stricter rules for C programs
+vim.opt.autoindent = true -- Copy indent from current line when starting a new line
+vim.opt.smartindent = true -- Do smart autoindenting when starting a new line
+vim.opt.cindent = true -- Stricter rules for C programs
 -- vim.opt.preserveindent = true -- Preserve kind of whitespace when changing indent
 -- vim.opt.copyindent = true  -- Copy the structure of the existing lines indent when autoindenting
 -- Enable filetype-based indentation
 -- vim.cmd('filetype plugin indent on')
+
+-- for make files we need to ensure we're using spaces not tabs
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "make",
+  callback = function()
+    vim.bo.expandtab = false
+    vim.bo.tabstop = 8
+    vim.bo.shiftwidth = 8
+  end,
+})
