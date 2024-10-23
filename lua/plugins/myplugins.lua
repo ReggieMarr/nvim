@@ -550,6 +550,7 @@ local plugins = {
 
   {
     "stevearc/overseer.nvim",
+    lazy = false,
     keys = {
       {
         "<leader>cc",
@@ -619,41 +620,82 @@ local plugins = {
       },
     },
 
-    opts = {
-      -- Set up a autocmd to change directory to project root when task starts
-      pre_task_hook = function(task)
-        local project_root = require("plugins.nav.core").find_project_root()
-        if project_root then
-          task.cwd = project_root
-        end
-      end,
-
-      task_list = {
-        direction = "bottom",
-        min_height = 25,
-        max_height = 25,
-        default_detail = 1,
-        bindings = {
-          ["q"] = function()
-            vim.cmd "OverseerClose"
-          end,
-        },
-      },
-
-      component_aliases = {
-        -- Extends the default components with some extras
-        default_extended = {
-          "on_complete_dispose",
-          "default",
-          "on_output_quickfix",
-          "on_complete_notify",
-        },
-      },
-    },
+    config = function(_, opts)
+      local overseer = require "overseer"
+      overseer.setup {
+        strategy = "orchestrator",
+        -- strategy = {
+        --   "toggleterm",
+        --   -- toggleterm strategy config
+        --   open_on_start = true,
+        --   close_on_exit = false,
+        --   direction = "horizontal",
+        --   auto_scroll = true,
+        --   quit_on_exit = "success",
+        -- },
+        --
+        -- -- Templates configuration
+        -- templates = {
+        --   "builtin.make",
+        --   "builtin.shell",
+        -- },
+        --
+        -- -- Configure UI
+        -- task_list = {
+        --   direction = "bottom",
+        --   min_height = 25,
+        --   max_height = 25,
+        --   default_detail = 1,
+        --   bindings = {
+        --     ["q"] = function()
+        --       vim.cmd "OverseerClose"
+        --     end,
+        --   },
+        -- },
+        --
+        -- -- Configure task output handling
+        -- component_aliases = {
+        --   default = {
+        --     "on_output_quickfix",
+        --     "on_result_diagnostics",
+        --     "on_result_diagnostics_quickfix",
+        --     "on_complete_notify",
+        --     { "display_duration", detail_level = 1 },
+        --     "default",
+        --   },
+        -- },
+        --
+        -- -- Configure default components for all tasks
+        -- default_components = { "default" },
+        --
+        -- -- Status display configuration
+        -- status_win_opts = {
+        --   winblend = 10,
+        --   border = "rounded",
+        -- },
+        --
+        -- -- Configure how tasks are run
+        -- task = {
+        --   default_strategy = "toggleterm",
+        --   -- Auto-opened buffers get this width
+        --   terminal_width = vim.o.columns > 160 and math.floor(vim.o.columns * 0.4) or math.floor(vim.o.columns * 0.8),
+        --   terminal_height = math.floor(vim.o.lines * 0.4),
+        -- },
+        --
+        -- -- Configure actions that can be performed on tasks
+        -- actions = {
+        --   ["open output"] = {
+        --     components = {
+        --       { "open_output", direction = "horizontal" },
+        --     },
+        --   },
+        -- },
+      }
+    end,
 
     dependencies = {
-      "Zeioth/compiler.nvim",
       "nvim-neotest/nvim-nio",
+      "akinsho/toggleterm.nvim", -- Make sure to add toggleterm as a dependency
       {
         "stevearc/dressing.nvim",
         config = function(_, opts)
@@ -2931,19 +2973,6 @@ local plugins = {
         desc = "Normal Mode",
       },
     },
-  },
-  {
-    "bagohart/minimal-narrow-region.nvim",
-    config = function()
-      require("minimal-narrow-region").setup {
-        -- You can add any configuration options here
-      }
-    end,
-    -- If you want to lazy-load the plugin, you can specify when to load it
-    -- For example, to load it on command:
-    -- cmd = { "NarrowRegion", "NarrowUndo" },
-    -- Or to load it when certain keys are pressed:
-    keys = { "<leader>nr", "<leader>nu" },
   },
 }
 

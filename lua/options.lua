@@ -54,3 +54,4 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.bo.shiftwidth = 8
   end,
 })
+vim.opt.sessionoptions:remove "folds" -- Don't save folds in sessions
