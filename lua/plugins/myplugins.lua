@@ -1,7 +1,6 @@
 -- TODO: Remove telescope as a dependency and lazy load plugins later for squeezed performance.conf
 local telescope_actions = require "telescope.actions"
 local telescope_layout = require("telescope.actions.layout")
-local overrides = require "configs.overrides"
 
 -- Loaded plugins etc.
 local status = require("utils").status
@@ -10,21 +9,16 @@ local status = require("utils").status
 local plugins = {
 
   {
-    "nvim-treesitter/nvim-treesitter",
-  },
-
-  {
     "folke/which-key.nvim",
     config = function(_, opts)
       dofile(vim.g.base46_cache .. "whichkey")
-      local wk_config = require("configs.which-key")
-      opts = vim.tbl_deep_extend("force", opts, wk_config.opts)
-      wk_config.setup()
+      -- local wk_config = require("configs.which-key")
+      -- opts = vim.tbl_deep_extend("force", opts, wk_config.opts)
+      -- wk_config.setup()
     end,
   },
 
   --Override plugin definition options
-
   -- FIXME: TODO: remove telescope override and write it as a dependency
   {
     "nvim-telescope/telescope.nvim",
@@ -49,8 +43,6 @@ local plugins = {
                 },
                 mappings = {
                     i = {
-                        ["<Tab>"] = actions.move_selection_next,
-                        ["<S-Tab>"] = actions.move_selection_previous,
                         ["<C-n>"] = actions.toggle_selection + actions.move_selection_worse,
                         ["<C-p>"] = actions.toggle_selection + actions.move_selection_better,
                     },
@@ -69,6 +61,8 @@ local plugins = {
             },
         })
         telescope.load_extension("fzf")
+        telescope.load_extension "git_grep"
+        telescope.load_extension "file_browser"
     end,
   },
 
@@ -158,81 +152,165 @@ local plugins = {
   {
     "williamboman/mason.nvim",
     "williamboman/mason-lspconfig.nvim",
-    opts = overrides.mason,
+    opts = {
+      install_root_dir = os.getenv "HOME" .. "/.local/share/nvim/mason/",
+      ensure_installed = {
+        -- lua stuff
+        "lua-language-server",
+        "stylua",
+
+        -- web dev stuff
+        "css-lsp",
+        "html-lsp",
+        "typescript-language-server",
+        "deno",
+        "prettier",
+
+        -- c/cpp stuff
+        "clangd",
+        "clang-format",
+
+        -- Rust stuff
+        "rust-analyzer",
+
+        -- Shell stuff
+        "shellcheck",
+        "shfmt",
+
+        -- Python
+        -- TODO: Remove mason-dap-install plugin and use the default
+        "black",
+        "debugpy",
+      },
+    },
   },
 
   {
     "nvim-treesitter/nvim-treesitter",
-    opts = overrides.treesitter,
+    lazy = false,
+    config = function()
+      require("nvim-treesitter.configs").setup({
+        ensure_installed = {
+          -- defaults
+          "vim",
+          "lua",
+          -- web dev
+          "html",
+          "css",
+          "javascript",
+          "typescript",
+          "tsx",
+          "json",
+          -- "vue", "svelte",
+          -- Systems programming
+          "c",
+          "cpp",
+          "cmake",
+          "rust",
+          -- Note
+          "org",
+          "markdown",
+          "markdown_inline",
+          -- Script
+          "bash",
+          "python",
+        },
+        auto_install = true,
+        indent = {
+          enable = true,
+          -- These aren't working at the moment
+          disable = {
+            "c",
+            "cpp",
+          },
+        },
+        highlight = {
+          enable = true,
+          use_languagetree = true,
+        },
+        incremental_selection = {
+          enable = true,
+          keymaps = {
+            init_selection = "<leader>vs",
+            node_incremental = "<leader>vi",
+            scope_incremental = "<leader>vc",
+            node_decremental = "<leader>vd",
+          },
+        },
+        textobjects = {
+          select = {
+            enable = true,
+            -- Automatically jump forward to textobj, similar to targets.vim
+            lookahead = true,
+            keymaps = {
+              -- You can use the capture groups defined in textobjects.scm
+              -- these can be inspected with :InspectTree or :Ts* commands
+              ["ia"] = { query = "@definition", query_group = "locals", desc = "Select language scope" },
+              ["af"] = "@function.outer",
+              ["if"] = "@function.inner",
+              ["ac"] = "@class.outer",
+              ["ic"] = { query = "@class.inner", desc = "Select inner part of a class region" },
+              ["as"] = { query = "@scope", query_group = "locals", desc = "Select language scope" },
+            },
+            selection_modes = {
+              ["@parameter.outer"] = "v", -- charwise
+              ["@function.outer"] = "V", -- linewise
+              ["@class.outer"] = "<c-v>", -- blockwise
+            },
+            include_surrounding_whitespace = true,
+          },
+        },
+      })
+    end,
   },
 
   {
     "nvim-tree/nvim-tree.lua",
-    opts = overrides.nvimtree,
-  },
-
-  {
-    "max397574/better-escape.nvim",
-    event = "InsertEnter",
-    config = function()
-      require("better_escape").setup()
-    end,
-  },
-
-  -- C++ development
-  -- Nice but limited cpp codegen features which I'll (probably) not use (if you want create keymapps)
-  {
-    "Badhi/nvim-treesitter-cpp-tools",
-
-    dependencies = { "nvim-treesitter/nvim-treesitter" },
-    keys = require("configs.cpp").treesitter.keys,
-    opts = require("configs.cpp").treesitter.opts,
-
-    config = function(_, opts)
-      require("nt-cpp-tools").setup(opts)
-    end,
-  },
-
-  {
-    "kylechui/nvim-surround",
-    version = "*", -- Use for stability; omit to use `main` branch for the latest features
-
-    dependencies = {
-      -- "XXiaoA/ns-textobject.nvim",
-      "chrisgrieser/nvim-various-textobjs",
-    },
-
-    keys = { "cs", "ds", "ys" },
-
-    config = function(_, opts)
-      require("nvim-surround").setup(opts)
-    end,
-
     opts = {
-      surrounds = {
-        ["l"] = {
-          add = function()
-            local clipboard = vim.fn.getreg("+"):gsub("\n", "")
-            return {
-              { "[" },
-              { "](" .. clipboard .. ")" },
-            }
-          end,
-          find = "%b[]%b()",
-          delete = "^(%[)().-(%]%b())()$",
-          change = {
-            target = "^()()%b[]%((.-)()%)$",
-            replacement = function()
-              local clipboard = vim.fn.getreg("+"):gsub("\n", "")
-              return {
-                { "" },
-                { clipboard },
-              }
-            end,
+      git = {
+        enable = true,
+      },
+
+      renderer = {
+        highlight_git = true,
+        icons = {
+          show = {
+            git = true,
           },
         },
       },
     },
+  },
+
+  -- {
+  --   "max397574/better-escape.nvim",
+  --   event = "InsertEnter",
+  --   config = function()
+  --     require("better_escape").setup()
+  --   end,
+  -- },
+
+  -- C++ development
+  -- Nice but limited cpp codegen features which I'll (probably) not use (if you want create keymapps)
+  -- {
+  --   "Badhi/nvim-treesitter-cpp-tools",
+  --
+  --   dependencies = { "nvim-treesitter/nvim-treesitter" },
+  --   keys = require("configs.cpp").treesitter.keys,
+  --   opts = require("configs.cpp").treesitter.opts,
+  --
+  --   config = function(_, opts)
+  --     require("nt-cpp-tools").setup(opts)
+  --   end,
+  -- },
+
+  {
+    "kylechui/nvim-surround",
+    version = "*", -- Use for stability; omit to use `main` branch for the latest features
+    config = function(_, opts)
+      --use defaults
+      require("nvim-surround").setup({})
+    end,
   },
 
   {
@@ -1245,59 +1323,59 @@ local plugins = {
     end,
   },
 
-  { -- TODO: migrate to file
-    "krady21/compiler-explorer.nvim",
-
-    config = function(_, opts)
-      require("compiler-explorer").setup(opts)
-    end,
-
-    opts = {
-      url = "https://godbolt.org",
-      infer_lang = true, -- Try to infer possible language based on file extension.
-      line_match = {
-        -- FIXME: defaults are false and they don't work
-        -- highlight = true, -- highlight the matching line(s) in the other buffer.
-        -- jump = true, -- move the cursor in the other buffer to the first matching line.
-      },
-      open_qflist = true, --  Open qflist after compilation if there are diagnostics.
-      split = "split", -- How to split the window after the second compile (split/vsplit).
-      compiler_flags = "", -- Default flags passed to the compiler.
-      job_timeout_ms = 25000, -- Timeout for libuv job in milliseconds.
-      languages = { -- Language specific default compiler/flags
-        --c = {
-        --  compiler = "g121",
-        --  compiler_flags = "-O2 -Wall",
-        --},
-      },
-    },
-
-    -- cmd = { -- TODO
-    --   ":CECompile",
-    --   ":CECompileLive",
-    --   ":CEFormat",
-    --   ":CEAddLibrary",
-    --   ":CELoadExample",
-    --   ":CEOpenWebsite",
-    --   ":CEDeleteCache",
-    --   ":CEShowTooltip",
-    --
-    --   ":CEGotoLabel",
-    -- },
-    keys = { --- IDK wheter they work under v mode
-      -- stylua: ignore start
-      { "<leader>nc", ":CECompile<CR>",     mode = "n", desc = "Compile"      },
-      { "<leader>nl", ":CECompileLive<CR>", mode = "n", desc = "Compile Live" },
-      { "<leader>nf", ":CEFormat<CR>",      mode = "n", desc = "Format"       },
-      { "<leader>na", ":CEAddLibrary<CR>",  mode = "n", desc = "Add Library"  },
-      { "<leader>ne", ":CELoadExample<CR>", mode = "n", desc = "Load Example" },
-      { "<leader>nw", ":CEOpenWebsite<CR>", mode = "n", desc = "Open Website" },
-      { "<leader>nd", ":CEDeleteCache<CR>", mode = "n", desc = "Delete Cache" },
-      { "<leader>ns", ":CEShowTooltip<CR>", mode = "n", desc = "Show Tooltip" },
-      { "<leader>ng", ":CEGotoLabel<CR>",   mode = "n", desc = "Goto Label"   },
-      -- stylua: ignore end
-    },
-  },
+  -- { -- TODO: migrate to file
+  --   "krady21/compiler-explorer.nvim",
+  --
+  --   config = function(_, opts)
+  --     require("compiler-explorer").setup(opts)
+  --   end,
+  --
+  --   opts = {
+  --     url = "https://godbolt.org",
+  --     infer_lang = true, -- Try to infer possible language based on file extension.
+  --     line_match = {
+  --       -- FIXME: defaults are false and they don't work
+  --       -- highlight = true, -- highlight the matching line(s) in the other buffer.
+  --       -- jump = true, -- move the cursor in the other buffer to the first matching line.
+  --     },
+  --     open_qflist = true, --  Open qflist after compilation if there are diagnostics.
+  --     split = "split", -- How to split the window after the second compile (split/vsplit).
+  --     compiler_flags = "", -- Default flags passed to the compiler.
+  --     job_timeout_ms = 25000, -- Timeout for libuv job in milliseconds.
+  --     languages = { -- Language specific default compiler/flags
+  --       --c = {
+  --       --  compiler = "g121",
+  --       --  compiler_flags = "-O2 -Wall",
+  --       --},
+  --     },
+  --   },
+  --
+  --   -- cmd = { -- TODO
+  --   --   ":CECompile",
+  --   --   ":CECompileLive",
+  --   --   ":CEFormat",
+  --   --   ":CEAddLibrary",
+  --   --   ":CELoadExample",
+  --   --   ":CEOpenWebsite",
+  --   --   ":CEDeleteCache",
+  --   --   ":CEShowTooltip",
+  --   --
+  --   --   ":CEGotoLabel",
+  --   -- },
+  --   keys = { --- IDK wheter they work under v mode
+  --     -- stylua: ignore start
+  --     { "<leader>nc", ":CECompile<CR>",     mode = "n", desc = "Compile"      },
+  --     { "<leader>nl", ":CECompileLive<CR>", mode = "n", desc = "Compile Live" },
+  --     { "<leader>nf", ":CEFormat<CR>",      mode = "n", desc = "Format"       },
+  --     { "<leader>na", ":CEAddLibrary<CR>",  mode = "n", desc = "Add Library"  },
+  --     { "<leader>ne", ":CELoadExample<CR>", mode = "n", desc = "Load Example" },
+  --     { "<leader>nw", ":CEOpenWebsite<CR>", mode = "n", desc = "Open Website" },
+  --     { "<leader>nd", ":CEDeleteCache<CR>", mode = "n", desc = "Delete Cache" },
+  --     { "<leader>ns", ":CEShowTooltip<CR>", mode = "n", desc = "Show Tooltip" },
+  --     { "<leader>ng", ":CEGotoLabel<CR>",   mode = "n", desc = "Goto Label"   },
+  --     -- stylua: ignore end
+  --   },
+  -- },
 
   { -- TODO add hlgroups according to repo
     "ThePrimeagen/harpoon",
@@ -1516,16 +1594,16 @@ local plugins = {
     --     zb(half_win_time[, easing])
   },
 
-  {
-    "michaelb/sniprun",
-    build = "sh ./install.sh",
-    keys = require("configs.sniprun").keys,
-    opts = require("configs.sniprun").opts,
-    -- config = function(_, opts)
-    --   require("sniprun").setup(opts)
-    -- end,
-  },
-
+  -- {
+  --   "michaelb/sniprun",
+  --   build = "sh ./install.sh",
+  --   keys = require("configs.sniprun").keys,
+  --   opts = require("configs.sniprun").opts,
+  --   -- config = function(_, opts)
+  --   --   require("sniprun").setup(opts)
+  --   -- end,
+  -- },
+  --
   ------- GAMES -------
   -- {
   --   "jim-fx/sudoku.nvim",
@@ -1856,75 +1934,10 @@ local plugins = {
 
   {
     "nvim-treesitter/nvim-treesitter-textobjects",
-
+    lazy = false,
     config = function(_, opts)
       require("nvim-treesitter.configs").setup(opts)
     end,
-
-    opts = {
-      textobjects = {
-        select = {
-          enable = true,
-
-          -- Automatically jump forward to textobj, similar to targets.vim
-          lookahead = true,
-
-          keymaps = {
-            -- You can use the capture groups defined in textobjects.scm
-            ["af"] = "@function.outer",
-            ["if"] = "@function.inner",
-            ["ac"] = "@class.outer",
-            -- You can optionally set descriptions to the mappings (used in the desc parameter of
-            -- nvim_buf_set_keymap) which plugins like which-key display
-            ["ic"] = { query = "@class.inner", desc = "Select inner part of a class region" },
-            -- You can also use captures from other query groups like `locals.scm`
-            ["as"] = { query = "@scope", query_group = "locals", desc = "Select language scope" },
-          },
-          -- You can choose the select mode (default is charwise 'v')
-          --
-          -- Can also be a function which gets passed a table with the keys
-          -- * query_string: eg '@function.inner'
-          -- * method: eg 'v' or 'o'
-          -- and should return the mode ('v', 'V', or '<c-v>') or a table
-          -- mapping query_strings to modes.
-          selection_modes = {
-            ["@parameter.outer"] = "v", -- charwise
-            ["@function.outer"] = "V", -- linewise
-            ["@class.outer"] = "<c-v>", -- blockwise
-          },
-          -- If you set this to `true` (default is `false`) then any textobject is
-          -- extended to include preceding or succeeding whitespace. Succeeding
-          -- whitespace has priority in order to act similarly to eg the built-in
-          -- `ap`.
-          --
-          -- Can also be a function which gets passed a table with the keys
-          -- * query_string: eg '@function.inner'
-          -- * selection_mode: eg 'v'
-          -- and should return true of false
-          include_surrounding_whitespace = true,
-        },
-
-        swap = {
-          enable = true,
-          swap_next = {
-            ["<leader>sl"] = "@parameter.inner",
-          },
-          swap_previous = {
-            ["<leader>sh"] = "@parameter.inner",
-          },
-        },
-        lsp_interop = {
-          enable = true,
-          border = "none",
-          floating_preview_opts = {},
-          peek_definition_code = {
-            ["<leader>df"] = "@function.outer",
-            ["<leader>dF"] = "@class.outer",
-          },
-        },
-      },
-    },
-
     dependencies = "nvim-treesitter/nvim-treesitter",
   },
 
@@ -1935,27 +1948,27 @@ local plugins = {
     },
   },
 
-  {
-    "XXiaoA/ns-textobject.nvim",
-
-    config = function(_, opts)
-      require("ns-textobject").setup(opts)
-    end,
-
-    opts = {
-      -- auto_mapping = {
-      --   -- automatically mapping for nvim-surround's aliases
-      --   aliases = true,
-      --   -- for nvim-surround's surrounds
-      --   surrounds = true,
-      -- },
-      -- disable_builtin_mapping = {
-      --   enabled = true,
-      --   -- list of char which shouldn't mapping by auto_mapping
-      --   chars = { "b", "B", "t", "`", "'", '"', "{", "}", "(", ")", "[", "]", "<", ">" },
-      -- },
-    },
-  },
+  -- {
+  --   "XXiaoA/ns-textobject.nvim",
+  --
+  --   config = function(_, opts)
+  --     require("ns-textobject").setup(opts)
+  --   end,
+  --
+  --   opts = {
+  --     -- auto_mapping = {
+  --     --   -- automatically mapping for nvim-surround's aliases
+  --     --   aliases = true,
+  --     --   -- for nvim-surround's surrounds
+  --     --   surrounds = true,
+  --     -- },
+  --     -- disable_builtin_mapping = {
+  --     --   enabled = true,
+  --     --   -- list of char which shouldn't mapping by auto_mapping
+  --     --   chars = { "b", "B", "t", "`", "'", '"', "{", "}", "(", ")", "[", "]", "<", ">" },
+  --     -- },
+  --   },
+  -- },
 
   {
     "lalitmee/browse.nvim",
@@ -2594,22 +2607,6 @@ local plugins = {
     --     end,
     --   }
     -- end,
-  },
-
-  {
-    "chrisgrieser/nvim-various-textobjs",
-    -- lazy = false, -- TODO: Think more about it
-
-    keys = {
-      "di",
-      "ci",
-      "yi",
-      "vi",
-    },
-
-    opts = {
-      useDefaultKeymaps = true,
-    },
   },
 
   {

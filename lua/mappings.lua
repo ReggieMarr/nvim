@@ -126,7 +126,7 @@ map("n", "<leader>sb", "<cmd>Telescope current_buffer_fuzzy_find<CR>", { desc = 
 map("n", "<leader>sm", "<cmd>Telescope marks<CR>", { desc = "Search marks" })
 map("n", "<leader>ss", "<cmd>Telescope lsp_document_symbols<CR>", { desc = "Search symbols in file" })
 map("n", "<leader>sv", "<cmd>Telescope vim_options<CR>", { desc = "Search vim_options" })
-map("n", "<leader>st", "<cmd>Telescope treesitter<CR>", { desc = "Search vim_options" })
+map("n", "<leader>si", "<cmd>Telescope treesitter<CR>", { desc = "Search objects (treesitter)" })
 
 -- Project
 map("n", "<leader>pf", "<cmd>Telescope git_files<CR>", { desc = "Find file in project" })

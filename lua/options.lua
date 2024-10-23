@@ -35,4 +35,12 @@ vim.opt.virtualedit = "block"
 vim.opt.inccommand = "split"
 vim.opt.wrap = false
 vim.opt.selection = "exclusive"  -- More like traditional GUI editors
-vim.opt.smartindent = true
+
+-- Enable automatic indentation
+-- vim.opt.autoindent = true  -- Copy indent from current line when starting a new line
+-- vim.opt.smartindent = true -- Do smart autoindenting when starting a new line
+-- vim.opt.cindent = true     -- Stricter rules for C programs
+-- vim.opt.preserveindent = true -- Preserve kind of whitespace when changing indent
+-- vim.opt.copyindent = true  -- Copy the structure of the existing lines indent when autoindenting
+-- Enable filetype-based indentation
+-- vim.cmd('filetype plugin indent on')

@@ -22,12 +22,11 @@ require("lazy").setup({
     import = "nvchad.plugins",
     keys = {
       {
-        "<leader>P",
+        "<leader>hp",
         "<cmd> Telescope lazy<CR>",
         desc = "Surf Plugins",
       },
     },
-
     dependencies = {
       {"nvim-telescope/telescope.nvim"},
       {"tsakirist/telescope-lazy.nvim"},
@@ -49,12 +48,11 @@ require("lazy").setup({
                 open_lazy_root_live_grep = "<C-r>g",
               },
               -- Other telescope configuration options
-            },
           },
         },
       },
     },
-
+  },
   { import = "plugins" },
 }, lazy_config)
 
@@ -71,12 +69,11 @@ vim.schedule(function()
   require "mappings"
 end)
 
-require "sniprun"
+-- require "sniprun"
 require "winshift"
+-- require "nvim-surround"
 
 -- TODO put these in their own plugin file
-require('telescope').load_extension "git_grep"
-require('telescope').load_extension "file_browser"
 vim.keymap.set('n', '<leader>ff', ':Telescope file_browser<CR>', { noremap = true, silent = true, desc = "Find files (current dir)" })
 
 -- Function to find project root
@@ -100,7 +97,6 @@ local function find_project_root()
       return workspace
     end
   end
-
   -- Fallback to current buffer's directory
   vim.notify("Falling back to current directory: " .. buf_dir, vim.log.levels.WARN)
   return buf_dir
@@ -140,7 +136,6 @@ local function find_default_file(root_dir)
     if #matches > 0 then
       -- For README.* and general patterns, we might get multiple matches
       -- Get the first match as absolute path
-      vim.notify("Selected default file: " .. matches[1], vim.log.levels.INFO)
       return matches[1]
     end
   end
