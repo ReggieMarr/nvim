@@ -339,12 +339,6 @@ local plugins = {
     },
     opts = {
       formatters_by_ft = tools.formatters,
-      formatters = {
-        checkmake = {
-          -- Add any specific checkmake configuration if needed
-          args = { "--format='{line}: {error}'" },
-        },
-      },
       -- Extract format_on_save logic to a separate function for reusability
       format_on_save = function(bufnr)
         -- Add special handling for Makefiles
@@ -554,25 +548,22 @@ local plugins = {
     opts = require("configs.cmp").opts,
   },
 
-  { -- Code runner
+  {
     "Zeioth/compiler.nvim",
     keys = {
       {
         "<leader>cc",
         function()
-          -- Get the overseer tasks
           local overseer = require "overseer"
           local tasks = overseer.list_tasks()
           local running_tasks = {}
 
-          -- Find running compilation tasks
           for _, task in ipairs(tasks) do
             if task.status == "RUNNING" then
               table.insert(running_tasks, task)
             end
           end
 
-          -- Get the most recent task (if any)
           local most_recent_task = tasks[#tasks]
 
           if #running_tasks > 0 then
@@ -623,154 +614,67 @@ local plugins = {
       -- Override the get_bau_opts function to use your project root finder
       local utils_bau = require "compiler.utils-bau"
       local original_get_bau_opts = utils_bau.get_bau_opts
-      local nav_core = require "plugins.nav.core"
 
       utils_bau.get_bau_opts = function()
-        -- Store current working directory
-        local current_dir = vim.fn.getcwd()
-
-        -- Get project root using your function
-        local project_root = nav_core.find_project_root()
-
-        -- Temporarily change working directory to project root
+        local project_root = require("plugins.nav.core").find_project_root()
         if project_root then
           vim.fn.chdir(project_root)
         end
-
-        -- Get the build automation options
-        local options = original_get_bau_opts()
-
-        -- Restore original working directory
-        vim.fn.chdir(current_dir)
-
-        return options
-      end
-      -- Override the setup to ensure we're in the project root when executing commands
-      local compiler = require "compiler"
-      local original_setup = compiler.setup
-
-      compiler.setup = function(opts)
-        -- Create wrapped commands that change to project root first
-        local cmd = vim.api.nvim_create_user_command
-
-        cmd("CompilerOpen", function()
-          local project_root = nav_core.find_project_root()
-          if project_root then
-            vim.fn.chdir(project_root)
-          end
-          require("compiler.telescope").show()
-        end, { desc = "Open the compiler" })
-
-        cmd("CompilerToggleResults", function()
-          local project_root = nav_core.find_project_root()
-          if project_root then
-            vim.fn.chdir(project_root)
-          end
-          vim.cmd "OverseerToggle"
-        end, { desc = "Toggle the compiler results" })
-
-        cmd("CompilerRedo", function()
-          local project_root = nav_core.find_project_root()
-          if project_root then
-            vim.fn.chdir(project_root)
-          end
-          local current_filetype = vim.bo.filetype
-
-          if _G.compiler_redo_selection == nil and _G.compiler_redo_bau_selection == nil then
-            vim.notify(
-              "Open the compiler and select an option before doing redo.",
-              vim.log.levels.INFO,
-              { title = "Compiler.nvim" }
-            )
-            return
-          end
-          if _G.compiler_redo_filetype then
-            if _G.compiler_redo_filetype ~= current_filetype then
-              vim.notify(
-                "You are on a different language now. Open the compiler and select an option before doing redo.",
-                vim.log.levels.INFO,
-                { title = "Compiler.nvim" }
-              )
-              return
-            end
-          end
-          local bau = _G.compiler_redo_bau
-          if bau then
-            local bau_selection = _G.compiler_redo_bau_selection
-            if bau_selection then
-              bau.action(bau_selection)
-            end
-          else
-            local language = require("compiler.utils").require_language(current_filetype)
-            if not language then
-              language = require "compiler.languages.make"
-            end
-            language.action(_G.compiler_redo_selection)
-          end
-        end, { desc = "Redo the last selected compiler option" })
-
-        cmd("CompilerStop", function()
-          local project_root = nav_core.find_project_root()
-          if project_root then
-            vim.fn.chdir(project_root)
-          end
-          vim.notify("SUCCESS - All tasks have been disposed.", vim.log.levels.INFO, {
-            title = "Compiler.nvim",
-          })
-          local overseer = require "overseer"
-          local tasks = overseer.list_tasks { unique = false }
-          for _, task in ipairs(tasks) do
-            overseer.run_action(task, "dispose")
-          end
-        end, { desc = "Dispose all tasks running in the compiler" })
-
-        -- Setup overseer component
-        require("overseer").register_alias("default_extended", {
-          "on_complete_dispose",
-          "default",
-          "open_output",
-        })
+        return original_get_bau_opts()
       end
 
-      compiler.setup {}
+      -- Create an autocmd group for compiler commands
+      local compiler_group = vim.api.nvim_create_augroup("CompilerCommands", { clear = true })
+
+      -- Add autocmd to change to project root before compiler commands
+      vim.api.nvim_create_autocmd("CmdlineEnter", {
+        group = compiler_group,
+        pattern = "Compiler*",
+        callback = function()
+          local project_root = require("plugins.nav.core").find_project_root()
+          if project_root then
+            vim.fn.chdir(project_root)
+          end
+        end,
+      })
+
+      -- Setup compiler
+      require("compiler").setup {}
+
+      -- Setup overseer component
+      require("overseer").setup {
+        task_list = {
+          direction = "bottom",
+          min_height = 25,
+          max_height = 25,
+          default_detail = 1,
+          bindings = {
+            ["q"] = function()
+              vim.cmd "OverseerClose"
+            end,
+          },
+        },
+      }
+
+      require("overseer").register_alias("default_extended", {
+        "on_complete_dispose",
+        "default",
+        "open_output",
+      })
     end,
+
     dependencies = {
-
-      { -- The task runner for compiler.nvim + daily tasks
+      {
         "stevearc/overseer.nvim",
-        -- commit = "19aac0426710c8fc0510e54b7a6466a03a1a7377",
-
         dependencies = {
           "nvim-neotest/nvim-nio",
-          { -- This plugin overrides the default vim selector ui (e.g <leader>ca)
+          {
             "stevearc/dressing.nvim",
             config = function(_, opts)
               require("dressing").setup(opts)
             end,
-
             opts = {
               default_prompt = "❯ ",
-            },
-          },
-        },
-
-        cmd = {
-          "CompilerOpen",
-          "CompilerToggleResults",
-          "CompilerRedo",
-          "CompilerStop",
-        },
-
-        opts = {
-          task_list = {
-            direction = "bottom",
-            min_height = 25,
-            max_height = 25,
-            default_detail = 1,
-            bindings = {
-              ["q"] = function()
-                vim.cmd "OverseerClose"
-              end,
             },
           },
         },
@@ -1601,78 +1505,79 @@ local plugins = {
   --   },
   -- },
 
-  { -- TODO add hlgroups according to repo
-    "ThePrimeagen/harpoon",
-
-    config = function(_, opts)
-      require("harpoon").setup(opts)
-      require("telescope").load_extension "harpoon"
-    end,
-
-    opts = {
-      global_settings = {
-        -- sets the marks upon calling `toggle` on the ui, instead of require `:w`.
-        save_on_toggle = false,
-
-        -- saves the harpoon file upon every change. disabling is unrecommended.
-        save_on_change = true,
-
-        -- sets harpoon to run the command immediately as it's passed to the terminal when calling `sendCommand`.
-        enter_on_sendcmd = false,
-
-        -- closes any tmux windows harpoon that harpoon creates when you close Neovim.
-        tmux_autoclose_windows = false,
-
-        -- filetypes that you want to prevent from adding to the harpoon list menu.
-        excluded_filetypes = { "harpoon" },
-
-        -- set marks specific to each git branch inside git repository
-        mark_branch = false,
-
-        -- enable tabline with harpoon marks
-        tabline = false,
-        tabline_prefix = "   ",
-        tabline_suffix = "   ",
-      },
-    },
-
-    keys = {
-      {
-        "<leader>hm",
-        "<cmd>lua require('harpoon.ui').toggle_quick_menu()<cr>",
-        mode = "n",
-        desc = "Toggle Harpoon Menu",
-      },
-
-      {
-        "<leader>ha",
-        "<cmd>lua require('harpoon.mark').add_file()<cr>",
-        mode = "n",
-        desc = "Add File",
-      },
-
-      {
-        "<leader>hn",
-        "<cmd>lua require('harpoon.ui').nav_next()<cr>",
-        mode = "n",
-        desc = "Jump to next file",
-      },
-
-      {
-        "<leader>hp",
-        "<cmd>lua require('harpoon.ui').nav_prev()<cr>",
-        mode = "n",
-        desc = "Jump to previous file",
-      },
-
-      { -- FIXME: doesn't work (after loading with :Telescope harpoon)
-        "<leader>hs",
-        "<cmd> Telescope harpoon marks<cr>", -- TODO: Lazy load them on this specific keystroke
-        mode = "n",
-        desc = "Telescope Harpoon",
-      },
-    },
-  },
+  -- TODO bring this up
+  -- { -- TODO add hlgroups according to repo
+  --   "ThePrimeagen/harpoon",
+  --
+  --   config = function(_, opts)
+  --     require("harpoon").setup(opts)
+  --     require("telescope").load_extension "harpoon"
+  --   end,
+  --
+  --   opts = {
+  --     global_settings = {
+  --       -- sets the marks upon calling `toggle` on the ui, instead of require `:w`.
+  --       save_on_toggle = false,
+  --
+  --       -- saves the harpoon file upon every change. disabling is unrecommended.
+  --       save_on_change = true,
+  --
+  --       -- sets harpoon to run the command immediately as it's passed to the terminal when calling `sendCommand`.
+  --       enter_on_sendcmd = false,
+  --
+  --       -- closes any tmux windows harpoon that harpoon creates when you close Neovim.
+  --       tmux_autoclose_windows = false,
+  --
+  --       -- filetypes that you want to prevent from adding to the harpoon list menu.
+  --       excluded_filetypes = { "harpoon" },
+  --
+  --       -- set marks specific to each git branch inside git repository
+  --       mark_branch = false,
+  --
+  --       -- enable tabline with harpoon marks
+  --       tabline = false,
+  --       tabline_prefix = "   ",
+  --       tabline_suffix = "   ",
+  --     },
+  --   },
+  --
+  --   keys = {
+  --     {
+  --       "<leader>hm",
+  --       "<cmd>lua require('harpoon.ui').toggle_quick_menu()<cr>",
+  --       mode = "n",
+  --       desc = "Toggle Harpoon Menu",
+  --     },
+  --
+  --     {
+  --       "<leader>ha",
+  --       "<cmd>lua require('harpoon.mark').add_file()<cr>",
+  --       mode = "n",
+  --       desc = "Add File",
+  --     },
+  --
+  --     {
+  --       "<leader>hn",
+  --       "<cmd>lua require('harpoon.ui').nav_next()<cr>",
+  --       mode = "n",
+  --       desc = "Jump to next file",
+  --     },
+  --
+  --     {
+  --       "<leader>hp",
+  --       "<cmd>lua require('harpoon.ui').nav_prev()<cr>",
+  --       mode = "n",
+  --       desc = "Jump to previous file",
+  --     },
+  --
+  --     { -- FIXME: doesn't work (after loading with :Telescope harpoon)
+  --       "<leader>hs",
+  --       "<cmd> Telescope harpoon marks<cr>", -- TODO: Lazy load them on this specific keystroke
+  --       mode = "n",
+  --       desc = "Telescope Harpoon",
+  --     },
+  --   },
+  -- },
 
   {
     "AckslD/nvim-neoclip.lua",
