@@ -20,50 +20,31 @@ local function setup_lsp_mappings(client, bufnr)
   vim.keymap.set('n', '<leader>lI', function() telescope.lsp_implementations() end, opts("Go to implementation"))
   vim.keymap.set('n', '<leader>lr', function() telescope.lsp_references() end, opts("Show references"))
   vim.keymap.set('n', '<leader>lt', function() telescope.lsp_type_definitions() end, opts("Go to type definition"))
-  vim.keymap.set('n', '<leader>la', vim.lsp.buf.code_action, opts("Code action"))
-  vim.keymap.set('n', '<leader>lh', vim.lsp.buf.signature_help, opts("Show signature help"))
+  vim.keymap.set('n', '<leader>la', function() vim.lsp.buf.code_action() end, opts("Code action"))
+  vim.keymap.set('n', '<leader>lh', function() vim.lsp.buf.hover() end, opts("Show hover info"))
   vim.keymap.set('n', '<leader>lq', function() telescope.diagnostics() end, opts("Show diagnostics"))
   vim.keymap.set('n', '<leader>ls', function() telescope.lsp_document_symbols() end, opts("Document symbols"))
-  vim.keymap.set('n', '<leader>lS', function() telescope.lsp_dynamic_workspace_symbols() end, opts("Workspace symbols"))
 
   -- Additional mappings
-  vim.keymap.set('n', '<leader>sh', vim.lsp.buf.signature_help, opts("Show signature help"))
-  vim.keymap.set('n', '<leader>lwa', vim.lsp.buf.add_workspace_folder, opts("Add workspace folder"))
-  vim.keymap.set('n', '<leader>wr', vim.lsp.buf.remove_workspace_folder, opts("Remove workspace folder"))
+  vim.keymap.set('n', '<leader>lwa', function() vim.lsp.buf.add_workspace_folder() end, opts("Add workspace folder"))
+  vim.keymap.set('n', '<leader>wr', function() vim.lsp.buf.remove_workspace_folder() end, opts("Remove workspace folder"))
   vim.keymap.set('n', '<leader>ll', function()
     print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
   end, opts("List workspace folders"))
 
   -- Diagnostic mappings
-  vim.keymap.set('n', '<leader>le', vim.diagnostic.open_float, opts("Show line diagnostics"))
-  vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, opts("Go to previous diagnostic"))
-  vim.keymap.set('n', ']d', vim.diagnostic.goto_next, opts("Go to next diagnostic"))
-  vim.keymap.set('n', '<leader>lq', telescope.diagnostics, opts("Show diagnostics"))
-
-  vim.keymap.set('n', '<leader>ll', function()
-    print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
-  end, opts("List workspace folders"))
-
-  -- Diagnostic mappings
-  vim.keymap.set('n', '<leader>le', vim.diagnostic.open_float, opts("Show line diagnostics"))
-  vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, opts("Go to previous diagnostic"))
-  vim.keymap.set('n', ']d', vim.diagnostic.goto_next, opts("Go to next diagnostic"))
-  vim.keymap.set('n', '<leader>lq', vim.diagnostic.setloclist, opts("Set diagnostic to loclist"))
-
-  -- Document symbols (if the client supports it)
-  if client.server_capabilities.documentSymbolProvider then
-    vim.keymap.set('n', '<leader>ls', telescope.lsp_document_symbols, opts("Document symbols"))
-  end
-
+  vim.keymap.set('n', '<leader>le', function() vim.diagnostic.open_float() end, opts("Show line diagnostics"))
+  vim.keymap.set('n', '[d', function() vim.diagnostic.goto_prev() end, opts("Go to previous diagnostic"))
+  vim.keymap.set('n', ']d', function() vim.diagnostic.goto_next() end, opts("Go to next diagnostic"))
+  vim.keymap.set('n', '<leader>lq', function() telescope.diagnostics() end, opts("Show diagnostics"))
   -- Workspace symbols (if the client supports it)
   if client.server_capabilities.workspaceSymbolProvider then
-    vim.keymap.set('n', '<leader>lS', telescope.lsp_dynamic_workspace_symbols, opts("Workspace symbols"))
+    vim.keymap.set('n', '<leader>lS', function() telescope.lsp_dynamic_workspace_symbols() end, opts("Workspace symbols"))
   end
 end
 
 local function custom_on_attach(client, bufnr)
     setup_lsp_mappings(client, bufnr)
-    vim.keymap.set("n", "gd", "<cmd> Telescope lsp_definitions<cr>", { buffer = bufnr })
 end
 
 local servers = { "html", "cssls", "clangd", "rust_analyzer", "cmake" }
