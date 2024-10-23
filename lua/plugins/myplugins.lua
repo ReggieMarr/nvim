@@ -1,9 +1,31 @@
 -- TODO: Remove telescope as a dependency and lazy load plugins later for squeezed performance.conf
 local telescope_actions = require "telescope.actions"
-local telescope_layout = require("telescope.actions.layout")
+local telescope_layout = require "telescope.actions.layout"
 
 -- Loaded plugins etc.
 local status = require("utils").status
+local tools = require "configs.tools"
+
+-- Helper function to flatten tables
+local function flatten(t)
+  local flat = {}
+  for _, category in pairs(t) do
+    if type(category) == "table" then
+      for _, item in pairs(category) do
+        if type(item) == "table" then
+          for _, subitem in pairs(item) do
+            table.insert(flat, subitem)
+          end
+        else
+          table.insert(flat, item)
+        end
+      end
+    else
+      table.insert(flat, category)
+    end
+  end
+  return flat
+end
 
 ---@type NvPluginSpec[]
 local plugins = {
@@ -24,51 +46,51 @@ local plugins = {
     "nvim-telescope/telescope.nvim",
     cmd = "Telescope",
     dependencies = {
-        { 'nvim-telescope/telescope-fzf-native.nvim', 
-          build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release' 
-        },
-        "folke/noice.nvim",
+      {
+        "nvim-telescope/telescope-fzf-native.nvim",
+        build = "cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release",
+      },
+      "folke/noice.nvim",
     },
     config = function()
-        local telescope = require("telescope")
-        telescope.load_extension("noice")
+      local telescope = require "telescope"
+      telescope.load_extension "noice"
 
-        local actions = require("telescope.actions")
-        telescope.setup({
-            defaults = {
-                sorting_strategy = "ascending",
-                path_display = { "filename_first" },
-                layout_config = {
-                    prompt_position = "top",
-                },
-                mappings = {
-                    i = {
-                        ["<C-n>"] = actions.toggle_selection + actions.move_selection_worse,
-                        ["<C-p>"] = actions.toggle_selection + actions.move_selection_better,
-                    },
-                },
+      local actions = require "telescope.actions"
+      telescope.setup {
+        defaults = {
+          sorting_strategy = "ascending",
+          path_display = { "filename_first" },
+          layout_config = {
+            prompt_position = "top",
+          },
+          mappings = {
+            i = {
+              ["<C-n>"] = actions.toggle_selection + actions.move_selection_worse,
+              ["<C-p>"] = actions.toggle_selection + actions.move_selection_better,
             },
-            pickers = {
-                lsp_references = {
-                    show_line = false,
-                },
-                find_files = {
-                    hidden = true,
-                },
-                live_grep = {
-                    additional_args = { "--hidden" },
-                },
-            },
-        })
-        telescope.load_extension("fzf")
-        telescope.load_extension "git_grep"
-        telescope.load_extension "file_browser"
+          },
+        },
+        pickers = {
+          lsp_references = {
+            show_line = false,
+          },
+          find_files = {
+            hidden = true,
+          },
+          live_grep = {
+            additional_args = { "--hidden" },
+          },
+        },
+      }
+      telescope.load_extension "fzf"
+      telescope.load_extension "git_grep"
+      telescope.load_extension "file_browser"
     end,
   },
 
-  -- TODO make nav a plugin
   {
-      'davvid/telescope-git-grep.nvim'
+    "davvid/telescope-git-grep.nvim",
   },
 
   {
@@ -78,7 +100,7 @@ local plugins = {
       "nvim-lua/plenary.nvim",
     },
     config = function()
-      require "configs.nav".browser_setup()
+      require("configs.nav").browser_setup()
     end,
   },
   {
@@ -90,15 +112,15 @@ local plugins = {
       },
       picker = {
         type = "telescope", -- or "fzf-lua"
-      }
+      },
     },
     init = function()
       -- enable saving the state of plugins in the session
-      vim.opt.sessionoptions:append("globals") -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
+      vim.opt.sessionoptions:append "globals" -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
     end,
     dependencies = {
       { "nvim-lua/plenary.nvim" },
-      { "nvim-telescope/telescope.nvim"},
+      { "nvim-telescope/telescope.nvim" },
       { "ibhagwan/fzf-lua" },
       { "Shatur/neovim-session-manager" },
       { "nvim-telescope/telescope-file-browser.nvim" },
@@ -107,21 +129,64 @@ local plugins = {
     lazy = false,
     priority = 100,
     keys = {
-      { '<leader>fF', '<cmd>Telescope find_files cwd=%:p:h<CR>', {desc = "Find file under here"}},
-      { '<leader>ff', function() require("configs.nav").file_browser() end, {desc = "Browse file under here"}},
-      { "<leader>.", function() require("configs.nav").file_browser() end, desc = "File Manager" },
-      { "<leader>sp", function() require("configs.nav").git_grep_files_from_project() end, desc = "Search git files from project root" },
-      { "<leader>sd", function() require("configs.nav").git_grep_files_from_buffer() end, desc = "Search git files from buffer directory" },
-      { "<leader>sD", function() require("configs.nav").live_grep_from_buffer() end, desc = "Live grep from buffer directory" },
-      { "<leader>sf", function() require("telescope.builtin").git_files({ cwd = vim.fn.expand("%:p:h") }) end, desc = "Search files from buffer directory (including hidden)" },
-      { "<leader>sF", function() require("telescope.builtin").find_files({ cwd = vim.fn.expand("%:p:h"), hidden=true }) end, desc = "Search files from buffer directory" },
-      { "<leader>pp", ":NeovimProjectDiscover<CR>", { desc = "Switch project" }},
+      { "<leader>fF", "<cmd>Telescope find_files cwd=%:p:h<CR>", { desc = "Find file under here" } },
+      {
+        "<leader>ff",
+        function()
+          require("configs.nav").file_browser()
+        end,
+        { desc = "Browse file under here" },
+      },
+      {
+        "<leader>.",
+        function()
+          require("configs.nav").file_browser()
+        end,
+        desc = "File Manager",
+      },
+      {
+        "<leader>sp",
+        function()
+          require("configs.nav").git_grep_files_from_project()
+        end,
+        desc = "Search git files from project root",
+      },
+      {
+        "<leader>sd",
+        function()
+          require("configs.nav").git_grep_files_from_buffer()
+        end,
+        desc = "Search git files from buffer directory",
+      },
+      {
+        "<leader>sD",
+        function()
+          require("configs.nav").live_grep_from_buffer()
+        end,
+        desc = "Live grep from buffer directory",
+      },
+      {
+        "<leader>sf",
+        function()
+          require("telescope.builtin").git_files { cwd = vim.fn.expand "%:p:h" }
+        end,
+        desc = "Search files from buffer directory (including hidden)",
+      },
+      {
+        "<leader>sF",
+        function()
+          require("telescope.builtin").find_files { cwd = vim.fn.expand "%:p:h", hidden = true }
+        end,
+        desc = "Search files from buffer directory",
+      },
+      { "<leader>pp", ":NeovimProjectDiscover<CR>", { desc = "Switch project" } },
     },
   },
-
   {
     "neovim/nvim-lspconfig",
     dependencies = {
+      "williamboman/mason-lspconfig.nvim",
+      "joechrisellis/lsp-format-modifications.nvim",
       -- format & linting
       {
         "nvimtools/none-ls.nvim",
@@ -130,58 +195,93 @@ local plugins = {
         end,
       },
     },
-
     config = function()
       require "configs.lspconfig"
     end,
   },
 
-  -- override plugin configs
   {
-      "jay-babu/mason-null-ls.nvim",
-      event = { "BufReadPre", "BufNewFile" },
-      dependencies = {
-        "williamboman/mason.nvim",
-        "nvimtools/none-ls.nvim",
-      },
-      config = function()
-        require "configs.null-ls"
-      end,
+    "williamboman/mason.nvim",
+    cmd = "Mason",
+    build = ":MasonUpdate",
+    opts = {
+      install_root_dir = os.getenv "HOME" .. "/.local/share/nvim/mason/",
+      ensure_installed = tools.lsp,
+    },
   },
 
   {
-    "williamboman/mason.nvim",
     "williamboman/mason-lspconfig.nvim",
+    dependencies = {
+      "williamboman/mason.nvim",
+    },
     opts = {
       install_root_dir = os.getenv "HOME" .. "/.local/share/nvim/mason/",
-      ensure_installed = {
-        -- lua stuff
-        "lua-language-server",
-        "stylua",
+    },
+  },
 
-        -- web dev stuff
-        "css-lsp",
-        "html-lsp",
-        "typescript-language-server",
-        "deno",
-        "prettier",
-
-        -- c/cpp stuff
-        "clangd",
-        "clang-format",
-
-        -- Rust stuff
-        "rust-analyzer",
-
-        -- Shell stuff
-        "shellcheck",
-        "shfmt",
-
-        -- Python
-        -- TODO: Remove mason-dap-install plugin and use the default
-        "black",
-        "debugpy",
+  {
+    "stevearc/conform.nvim",
+    event = { "BufReadPre", "BufNewFile" },
+    keys = {
+      {
+        "<leader>cF",
+        function()
+          require("conform").format { async = true, lsp_fallback = true }
+        end,
+        mode = "",
+        desc = "Format entire buffer",
       },
+      {
+        "<leader>cf",
+        function()
+          -- Format git changes in current buffer
+          require("configs.conform").format_on_save_handler(0)
+        end,
+        mode = "",
+        desc = "Format changed lines",
+      },
+    },
+    opts = {
+      formatters_by_ft = tools.formatters,
+      -- Extract format_on_save logic to a separate function for reusability
+      format_on_save = function(bufnr)
+        return require("configs.conform").format_on_save_handler(bufnr)
+      end,
+    },
+    init = function()
+      vim.o.formatexpr = "v:lua.require'conform'.formatexpr()"
+    end,
+  },
+
+  -- TODO this was thought to be needed but apparently conform already does this
+  -- {
+  --   "joechrisellis/lsp-format-modifications.nvim",
+  --   dependencies = {
+  --     "neovim/nvim-lspconfig",
+  --     "stevearc/conform.nvim",
+  --   },
+  --   keys = {
+  --     {
+  --       "<leader>cf",
+  --       "<cmd>FormatModifications<cr>",
+  --       desc = "Format modified lines",
+  --     },
+  --   },
+  -- },
+
+  {
+    "jay-babu/mason-null-ls.nvim",
+    event = { "BufReadPre", "BufNewFile" },
+    dependencies = {
+      "williamboman/mason.nvim",
+      "nvimtools/none-ls.nvim",
+    },
+    opts = {
+      install_root_dir = os.getenv "HOME" .. "/.local/share/nvim/mason/",
+      ensure_installed = flatten(tools.linters),
+      automatic_installation = true,
+      handlers = {},
     },
   },
 
@@ -189,7 +289,8 @@ local plugins = {
     "nvim-treesitter/nvim-treesitter",
     lazy = false,
     config = function()
-      require("nvim-treesitter.configs").setup({
+      require("nvim-treesitter.configs").setup {
+        -- todo these should go in configs.tools
         ensure_installed = {
           -- defaults
           "vim",
@@ -260,7 +361,7 @@ local plugins = {
             include_surrounding_whitespace = true,
           },
         },
-      })
+      }
     end,
   },
 
@@ -309,7 +410,7 @@ local plugins = {
     version = "*", -- Use for stability; omit to use `main` branch for the latest features
     config = function(_, opts)
       --use defaults
-      require("nvim-surround").setup({})
+      require("nvim-surround").setup {}
     end,
   },
 
@@ -968,7 +1069,7 @@ local plugins = {
     },
   },
 
-  { 
+  {
     "jay-babu/mason-nvim-dap.nvim",
 
     dependencies = {
@@ -1362,7 +1463,7 @@ local plugins = {
   --   --
   --   --   ":CEGotoLabel",
   --   -- },
-  --   keys = { --- IDK wheter they work under v mode
+  --   keys = { --- IDK whether they work under v mode
   --     -- stylua: ignore start
   --     { "<leader>nc", ":CECompile<CR>",     mode = "n", desc = "Compile"      },
   --     { "<leader>nl", ":CECompileLive<CR>", mode = "n", desc = "Compile Live" },
@@ -2413,7 +2514,7 @@ local plugins = {
     keys = {
       { "<leader>mkk", "<cmd> TableModeToggle<CR>", mode = "n", desc = "Toggle Table Mode" },
       { "<leader>mka", "<cmd> TableAddFormula<CR>", mode = "n", desc = "Add Formula" },
-      { "<leader>mke", "<cmd> TableEvalFormulaLine<CR>", mode = "n", desc = "Eval Formula" },
+      { "<leader>make", "<cmd> TableEvalFormulaLine<CR>", mode = "n", desc = "Eval Formula" },
       { "<leader>mkr", "<cmd> TableModeRealign<CR>", mode = "n", desc = "Realign Table" },
       { "<leader>mkl", "<cmd> Tableize<CR>", mode = "n", desc = "Tableize" },
       { "<leader>mks", "<cmd> TableSort<CR>", mode = "n", desc = "Sort Table" },
@@ -2538,7 +2639,7 @@ local plugins = {
 
     -- opts = function()
     --   return {
-    --     -- Enable by default. You can disable and use :NvimContextVtToggle to maually enable.
+    --     -- Enable by default. You can disable and use :NvimContextVtToggle to manually enable.
     --     -- Default: true
     --     enabled = true,
     --
@@ -2558,7 +2659,7 @@ local plugins = {
     --     -- Default: false
     --     disable_virtual_lines = false,
     --
-    --     -- Same as above but only for spesific filetypes
+    --     -- Same as above but only for specific filetypes
     --     -- Default: {}
     --     disable_virtual_lines_ft = { "yaml" },
     --
@@ -2566,7 +2667,7 @@ local plugins = {
     --     -- Default: 1 (equals two lines total)
     --     min_rows = 1,
     --
-    --     -- Same as above but only for spesific filetypes
+    --     -- Same as above but only for specific filetypes
     --     -- Default: {}
     --     min_rows_ft = {},
     --
@@ -2902,9 +3003,9 @@ local plugins = {
   {
     "bagohart/minimal-narrow-region.nvim",
     config = function()
-      require("minimal-narrow-region").setup({
+      require("minimal-narrow-region").setup {
         -- You can add any configuration options here
-      })
+      }
     end,
     -- If you want to lazy-load the plugin, you can specify when to load it
     -- For example, to load it on command:
@@ -2915,5 +3016,3 @@ local plugins = {
 }
 
 return plugins
-
--- TODO: Fix Lazy.nvim breaking the Nvdash (from some plugin that I installed)

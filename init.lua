@@ -28,26 +28,26 @@ require("lazy").setup({
       },
     },
     dependencies = {
-      {"nvim-telescope/telescope.nvim"},
-      {"tsakirist/telescope-lazy.nvim"},
-        opts = {
-          extensions = {
-            lazy = {
-              -- Optional theme (the extension doesn't set a default theme)
-              theme = "ivy",
-              -- Whether or not to show the icon in the first column
-              show_icon = true,
-              -- Mappings for the actions
-              mappings = {
-                open_in_browser = "<C-o>",
-                open_in_file_browser = "<M-b>",
-                open_in_find_files = "<C-f>",
-                open_in_live_grep = "<C-g>",
-                open_plugins_picker = "<C-b>", -- Works only after having called first another action
-                open_lazy_root_find_files = "<C-r>f",
-                open_lazy_root_live_grep = "<C-r>g",
-              },
-              -- Other telescope configuration options
+      { "nvim-telescope/telescope.nvim" },
+      { "tsakirist/telescope-lazy.nvim" },
+      opts = {
+        extensions = {
+          lazy = {
+            -- Optional theme (the extension doesn't set a default theme)
+            theme = "ivy",
+            -- Whether or not to show the icon in the first column
+            show_icon = true,
+            -- Mappings for the actions
+            mappings = {
+              open_in_browser = "<C-o>",
+              open_in_file_browser = "<M-b>",
+              open_in_find_files = "<C-f>",
+              open_in_live_grep = "<C-g>",
+              open_plugins_picker = "<C-b>", -- Works only after having called first another action
+              open_lazy_root_find_files = "<C-r>f",
+              open_lazy_root_live_grep = "<C-r>g",
+            },
+            -- Other telescope configuration options
           },
         },
       },
@@ -63,7 +63,7 @@ dofile(vim.g.base46_cache .. "statusline")
 require "options"
 require "nvchad.autocmds"
 
-require 'myinit'
+require "myinit"
 
 vim.schedule(function()
   require "mappings"
@@ -74,12 +74,17 @@ require "winshift"
 -- require "nvim-surround"
 
 -- TODO put these in their own plugin file
-vim.keymap.set('n', '<leader>ff', ':Telescope file_browser<CR>', { noremap = true, silent = true, desc = "Find files (current dir)" })
+vim.keymap.set(
+  "n",
+  "<leader>ff",
+  ":Telescope file_browser<CR>",
+  { noremap = true, silent = true, desc = "Find files (current dir)" }
+)
 
 -- Function to find project root
 local function find_project_root()
   -- Get current buffer's directory
-  local buf_dir = vim.fn.expand("%:p:h")
+  local buf_dir = vim.fn.expand "%:p:h"
   -- Try git root from buffer's directory
   local git_cmd = string.format("cd %s && git rev-parse --show-toplevel", vim.fn.shellescape(buf_dir))
   local git_dir = vim.fn.system(git_cmd):gsub("\n", "")
@@ -89,7 +94,7 @@ local function find_project_root()
   end
 
   -- Try to use LSP workspace root
-  local active_clients = vim.lsp.get_active_clients({ bufnr = 0 })
+  local active_clients = vim.lsp.get_active_clients { bufnr = 0 }
   if #active_clients > 0 then
     local workspace = active_clients[1].config.root_dir
     if workspace then
@@ -110,12 +115,15 @@ local function check_ready()
   local is_real_file = buf_name ~= "" and vim.fn.filereadable(buf_name) == 1
   -- Check if Vim is fully started
   local vim_ready = vim.v.vim_did_enter == 1
-  vim.notify(string.format(
-    "Check ready status: is_real_file=%s, vim_ready=%s, buf_name=%s",
-    tostring(is_real_file),
-    tostring(vim_ready),
-    buf_name
-  ), vim.log.levels.DEBUG)
+  vim.notify(
+    string.format(
+      "Check ready status: is_real_file=%s, vim_ready=%s, buf_name=%s",
+      tostring(is_real_file),
+      tostring(vim_ready),
+      buf_name
+    ),
+    vim.log.levels.DEBUG
+  )
   return is_real_file and vim_ready
 end
 
@@ -127,7 +135,7 @@ local function find_default_file(root_dir)
     "README.*",
     ".*%.org",
     ".*%.md",
-    ".*%.txt"
+    ".*%.txt",
   }
 
   for _, pattern in ipairs(patterns) do
@@ -160,7 +168,7 @@ local function open_file_browser(root)
       end
       -- Return true to keep default mappings
       return true
-    end
+    end,
   }
 
   require("telescope").extensions.file_browser.file_browser(opts)
@@ -168,7 +176,7 @@ end
 
 -- Update your existing callbacks to use this function:
 local function load_new_project()
-  local timeout = 2000  -- 2 seconds in milliseconds
+  local timeout = 2000 -- 2 seconds in milliseconds
   local start_time = vim.loop.now()
 
   local function check_condition()
@@ -206,10 +214,45 @@ vim.api.nvim_create_autocmd("SessionLoadPost", {
 })
 
 -- Keybinding for manual trigger remains the same
-vim.keymap.set('n', '<leader><leader>', function()
+vim.keymap.set("n", "<leader><leader>", function()
   local root = find_project_root()
-  require("telescope").extensions.file_browser.file_browser({
+  require("telescope").extensions.file_browser.file_browser {
     path = root,
     select_buffer = true,
-  })
+  }
 end, { noremap = true, silent = true, desc = "Find files (project root)" })
+
+vim.api.nvim_create_user_command("CheckFormatting", function()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local clients = vim.lsp.get_active_clients { bufnr = bufnr }
+
+  print "Active LSP clients:"
+  for _, client in ipairs(clients) do
+    print(
+      string.format(
+        "Client %s: range formatting = %s",
+        client.name,
+        client.server_capabilities.documentRangeFormattingProvider
+      )
+    )
+  end
+
+  print "\nFormat modifications context:"
+  print(vim.inspect(vim.b[bufnr].lsp_format_modifications_context))
+end, {})
+
+vim.api.nvim_create_user_command("TestFormatRange", function()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local client = vim.lsp.get_active_clients({ bufnr = bufnr })[1]
+
+  if client then
+    require("conform").format {
+      bufnr = bufnr,
+      async = false,
+      range = {
+        start = { 1, 0 },
+        ["end"] = { 5, 0 },
+      },
+    }
+  end
+end, {})
