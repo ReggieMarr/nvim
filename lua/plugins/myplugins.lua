@@ -29,11 +29,34 @@ end
 
 ---@type NvPluginSpec[]
 local plugins = {
+  { -- Built-in cheats
+    -- AWESOME
+    "sudormrfbin/cheatsheet.nvim",
+    lazy = false,
+
+    cmd = { "Cheatsheet" },
+
+    keys = {
+      {
+        "<leader>fi",
+        "<cmd>Cheatsheet<cr>",
+        mode = "n",
+        desc = "Find Cheat",
+      },
+    },
+
+    dependencies = {
+      { "nvim-telescope/telescope.nvim" },
+      { "nvim-lua/popup.nvim" },
+      { "nvim-lua/plenary.nvim" },
+    },
+  },
 
   {
     "folke/which-key.nvim",
     config = function(_, opts)
       dofile(vim.g.base46_cache .. "whichkey")
+      -- TODO update these configs to match my nmenonics and uncomment this
       -- local wk_config = require("configs.which-key")
       -- opts = vim.tbl_deep_extend("force", opts, wk_config.opts)
       -- wk_config.setup()
@@ -50,15 +73,112 @@ local plugins = {
         "nvim-telescope/telescope-fzf-native.nvim",
         build = "cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release",
       },
-      "folke/noice.nvim",
+      -- NOTE this is an awesome ui package but I need to spend some time to properly configure it
+      -- its also worth noting this is considered experimental
+      {
+        "folke/noice.nvim",
+        event = "VeryLazy",
+        keys = {
+          { "<leader>su", "<cmd>Noice pick<CR>", { desc = "Search notifications" } },
+          { "<leader>nl", "<cmd>Noice last<CR>", { desc = "Show the last notification" } },
+          { "<leader>nd", "<cmd>Noice dismiss<CR>", { desc = "Dismiss noice" } },
+        },
+        config = function()
+          require("noice").setup {
+            routes = {
+              {
+                -- Filter out low-priority notifications
+                filter = {
+                  event = "notify",
+                  min_height = 1,
+                },
+                view = "mini",
+              },
+              {
+                -- Ignore LSP progress updates
+                filter = {
+                  event = "lsp",
+                  kind = "progress",
+                },
+                opts = { skip = true },
+              },
+              {
+                -- Skip written/yanked messages
+                filter = {
+                  event = "msg_show",
+                  kind = { "echo", "echomsg" },
+                  any = {
+                    { find = "written" },
+                    { find = "yanked" },
+                    { find = "line" },
+                    { find = "more lines" },
+                  },
+                },
+                opts = { skip = true },
+              },
+              {
+                -- Route other messages to mini view
+                filter = {
+                  event = "msg_show",
+                },
+                view = "mini",
+              },
+              {
+                -- Skip all messages that aren't errors or warnings
+                filter = {
+                  event = "msg_show",
+                  ["not"] = {
+                    kind = { "error", "warning" },
+                  },
+                },
+                opts = { skip = true },
+              },
+            },
+            messages = {
+              -- NOTE: If you enable messages, then the cmdline is enabled automatically.
+              -- This is a current Neovim limitation.
+              enabled = true,
+              view = "mini", -- default view for messages
+              view_error = "notify", -- view for errors
+              view_warn = "notify", -- view for warnings
+              view_history = "messages", -- view for :messages
+              view_search = false, -- view for search count messages. Set to `false` to disable
+            },
+            notify = {
+              -- Reduce visual noise
+              enabled = true,
+              view = "mini",
+            },
+          }
+        end,
+        dependencies = {
+          -- if you lazy-load any plugin below, make sure to add proper `module="..."` entries
+          "MunifTanjim/nui.nvim",
+          -- OPTIONAL:
+          --   `nvim-notify` is only needed, if you want to use the notification view.
+          --   If not available, we use `mini` as the fallback
+          "rcarriga/nvim-notify",
+        },
+      },
+    },
+    keys = {
+      { "<leader>sn", "<cmd>Telescope notify<CR>", { desc = "Search notifications" } },
+      { "<leader>sN", "<cmd>Notification<CR>", { desc = "Get logs" } },
     },
     config = function()
+      -- load extensions
       local telescope = require "telescope"
+      telescope.load_extension "fzf"
+      telescope.load_extension "notify"
+      telescope.load_extension "git_grep"
+      telescope.load_extension "file_browser"
       telescope.load_extension "noice"
 
       local actions = require "telescope.actions"
       telescope.setup {
         defaults = {
+          select_buffer = true,
+          grouped = true,
           sorting_strategy = "ascending",
           path_display = { "filename_first" },
           layout_config = {
@@ -68,6 +188,10 @@ local plugins = {
             i = {
               ["<C-n>"] = actions.toggle_selection + actions.move_selection_worse,
               ["<C-p>"] = actions.toggle_selection + actions.move_selection_better,
+              ["<TAB>"] = actions.select_default,
+            },
+            n = {
+              ["<TAB>"] = actions.select_default,
             },
           },
         },
@@ -81,11 +205,13 @@ local plugins = {
           live_grep = {
             additional_args = { "--hidden" },
           },
+          file_browser = {
+            select_buffer = true,
+            grouped = true,
+            hidden = true,
+          },
         },
       }
-      telescope.load_extension "fzf"
-      telescope.load_extension "git_grep"
-      telescope.load_extension "file_browser"
     end,
   },
 
@@ -105,18 +231,21 @@ local plugins = {
   },
   {
     "coffebar/neovim-project",
-    opts = {
-      projects = { -- define project roots
-        "~/Projects/*",
-        "~/.config/*",
-      },
-      picker = {
-        type = "telescope", -- or "fzf-lua"
-      },
-    },
+    lazy = false,
     init = function()
       -- enable saving the state of plugins in the session
       vim.opt.sessionoptions:append "globals" -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
+    end,
+    config = function(_, opts)
+      require("neovim-project").setup {
+        projects = { -- define project roots
+          "~/Projects/*",
+          "~/.config/*",
+        },
+        picker = {
+          type = "telescope",
+        },
+      }
     end,
     dependencies = {
       { "nvim-lua/plenary.nvim" },
@@ -126,7 +255,6 @@ local plugins = {
       { "nvim-telescope/telescope-file-browser.nvim" },
       { "davvid/telescope-git-grep.nvim" },
     },
-    lazy = false,
     priority = 100,
     keys = {
       { "<leader>fF", "<cmd>Telescope find_files cwd=%:p:h<CR>", { desc = "Find file under here" } },
@@ -187,8 +315,58 @@ local plugins = {
     dependencies = {
       "williamboman/mason-lspconfig.nvim",
       "joechrisellis/lsp-format-modifications.nvim",
+      {
+        "ray-x/lsp_signature.nvim",
+        event = "InsertEnter",
+        config = function(_, opts)
+          require("lsp_signature").setup {
+            bind = true,
+            handler_opts = {
+              border = "rounded",
+            },
+          }
+        end,
+      },
+      { -- Lsp lens Show References, Definitions etc. as virtual text
+        -- Not working smoothly in every language
+        "VidocqH/lsp-lens.nvim",
+
+        keys = {
+          {
+            "<leader>ll",
+            "<cmd> LspLensToggle<CR>",
+            mode = "n",
+            desc = "Enable Lsp Lens",
+          },
+        },
+
+        config = function(_, opts)
+          local SymbolKind = vim.lsp.protocol.SymbolKind
+          require("lsp-lens").setup {
+            enable = false,
+            include_declaration = false, -- Reference include declaration
+
+            sections = { -- Enable / Disable specific request
+              definition = false,
+              references = true,
+              implements = true,
+            },
+            -- Target Symbol Kinds to show lens information
+            target_symbol_kinds = { SymbolKind.Function, SymbolKind.Method, SymbolKind.Interface },
+            -- Symbol Kinds that may have target symbol kinds as children
+            wrapper_symbol_kinds = { SymbolKind.Class, SymbolKind.Struct },
+            ignore_filetype = {
+              "prisma",
+            },
+          }
+        end,
+      },
+
       -- format & linting
       {
+        dependencies = {
+          "ckolkey/ts-node-action",
+        },
         "nvimtools/none-ls.nvim",
         config = function()
           require "configs.null-ls"
@@ -225,7 +403,7 @@ local plugins = {
     event = { "BufReadPre", "BufNewFile" },
     keys = {
       {
-        "<leader>cF",
+        "<leader>lF",
         function()
           require("conform").format { async = true, lsp_fallback = true }
         end,
@@ -233,7 +411,7 @@ local plugins = {
         desc = "Format entire buffer",
       },
       {
-        "<leader>cf",
+        "<leader>lf",
         function()
           -- Format git changes in current buffer
           require("configs.conform").format_on_save_handler(0)
@@ -285,9 +463,41 @@ local plugins = {
     },
   },
 
+  -- NOTE this is interesting but doesn't seem to work well with lazy
+  -- https://github.com/code-biscuits/nvim-biscuits/issues/47
+  --{ -- Show context on delimiter. (eg:..
+  --  --   fn some(a, b ,c) {             |
+  --  --   some_action();                 |
+  --  --   } // fn some(a, b ,c) <--------'
+  --  -- )
+
+  --  "code-biscuits/nvim-biscuits",
+  --  lazy = false,
+  --  keys = {
+  --    {
+  --      "<leader>lt",
+  --      function()
+  --        require("nvim-biscuits").BufferAttach()
+  --        require("nvim-biscuits").toggle_biscuits()
+  --      end,
+  --      mode = "n",
+  --      desc = "Enable Biscuits",
+  --    },
+  --  },
+  --  config = function(_, opts)
+  --    require("nvim-biscuits").setup {
+  --      cursor_line_only = true,
+  --      show_on_start = false,
+  --      on_events = "CursorHoldI",
+  --      trim_by_words = true,
+  --    }
+  --  end,
+  --},
+
   {
     "nvim-treesitter/nvim-treesitter",
     lazy = false,
+    -- not strictly a plugin but related
     config = function()
       require("nvim-treesitter.configs").setup {
         -- todo these should go in configs.tools
@@ -406,15 +616,6 @@ local plugins = {
   -- },
 
   {
-    "kylechui/nvim-surround",
-    version = "*", -- Use for stability; omit to use `main` branch for the latest features
-    config = function(_, opts)
-      --use defaults
-      require("nvim-surround").setup {}
-    end,
-  },
-
-  {
     "hrsh7th/nvim-cmp",
     dependencies = require("configs.cmp").dependencies,
     opts = require("configs.cmp").opts,
@@ -456,6 +657,16 @@ local plugins = {
 
     dependencies = {
       "nvim-neotest/nvim-nio",
+      { -- This plugin overrides the default vim selector ui (e.g <leader>ca)
+        "stevearc/dressing.nvim",
+        config = function(_, opts)
+          require("dressing").setup(opts)
+        end,
+
+        opts = {
+          default_prompt = "❯ ",
+        },
+      },
     },
     keys = {
       {
@@ -546,20 +757,6 @@ local plugins = {
     end,
   },
 
-  { -- This plugin overrides the default vim selector ui (e.g <leader>ca)
-    "stevearc/dressing.nvim",
-
-    event = "VeryLazy", -- FIXME: maybe lazy loadable?
-
-    config = function(_, opts)
-      require("dressing").setup(opts)
-    end,
-
-    opts = {
-      default_prompt = "❯ ",
-    },
-  },
-
   {
     "NeogitOrg/neogit",
 
@@ -641,44 +838,46 @@ local plugins = {
     keys = require("configs.refactoring").keys,
   },
 
-  {
-    "sourcegraph/sg.nvim",
+  -- NOTE this is another AI tool, will have to eval this integeration seperately
+  -- {
+  --   "sourcegraph/sg.nvim",
+  --
+  --   dependencies = { "nvim-lua/plenary.nvim" },
+  --
+  --   config = function(_, opts)
+  --     require("sg").setup(opts)
+  --     status.cody = true
+  --   end,
+  --
+  --   opts = require("configs.sg").opts,
+  --   keys = require("configs.sg").keys,
+  --
+  --   -- If you have a recent version of lazy.nvim, you don't need to add this!
+  --   -- build = "nvim -l build/init.lua",
+  -- },
 
-    dependencies = { "nvim-lua/plenary.nvim" },
-
-    config = function(_, opts)
-      require("sg").setup(opts)
-      status.cody = true
-    end,
-
-    opts = require("configs.sg").opts,
-    keys = require("configs.sg").keys,
-
-    -- If you have a recent version of lazy.nvim, you don't need to add this!
-    -- build = "nvim -l build/init.lua",
-  },
-
-  { -- TODO: Fix
-    "iamcco/markdown-preview.nvim",
-
-    ft = {
-      "markdown",
-    },
-    build = ":call mkdp#util#install()",
-
-    keys = {
-      {
-        "<leader>mp",
-        "<cmd>MarkdownPreviewToggle<cr>",
-        mode = "n",
-        desc = "Markdown Preview",
-      },
-    },
-
-    config = function()
-      vim.g.mkdp_filetypes = { "markdown" }
-    end,
-  },
+  -- TODO replace this with our own quartz powered previewer
+  -- { -- TODO: Fix
+  --   "iamcco/markdown-preview.nvim",
+  --
+  --   ft = {
+  --     "markdown",
+  --   },
+  --   build = ":call mkdp#util#install()",
+  --
+  --   keys = {
+  --     {
+  --       "<leader>mp",
+  --       "<cmd>MarkdownPreviewToggle<cr>",
+  --       mode = "n",
+  --       desc = "Markdown Preview",
+  --     },
+  --   },
+  --
+  --   config = function()
+  --     vim.g.mkdp_filetypes = { "markdown" }
+  --   end,
+  -- },
 
   { -- Allows to use vim command "w" inside CamelCase snake_case etc
     "chaoren/vim-wordmotion",
@@ -1012,50 +1211,6 @@ local plugins = {
     },
   },
 
-  { -- Telescope projects
-    -- Migrated to project.nvim
-    "nvim-telescope/telescope-project.nvim",
-
-    -- if you want to enable custom hook
-    dependencies = {
-      {
-        "ThePrimeagen/harpoon",
-      },
-      {
-        "nvim-telescope/telescope.nvim",
-        opts = {
-          extensions = {
-            project = {
-              base_dirs = {
-                "~/Projects",
-                -- { "~/dev/src2" },
-                -- { "~/dev/src3", max_depth = 4 },
-                -- { path = "~/dev/src4" },
-                -- { path = "~/dev/src5", max_depth = 2 },
-              },
-              -- hidden_files = true, -- default: false --- .git files go brrr
-              -- theme = "dropdown",
-              order_by = "recent",
-              search_by = "title",
-              sync_with_nvim_tree = true, -- default false
-              -- default for on_project_selected = find project files
-              -- on_project_selected = function(prompt_bufnr)
-              --   -- Do anything you want in here. For example:
-              --   project_actions.change_working_directory(prompt_bufnr, false)
-              --   require("harpoon.ui").nav_file(1)
-              -- end,
-            },
-          },
-        },
-      },
-    },
-
-    config = function()
-      -- local project_actions = require "telescope._extensions.project.actions"
-      require("telescope").load_extension "project"
-    end,
-  },
-
   { -- Regexplainer
     "tomiis4/Hypersonic.nvim",
     config = function(_, opts)
@@ -1097,52 +1252,54 @@ local plugins = {
     },
   },
 
-  {
-    "Wansmer/treesj",
+  -- TODO if we're going to use this it should play nice with conform
+  -- {
+  --   "Wansmer/treesj",
+  --
+  --   dependencies = {
+  --     "nvim-treesitter/nvim-treesitter",
+  --   },
+  --
+  --   keys = {
+  --     {
+  --       "<leader>jj",
+  --       function()
+  --         require("treesj").toggle()
+  --       end,
+  --       mode = "n",
+  --       desc = "Toggle Treesitter Unjoin",
+  --     },
+  --
+  --     {
+  --       "<leader>js",
+  --       function()
+  --         require("treesj").split()
+  --       end,
+  --       mode = "n",
+  --       desc = "Treesitter Split",
+  --     },
+  --
+  --     {
+  --       "<leader>jl",
+  --       function()
+  --         require("treesj").join()
+  --       end,
+  --       mode = "n",
+  --       desc = "Treesitter Join Line",
+  --     },
+  --   },
+  --
+  --   config = function(_, opts)
+  --     require("treesj").setup(opts)
+  --   end,
+  --
+  --   opts = {
+  --     use_default_keymaps = false,
+  --     max_join_length = 220, -- 120 is not sufficient
+  --   },
+  -- },
 
-    dependencies = {
-      "nvim-treesitter/nvim-treesitter",
-    },
-
-    keys = {
-      {
-        "<leader>jj",
-        function()
-          require("treesj").toggle()
-        end,
-        mode = "n",
-        desc = "Toggle Treesitter Unjoin",
-      },
-
-      {
-        "<leader>js",
-        function()
-          require("treesj").split()
-        end,
-        mode = "n",
-        desc = "Treesitter Split",
-      },
-
-      {
-        "<leader>jl",
-        function()
-          require("treesj").join()
-        end,
-        mode = "n",
-        desc = "Treesitter Join Line",
-      },
-    },
-
-    config = function(_, opts)
-      require("treesj").setup(opts)
-    end,
-
-    opts = {
-      use_default_keymaps = false,
-      max_join_length = 220, -- 120 is not sufficient
-    },
-  },
-
+  -- NOTE lets get regular objects working well then take a look at this
   {
     --          DEFINITELY TAKE A LOOK
     --             IT's AWESOME!!!
@@ -1154,7 +1311,7 @@ local plugins = {
 
     keys = {
       {
-        "<leader>cs",
+        "<leader>ca",
         function()
           require("ts-node-action").node_action()
         end,
@@ -1170,52 +1327,27 @@ local plugins = {
     opts = require("configs.ts").opts,
   },
 
-  { -- Show lsp signature help when in a function (param info)
-    "ray-x/lsp_signature.nvim",
-    -- event = "VeryLazy", -- TODO: Add keys to enable as mode
-    opts = {},
-    config = function(_, opts)
-      require("lsp_signature").setup(opts)
-    end,
-  },
-
-  { -- Highlight Args in functions etc. -- TODO: Add highlight-mode for this
-    -- I think this is a bloat for now
-    "m-demare/hlargs.nvim",
-    opts = {},
-    -- init = function(_) end, --  .enable function locates here by default
-    config = function(_, opts)
-      require("hlargs").setup(opts) -- Automatically enables the plugin
-      require("hlargs").disable() -- So disable it
-    end,
-
-    keys = {
-      {
-        "<leader>mh",
-        function()
-          require("hlargs").toggle()
-        end,
-        mode = "n",
-        desc = "Toggle Highlight Args",
-      },
-      -- {
-      --   "<leader>zd",
-      --   function()
-      --     require("hlargs").enable()
-      --   end,
-      --   mode = "n",
-      --   desc = "Enable Highlight Args",
-      -- },
-      -- {
-      --   "<leader>zl",
-      --   function()
-      --     require("hlargs").disable()
-      --   end,
-      --   mode = "n",
-      --   desc = "Disable Highlight Args",
-      -- },
-    },
-  },
+  -- NOTE provideds highlighting for args when lsp isn't present, review if we really need this
+  -- { -- Highlight Args in functions etc. -- TODO: Add highlight-mode for this
+  --   -- I think this is a bloat for now
+  --   "m-demare/hlargs.nvim",
+  --   opts = {},
+  --   config = function(_, opts)
+  --     require("hlargs").setup(opts) -- Automatically enables the plugin
+  --     -- require("hlargs").disable() -- So disable it
+  --   end,
+  --
+  --   keys = {
+  --     {
+  --       "<leader>mh",
+  --       function()
+  --         require("hlargs").toggle()
+  --       end,
+  --       mode = "n",
+  --       desc = "Toggle Highlight Args",
+  --     },
+  --   },
+  -- },
 
   { -- https://github.com/t-troebst/perfanno.nvim
     "t-troebst/perfanno.nvim",
@@ -1257,96 +1389,6 @@ local plugins = {
       -- vim.o.fillchars = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
       -- vim.o.foldcolumn = "3" -- "1" is better
     end,
-  },
-
-  { -- Lsp lens Show References, Definitions etc. as virtual text
-    -- Not working smoothly in every language
-    "VidocqH/lsp-lens.nvim",
-
-    keys = {
-      {
-        "<leader>cj",
-        "<cmd> LspLensToggle<CR>",
-        mode = "n",
-        desc = "Enable Lsp Lens",
-      },
-    },
-
-    config = function(_, opts)
-      require("lsp-lens").setup(opts)
-    end,
-
-    opts = {
-      enable = true,
-      include_declaration = false, -- Reference include declaration
-
-      sections = { -- Enable / Disable specific request
-        definition = false,
-        references = true,
-        implements = true,
-      },
-
-      ignore_filetype = {
-        "prisma",
-      },
-    },
-  },
-
-  { -- Show context on delimiter. (eg:..
-    --   fn some(a, b ,c) {             |
-    --   some_action();                 |
-    --   } // fn some(a, b ,c) <--------'
-    -- )
-
-    -- TODO: Fix issue #47 on repo
-    "code-biscuits/nvim-biscuits",
-
-    keys = {
-      {
-        "<leader>mb",
-        function()
-          -- require("nvim-biscuits").toggle_biscuits() -- moved to opts
-        end,
-        mode = "n",
-        desc = "Biscuit Mode", -- TODO: MAYBE rename this
-      },
-    },
-
-    dependencies = {
-      "nvim-treesitter/nvim-treesitter",
-    },
-
-    config = function(_, opts)
-      require("nvim-biscuits").setup(opts)
-    end,
-
-    opts = {
-      toggle_keybind = "<leader>bt", -- TODO: Add doc for which-key
-      cursor_line_only = true,
-      show_on_start = true,
-    },
-  },
-
-  { -- Built-in cheats
-    -- AWESOME
-    "sudormrfbin/cheatsheet.nvim",
-
-    cmd = { "Cheatsheet" },
-
-    keys = {
-      {
-        "<leader>fi",
-        "<cmd>Cheatsheet<cr>",
-        mode = "n",
-        desc = "Find Cheat",
-      },
-    },
-
-    dependencies = {
-      { "nvim-telescope/telescope.nvim" },
-      { "nvim-lua/popup.nvim" },
-      { "nvim-lua/plenary.nvim" },
-    },
   },
 
   { -- Rust Cargo.toml integration
@@ -1409,19 +1451,6 @@ local plugins = {
 
     cmd = "MdEval",
     keys = require("configs.mdeval").keys,
-  },
-  --| NOTE: Could be
-  { -- Visualize git conflicts MAYBE
-    "akinsho/git-conflict.nvim",
-
-    -- TODO: Add keys
-    cmd = require("configs.git-conflict").cmd,
-    opts = require("configs.git-conflict").opts,
-    version = "*",
-
-    config = function(_, opts)
-      require("git-conflict").setup(opts)
-    end,
   },
 
   -- { -- TODO: migrate to file
@@ -1551,15 +1580,12 @@ local plugins = {
     },
   },
 
-  { -- TODO FIXME:
+  {
     "AckslD/nvim-neoclip.lua",
     dependencies = {
-      -- -- Restore from last session
-      -- { "kkharji/sqlite.lua", module = "sqlite" }, -- packer style
-
-      -- you'll need at least one of these
+      -- Restore from last session
+      { "kkharji/sqlite.lua", module = "sqlite" }, -- packer style
       { "nvim-telescope/telescope.nvim" },
-      -- {'ibhagwan/fzf-lua'},
     },
 
     config = function(_, opts)
@@ -1568,92 +1594,15 @@ local plugins = {
     end,
 
     keys = {
-      { "<leader>yp", "<cmd>Telescope neoclip<cr>", mode = "n", desc = "Telescope Yanks" },
+      { "<leader>sy", "<cmd>Telescope neoclip<cr>", mode = "n", desc = "Telescope Yanks" },
 
       { -- NOTE: Macros are recorded after this plugin is loaded
-        "<leader>ym",
+        "<leader>sY",
         function()
           require("telescope").extensions.macroscope.default()
         end,
         mode = "n",
         desc = "Telescope Macros",
-      },
-    },
-
-    opts = {
-      history = 1000,
-      enable_persistent_history = false,
-      length_limit = 1048576,
-      continuous_sync = false,
-      db_path = vim.fn.stdpath "data" .. "/databases/neoclip.sqlite3",
-      filter = nil,
-      preview = true,
-      prompt = nil,
-      default_register = '"',
-      default_register_macros = "q",
-      enable_macro_history = true,
-      content_spec_column = true,
-      disable_keycodes_parsing = false,
-      on_select = {
-        move_to_front = false,
-        close_telescope = true,
-      },
-      on_paste = {
-        set_reg = false,
-        move_to_front = false,
-        close_telescope = true,
-      },
-      on_replay = {
-        set_reg = false,
-        move_to_front = false,
-        close_telescope = true,
-      },
-      on_custom_action = {
-        close_telescope = true,
-      },
-      keys = {
-        telescope = {
-          i = {
-            select = "<cr>",
-            paste = "<c-p>",
-            paste_behind = "<c-k>",
-            replay = "<c-q>", -- replay a macro
-            delete = "<c-d>", -- delete an entry
-            edit = "<c-e>", -- edit an entry
-            custom = {},
-          },
-          n = {
-            select = "<cr>",
-            paste = "p",
-            --- It is possible to map to more than one key.
-            -- paste = { 'p', '<c-p>' },
-            paste_behind = "P",
-            replay = "q",
-            delete = "d",
-            edit = "e",
-            custom = {},
-          },
-        },
-        fzf = {
-          select = "default",
-          paste = "ctrl-p",
-          paste_behind = "ctrl-k",
-          custom = {},
-        },
-      },
-    },
-  },
-
-  { --  🌻 A Vim alignment plugin
-    -- Nice
-    "junegunn/vim-easy-align",
-
-    keys = {
-      {
-        "ga",
-        "<Plug>(EasyAlign)",
-        mode = { "x", "n" },
-        desc = "Easy Align",
       },
     },
   },
@@ -1695,16 +1644,17 @@ local plugins = {
     --     zb(half_win_time[, easing])
   },
 
-  -- {
-  --   "michaelb/sniprun",
-  --   build = "sh ./install.sh",
-  --   keys = require("configs.sniprun").keys,
-  --   opts = require("configs.sniprun").opts,
-  --   -- config = function(_, opts)
-  --   --   require("sniprun").setup(opts)
-  --   -- end,
-  -- },
-  --
+  {
+    "michaelb/sniprun",
+    lazy = false,
+    build = "sh ./install.sh",
+    keys = require("configs.sniprun").keys,
+    opts = require("configs.sniprun").opts,
+    -- config = function(_, opts)
+    --   require("sniprun").setup(opts)
+    -- end,
+  },
+
   ------- GAMES -------
   -- {
   --   "jim-fx/sudoku.nvim",
@@ -1834,7 +1784,18 @@ local plugins = {
   },
 
   {
+    "kylechui/nvim-surround",
+    lazy = false,
+    version = "*", -- Use for stability; omit to use `main` branch for the latest features
+    config = function(_, opts)
+      --use defaults
+      require("nvim-surround").setup {}
+    end,
+  },
+
+  {
     "sindrets/winshift.nvim",
+    lazy = false,
 
     keys = {
       {
@@ -2861,25 +2822,13 @@ local plugins = {
     },
   },
 
-  {
-    "m4xshen/smartcolumn.nvim",
-    keys = {
-      { "<leader>mj", mode = "n", desc = "Smart Column" },
-    },
-    opts = {
-      colorcolumn = "100",
-      disabled_filetypes = { "help", "text", "markdown" },
-      custom_colorcolumn = {},
-      scope = "file",
-    },
-  },
-
   { -- Glyph Picker
     "2kabhishek/nerdy.nvim",
+    lazy = false, -- TODO find someone to depend on this
 
     keys = {
       {
-        "<leader>fe",
+        "<leader>se",
         "<cmd> Nerdy<CR>",
         mode = "n",
         desc = "Glyph Picker",

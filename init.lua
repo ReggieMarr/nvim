@@ -69,10 +69,6 @@ vim.schedule(function()
   require "mappings"
 end)
 
--- require "sniprun"
-require "winshift"
--- require "nvim-surround"
-
 -- TODO put these in their own plugin file
 vim.keymap.set(
   "n",
@@ -89,7 +85,7 @@ local function find_project_root()
   local git_cmd = string.format("cd %s && git rev-parse --show-toplevel", vim.fn.shellescape(buf_dir))
   local git_dir = vim.fn.system(git_cmd):gsub("\n", "")
   if vim.v.shell_error == 0 and git_dir ~= "" then
-    vim.notify("Using git root: " .. git_dir, vim.log.levels.INFO)
+    -- vim.notify("Using git root: " .. git_dir, vim.log.levels.INFO)
     return git_dir
   end
 
@@ -98,7 +94,7 @@ local function find_project_root()
   if #active_clients > 0 then
     local workspace = active_clients[1].config.root_dir
     if workspace then
-      vim.notify("Using LSP workspace root: " .. workspace, vim.log.levels.INFO)
+      -- vim.notify("Using LSP workspace root: " .. workspace, vim.log.levels.INFO)
       return workspace
     end
   end

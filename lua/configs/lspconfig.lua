@@ -47,9 +47,6 @@ local function setup_lsp_mappings(client, bufnr)
   vim.keymap.set("n", "<leader>wr", function()
     vim.lsp.buf.remove_workspace_folder()
   end, opts "Remove workspace folder")
-  vim.keymap.set("n", "<leader>ll", function()
-    print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
-  end, opts "List workspace folders")
 
   -- Diagnostic mappings
   vim.keymap.set("n", "<leader>le", function()
