@@ -153,13 +153,7 @@ function M.browser_setup()
   telescope.load_extension "file_browser"
 end
 
-local function get_project_root()
-  -- TODO leverage NeovimProjects or something from projects.nvim here
-  return get_git_root(vim.fn.getcwd()) or vim.fn.getcwd()
-end
-
 function M.git_grep_files_from_project()
-  -- local project_root = get_project_root()
   require("git_grep").live_grep {
     -- not needed
     -- cwd = path,
@@ -286,43 +280,6 @@ function M.load_new_project()
   end
 
   vim.schedule(check_condition)
-end
-
-function M.setup()
-  -- Create augroup
-  local augroup = vim.api.nvim_create_augroup("ProjectFileBrowser", { clear = true })
-
-  -- Create a flag to track if we've already opened the file browser
-  local browser_opened = false
-
-  -- Set up autocmd for session load
-  vim.api.nvim_create_autocmd("SessionLoadPost", {
-    group = augroup,
-    desc = "Open file browser when session is loaded",
-    callback = function()
-      if not browser_opened then
-        browser_opened = true
-        M.load_new_project()
-        browser_opened = false
-      end
-    end,
-  })
-
-  -- Set up keymaps
-  vim.keymap.set(
-    "n",
-    "<leader>ff",
-    ":Telescope file_browser<CR>",
-    { noremap = true, silent = true, desc = "Find files (current dir)" }
-  )
-
-  vim.keymap.set("n", "<leader><leader>", function()
-    local root = M.find_project_root()
-    require("telescope").extensions.file_browser.file_browser {
-      path = root,
-      select_buffer = true,
-    }
-  end, { noremap = true, silent = true, desc = "Find files (project root)" })
 end
 
 return M

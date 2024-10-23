@@ -226,92 +226,6 @@ local plugins = {
       "nvim-telescope/telescope.nvim",
       "nvim-lua/plenary.nvim",
     },
-    config = function()
-      require("configs.nav").browser_setup()
-    end,
-  },
-  {
-    "coffebar/neovim-project",
-    lazy = false,
-    init = function()
-      -- enable saving the state of plugins in the session
-      vim.opt.sessionoptions:append "globals" -- save global variables that start with an uppercase letter and contain at least one lowercase letter.
-    end,
-    config = function(_, opts)
-      require("neovim-project").setup {
-        projects = { -- define project roots
-          "~/Projects/*",
-          "~/.config/*",
-        },
-        picker = {
-          type = "telescope",
-        },
-      }
-    end,
-    dependencies = {
-      { "nvim-lua/plenary.nvim" },
-      { "nvim-telescope/telescope.nvim" },
-      { "ibhagwan/fzf-lua" },
-      { "Shatur/neovim-session-manager" },
-      { "nvim-telescope/telescope-file-browser.nvim" },
-      { "davvid/telescope-git-grep.nvim" },
-      -- TODO should this really be here ?
-      { "Zeioth/compiler.nvim" },
-    },
-    priority = 100,
-    keys = {
-      { "<leader>fF", "<cmd>Telescope find_files cwd=%:p:h<CR>", { desc = "Find file under here" } },
-      {
-        "<leader>ff",
-        function()
-          require("configs.nav").file_browser()
-        end,
-        { desc = "Browse file under here" },
-      },
-      {
-        "<leader>.",
-        function()
-          require("configs.nav").file_browser()
-        end,
-        desc = "File Manager",
-      },
-      {
-        "<leader>sp",
-        function()
-          require("configs.nav").git_grep_files_from_project()
-        end,
-        desc = "Search git files from project root",
-      },
-      {
-        "<leader>sd",
-        function()
-          require("configs.nav").git_grep_files_from_buffer()
-        end,
-        desc = "Search git files from buffer directory",
-      },
-      {
-        "<leader>sD",
-        function()
-          require("configs.nav").live_grep_from_buffer()
-        end,
-        desc = "Live grep from buffer directory",
-      },
-      {
-        "<leader>sf",
-        function()
-          require("telescope.builtin").git_files { cwd = vim.fn.expand "%:p:h" }
-        end,
-        desc = "Search files from buffer directory (including hidden)",
-      },
-      {
-        "<leader>sF",
-        function()
-          require("telescope.builtin").find_files { cwd = vim.fn.expand "%:p:h", hidden = true }
-        end,
-        desc = "Search files from buffer directory",
-      },
-      { "<leader>pp", ":NeovimProjectDiscover<CR>", { desc = "Switch project" } },
-    },
   },
   {
     "neovim/nvim-lspconfig",
@@ -705,6 +619,121 @@ local plugins = {
       "CompilerStop",
     },
 
+    config = function()
+      -- Override the get_bau_opts function to use your project root finder
+      local utils_bau = require "compiler.utils-bau"
+      local original_get_bau_opts = utils_bau.get_bau_opts
+      local nav_core = require "plugins.nav.core"
+
+      utils_bau.get_bau_opts = function()
+        -- Store current working directory
+        local current_dir = vim.fn.getcwd()
+
+        -- Get project root using your function
+        local project_root = nav_core.find_project_root()
+
+        -- Temporarily change working directory to project root
+        if project_root then
+          vim.fn.chdir(project_root)
+        end
+
+        -- Get the build automation options
+        local options = original_get_bau_opts()
+
+        -- Restore original working directory
+        vim.fn.chdir(current_dir)
+
+        return options
+      end
+      -- Override the setup to ensure we're in the project root when executing commands
+      local compiler = require "compiler"
+      local original_setup = compiler.setup
+
+      compiler.setup = function(opts)
+        -- Create wrapped commands that change to project root first
+        local cmd = vim.api.nvim_create_user_command
+
+        cmd("CompilerOpen", function()
+          local project_root = nav_core.find_project_root()
+          if project_root then
+            vim.fn.chdir(project_root)
+          end
+          require("compiler.telescope").show()
+        end, { desc = "Open the compiler" })
+
+        cmd("CompilerToggleResults", function()
+          local project_root = nav_core.find_project_root()
+          if project_root then
+            vim.fn.chdir(project_root)
+          end
+          vim.cmd "OverseerToggle"
+        end, { desc = "Toggle the compiler results" })
+
+        cmd("CompilerRedo", function()
+          local project_root = nav_core.find_project_root()
+          if project_root then
+            vim.fn.chdir(project_root)
+          end
+          local current_filetype = vim.bo.filetype
+
+          if _G.compiler_redo_selection == nil and _G.compiler_redo_bau_selection == nil then
+            vim.notify(
+              "Open the compiler and select an option before doing redo.",
+              vim.log.levels.INFO,
+              { title = "Compiler.nvim" }
+            )
+            return
+          end
+          if _G.compiler_redo_filetype then
+            if _G.compiler_redo_filetype ~= current_filetype then
+              vim.notify(
+                "You are on a different language now. Open the compiler and select an option before doing redo.",
+                vim.log.levels.INFO,
+                { title = "Compiler.nvim" }
+              )
+              return
+            end
+          end
+          local bau = _G.compiler_redo_bau
+          if bau then
+            local bau_selection = _G.compiler_redo_bau_selection
+            if bau_selection then
+              bau.action(bau_selection)
+            end
+          else
+            local language = require("compiler.utils").require_language(current_filetype)
+            if not language then
+              language = require "compiler.languages.make"
+            end
+            language.action(_G.compiler_redo_selection)
+          end
+        end, { desc = "Redo the last selected compiler option" })
+
+        cmd("CompilerStop", function()
+          local project_root = nav_core.find_project_root()
+          if project_root then
+            vim.fn.chdir(project_root)
+          end
+          vim.notify("SUCCESS - All tasks have been disposed.", vim.log.levels.INFO, {
+            title = "Compiler.nvim",
+          })
+          local overseer = require "overseer"
+          local tasks = overseer.list_tasks { unique = false }
+          for _, task in ipairs(tasks) do
+            overseer.run_action(task, "dispose")
+          end
+        end, { desc = "Dispose all tasks running in the compiler" })
+
+        -- Setup overseer component
+        require("overseer").register_alias("default_extended", {
+          "on_complete_dispose",
+          "default",
+          "open_output",
+        })
+      end
+
+      compiler.setup {}
+    end,
     dependencies = {
 
       { -- The task runner for compiler.nvim + daily tasks
