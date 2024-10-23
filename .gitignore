@@ -1,0 +1,33 @@
+# Lazy.nvim plugin manager files
+lazy-lock.json
+
+# LSP data
+.luarc.json
+.null-ls*
+
+# Session files
+sessions/
+
+# Logs
+logs/
+*.log
+
+# Compiled Lua sources
+luac.out
+
+# Temporary files
+*.swp
+*.swo
+*~
+\#*\#
+.netrwhist
+
+# Local configuration files that might contain sensitive information
+.env
+.envrc
+*.local.vim
+*.local.lua
+
+# Cache files
+.cache/
+cache/
