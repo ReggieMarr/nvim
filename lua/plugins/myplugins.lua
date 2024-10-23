@@ -549,7 +549,7 @@ local plugins = {
   },
 
   {
-    "Zeioth/compiler.nvim",
+    "stevearc/overseer.nvim",
     keys = {
       {
         "<leader>cc",
@@ -567,116 +567,100 @@ local plugins = {
           local most_recent_task = tasks[#tasks]
 
           if #running_tasks > 0 then
-            vim.notify("Stopping running compilation", vim.log.levels.INFO)
-            vim.cmd "CompilerStop"
-            vim.cmd "CompilerToggleResults"
+            vim.notify("Stopping running tasks", vim.log.levels.INFO)
+            for _, task in ipairs(running_tasks) do
+              overseer.run_action(task, "dispose")
+            end
+            vim.cmd "OverseerToggle"
           elseif most_recent_task then
-            vim.notify("Redoing last compilation", vim.log.levels.INFO)
-            vim.cmd "CompilerRedo"
+            vim.notify("Redoing last task", vim.log.levels.INFO)
+            overseer.run_action(most_recent_task, "restart")
           else
-            vim.notify("Opening compiler menu", vim.log.levels.INFO)
-            vim.cmd "CompilerOpen"
+            vim.notify("Opening task menu", vim.log.levels.INFO)
+            overseer.run_template()
           end
         end,
         mode = "n",
-        desc = "Compiler DWIM",
+        desc = "Tasks DWIM",
       },
       {
         "<leader>cs",
-        ":CompilerStop<CR>",
+        function()
+          local overseer = require "overseer"
+          local tasks = overseer.list_tasks()
+          for _, task in ipairs(tasks) do
+            if task.status == "RUNNING" then
+              overseer.run_action(task, "dispose")
+            end
+          end
+        end,
         mode = "n",
-        desc = "Stop the current compilation",
+        desc = "Stop running tasks",
       },
       {
         "<leader>cr",
-        ":CompilerRedo<CR>",
+        function()
+          local overseer = require "overseer"
+          local tasks = overseer.list_tasks()
+          if #tasks > 0 then
+            overseer.run_action(tasks[#tasks], "restart")
+          else
+            vim.notify("No tasks to restart", vim.log.levels.WARN)
+          end
+        end,
         mode = "n",
-        desc = "Perform the last compilation command",
+        desc = "Restart last task",
       },
       {
         "<leader>cd",
-        ":CompilerToggleResults<CR>",
+        ":OverseerToggle<CR>",
         mode = "n",
-        desc = "Toggle Results",
+        desc = "Toggle Task List",
       },
     },
 
-    opts = {},
-
-    cmd = {
-      "CompilerOpen",
-      "CompilerToggleResults",
-      "CompilerRedo",
-      "CompilerStop",
-    },
-
-    config = function()
-      -- Override the get_bau_opts function to use your project root finder
-      local utils_bau = require "compiler.utils-bau"
-      local original_get_bau_opts = utils_bau.get_bau_opts
-
-      utils_bau.get_bau_opts = function()
+    opts = {
+      -- Set up a autocmd to change directory to project root when task starts
+      pre_task_hook = function(task)
         local project_root = require("plugins.nav.core").find_project_root()
         if project_root then
-          vim.fn.chdir(project_root)
+          task.cwd = project_root
         end
-        return original_get_bau_opts()
-      end
+      end,
 
-      -- Create an autocmd group for compiler commands
-      local compiler_group = vim.api.nvim_create_augroup("CompilerCommands", { clear = true })
-
-      -- Add autocmd to change to project root before compiler commands
-      vim.api.nvim_create_autocmd("CmdlineEnter", {
-        group = compiler_group,
-        pattern = "Compiler*",
-        callback = function()
-          local project_root = require("plugins.nav.core").find_project_root()
-          if project_root then
-            vim.fn.chdir(project_root)
-          end
-        end,
-      })
-
-      -- Setup compiler
-      require("compiler").setup {}
-
-      -- Setup overseer component
-      require("overseer").setup {
-        task_list = {
-          direction = "bottom",
-          min_height = 25,
-          max_height = 25,
-          default_detail = 1,
-          bindings = {
-            ["q"] = function()
-              vim.cmd "OverseerClose"
-            end,
-          },
+      task_list = {
+        direction = "bottom",
+        min_height = 25,
+        max_height = 25,
+        default_detail = 1,
+        bindings = {
+          ["q"] = function()
+            vim.cmd "OverseerClose"
+          end,
         },
-      }
+      },
 
-      require("overseer").register_alias("default_extended", {
-        "on_complete_dispose",
-        "default",
-        "open_output",
-      })
-    end,
+      component_aliases = {
+        -- Extends the default components with some extras
+        default_extended = {
+          "on_complete_dispose",
+          "default",
+          "on_output_quickfix",
+          "on_complete_notify",
+        },
+      },
+    },
 
     dependencies = {
+      "Zeioth/compiler.nvim",
+      "nvim-neotest/nvim-nio",
       {
-        "stevearc/overseer.nvim",
-        dependencies = {
-          "nvim-neotest/nvim-nio",
-          {
-            "stevearc/dressing.nvim",
-            config = function(_, opts)
-              require("dressing").setup(opts)
-            end,
-            opts = {
-              default_prompt = "❯ ",
-            },
-          },
+        "stevearc/dressing.nvim",
+        config = function(_, opts)
+          require("dressing").setup(opts)
+        end,
+        opts = {
+          default_prompt = "❯ ",
         },
       },
     },
