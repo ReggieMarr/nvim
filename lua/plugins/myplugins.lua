@@ -24,6 +24,8 @@ local plugins = {
   },
 
   --Override plugin definition options
+
+  -- FIXME: TODO: remove telescope override and write it as a dependency
   {
     "nvim-telescope/telescope.nvim",
     cmd = "Telescope",
@@ -124,30 +126,6 @@ local plugins = {
   },
 
   {
-    "Zeioth/hot-reload.nvim",
-    dependencies = { "nvim-lua/plenary.nvim" },
-    event = "BufEnter",
-    opts = function()
-      local config_dir = vim.fn.stdpath("config") .. "/lua/"
-      return {
-        -- Files to be hot-reloaded when modified.
-        reload_files = {
-          config_dir .. "init.lua",
-          config_dir .. "myinit.lua",
-          config_dir .. "chadrc.lua",
-          config_dir .. "/plugins/myplugins",
-          config_dir .. "/config/*",
-        },
-        -- Things to do after hot-reload trigger.
-        reload_callback = function()
-          vim.cmd(":silent! colorscheme " .. vim.g.default_colorscheme) -- nvim     colorscheme reload command.
-          vim.cmd(":silent! doautocmd ColorScheme")                     -- heirline colorscheme reload event.
-        end
-      }
-    end
-  },
-
-  {
     "neovim/nvim-lspconfig",
     dependencies = {
       -- format & linting
@@ -201,21 +179,6 @@ local plugins = {
     end,
   },
 
-  -- {
-  --   "zbirenbaum/copilot.lua",
-  --
-  --   cmd = "Copilot",
-  --
-  --   event = "InsertEnter",
-  --
-  --   config = function(_, opts)
-  --     require("copilot").setup(opts)
-  --     status.copilot = true
-  --   end,
-  --
-  --   opts = require("configs.copilot").opts,
-  -- },
-
   -- C++ development
   -- Nice but limited cpp codegen features which I'll (probably) not use (if you want create keymapps)
   {
@@ -227,22 +190,6 @@ local plugins = {
 
     config = function(_, opts)
       require("nt-cpp-tools").setup(opts)
-    end,
-  },
-
-  { -- Translate
-    "voldikss/vim-translator",
-
-    keys = {
-      { "<leader>tt", ":TranslateW<CR>", mode = "v", desc = "Translate selected test" },
-      { "<leader>tc", ":TranslateX<CR>", mode = "v", desc = "Translate & Copy selected text" },
-      { "<leader>tr", ":TranslateR<CR>", mode = "v", desc = "Replace text with Translation" },
-    },
-
-    config = function()
-      vim.g.translator_target_lang = "tr"
-      vim.g.translator_window_type = "popup"
-      status.translate = true
     end,
   },
 
@@ -434,55 +381,6 @@ local plugins = {
     },
   },
 
-  { -- Minimap
-    "gorbit99/codewindow.nvim",
-
-    keys = {
-      {
-        "<leader>mo",
-        "codewindow.toggle_minimap()",
-        mode = "n",
-        desc = "Toggle Minimap",
-      },
-      {
-        "<leader>mm",
-        "codewindow.toggle_focus()",
-        mode = "n",
-        desc = "Focus Minimap",
-      },
-    },
-
-    config = function(_, opts)
-      local codewindow = require "codewindow"
-      codewindow.setup(opts)
-      codewindow.apply_default_keybinds()
-    end,
-
-    opts = {
-      show_cursor = false,
-      screen_bounds = "lines",
-      window_border = "none",
-    },
-  },
-
-  {
-    "topaxi/gh-actions.nvim",
-    cmd = "GhActions",
-
-    keys = {
-      { "<leader>ga", "<cmd>GhActions<cr>", desc = "Open Github Actions" },
-    },
-
-    -- optional, you can also install and use `yq` instead.
-    dependencies = { "nvim-lua/plenary.nvim", "MunifTanjim/nui.nvim" },
-
-    config = function(_, opts)
-      require("gh-actions").setup(opts)
-    end,
-
-    opts = {},
-  },
-
   {
     "NeogitOrg/neogit",
 
@@ -536,79 +434,6 @@ local plugins = {
     config = function(_, opts)
       require("telescope").load_extension "undo"
     end,
-  },
-
-  {
-    "simrat39/symbols-outline.nvim",
-
-    keys = {
-      {
-        "<leader>fs",
-        ":SymbolsOutline<CR>",
-        mode = "n",
-        desc = "Find Symbols",
-      },
-    },
-
-    config = function(_, opts)
-      require("symbols-outline").setup(opts)
-    end,
-
-    opts = {},
-  },
-
-  { -- TODO: Config && Remove vim one
-    "rgroli/other.nvim",
-
-    keys = {
-      {
-        "<leader>sw",
-        "<cmd> Other<CR>",
-        mode = "n",
-        desc = "Switch To Pair File",
-      },
-    },
-
-    config = function(_, opts)
-      -- Iterate opts and add reversed mappings for them marked with reverse = true
-      require("other-nvim").setup(opts)
-    end,
-
-    opts = {
-      mappings = {
-        {
-          pattern = "(.*)/(.*).h$",
-          target = "%1/%2.c",
-        },
-        {
-          pattern = "(.*)/(.*).c$",
-          target = "%1/%2.h",
-        },
-        {
-          pattern = "(.*)/(.*).hpp$",
-          target = "%1/%2.cpp",
-        },
-        {
-          pattern = "(.*)/(.*).cpp$",
-          target = "%1/%2.hpp",
-        },
-        -- {
-        --   pattern = "/src/app/(.*)/.*.html$",
-        --   target = "/src/app/%1/%1.component.ts",
-        --   context = "view",
-        -- },
-        -- {
-        --   pattern = "/src/app/(.*)/.*.ts$",
-        --   target = "/src/app/%1/%1.component.html",
-        --   context = "component",
-        -- },
-        -- {
-        --   pattern = "/src/app/(.*)/.*.spec.ts$",
-        --   target = "/src/app/%1/%1.component.html",
-        --   context = "test",
-        -- },
-      },
-    },
   },
 
   -- { -- C/C++ cpp <-> hpp file pairing TODO: replace with other.nvim || harpoon
@@ -676,10 +501,10 @@ local plugins = {
     end,
   },
 
-  -- { -- Allows to use vim command "w" inside CamelCase snake_case etc
-  --   "chaoren/vim-wordmotion",
-  --   lazy = false,
-  -- },
+  { -- Allows to use vim command "w" inside CamelCase snake_case etc
+    "chaoren/vim-wordmotion",
+    lazy = false,
+  },
 
   { -- nvim-dap UI
     "rcarriga/nvim-dap-ui",
@@ -1008,50 +833,9 @@ local plugins = {
     },
   },
 
-  -- { -- Give up bad practices in (neo)vim
-  --   "m4xshen/hardtime.nvim",
-  --   dependencies = { "MunifTanjim/nui.nvim", "nvim-lua/plenary.nvim" },
-  --   opts = {},
-  --   event = "VeryLazy",
-  --   config = function()
-  --     require("hardtime").setup()
-  --   end,
-  -- },
-
-  { -- Leetcode session inside neovim. Need to set some cookies though
-    -- Refer to: https://github.com/Dhanus3133/Leetbuddy.nvim#login-to-your-account
-    -- Setup requires some additional things
-    "Dhanus3133/LeetBuddy.nvim",
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      -- "nvim-telescope/telescope.nvim",
-    },
-
-    config = function(_, opts)
-      require("leetbuddy").setup(opts)
-      -- require("telescope").load_extension "leetbuddy"
-    end,
-
-    keys = {
-      -- stylua: ignore start
-      { "<leader>clq", "<cmd>LBQuestions<cr>", desc = "List Questions" },
-      { "<leader>cll", "<cmd>LBQuestion<cr>",  desc = "View Question"  },
-      { "<leader>clr", "<cmd>LBReset<cr>",     desc = "Reset Code"     },
-      { "<leader>clt", "<cmd>LBTest<cr>",      desc = "Run Code"       },
-      { "<leader>cls", "<cmd>LBSubmit<cr>",    desc = "Submit Code"    },
-      -- stylua: ignore end
-    },
-
-    opts = {
-      domain = "com", -- `cn` for chinese leetcode
-      language = "rs",
-    },
-  },
-
   { -- Telescope projects
     -- Migrated to project.nvim
     "nvim-telescope/telescope-project.nvim",
-    
 
     -- if you want to enable custom hook
     dependencies = {
@@ -1093,25 +877,6 @@ local plugins = {
     end,
   },
 
-  { -- Toggle case (CamelCase, snake_case, kebab-case, PascalCase, Title Case, UPPER CASE, lower case)
-    "UTFeight/vim-case-change", -- FIXME
-    keys = {
-      -- NOTE: This is M-Shift-s actually.
-      {
-        "<M-S>",
-        "<cmd>ToggleCase<cr>",
-        mode = "v",
-        desc = "Toggle Case",
-      },
-      {
-        "<M-S>",
-        "<ESC>viw<cmd>ToggleCase<cr>",
-        mode = { "i", "n" },
-        desc = "Toggle Case",
-      },
-    },
-  },
-
   { -- Regexplainer
     "tomiis4/Hypersonic.nvim",
     config = function(_, opts)
@@ -1125,7 +890,7 @@ local plugins = {
     },
   },
 
-  { -- nvim-dap installer MAYBE
+  { 
     "jay-babu/mason-nvim-dap.nvim",
 
     dependencies = {
@@ -1226,27 +991,6 @@ local plugins = {
     opts = require("configs.ts").opts,
   },
 
-  { -- Color Picker (Probably the best one)
-    "uga-rosa/ccc.nvim",
-
-    keys = {
-      {
-        "<leader>kp",
-        "<cmd> CccPick<CR>",
-        mode = "n",
-        desc = "Color Picker",
-      },
-    },
-
-    config = function(_, opts)
-      require("ccc").setup(opts)
-    end,
-
-    opts = {
-      -- Config
-    },
-  },
-
   { -- Show lsp signature help when in a function (param info)
     "ray-x/lsp_signature.nvim",
     -- event = "VeryLazy", -- TODO: Add keys to enable as mode
@@ -1294,41 +1038,6 @@ local plugins = {
     },
   },
 
-  -- { -- Saved for later MAYBE
-  --   "smoka7/multicursors.nvim",
-  --   -- event = "VeryLazy",
-  --   dependencies = {
-  --     "nvim-treesitter/nvim-treesitter",
-  --     "smoka7/hydra.nvim",
-  --   },
-  --   opts = {},
-  --   cmd = { "MCstart", "MCvisual", "MCclear", "MCpattern", "MCvisualPattern", "MCunderCursor" },
-  --   keys = {
-  --     {
-  --       mode = { "v", "n" },
-  --       "<Leader>m",
-  --       "<cmd>MCstart<cr>",
-  --       desc = "Create a selection for selected text or word under the cursor",
-  --     },
-  --   },
-  -- },
-
-  -- { -- Take Beautiful Code shots - (when using paperplanes.nvim I don't need this.)
-  --   -- paperplanes.nvim has ray.so backend too!
-  --   "TobinPalmer/rayso.nvim",
-  --   cmd = { "Rayso" },
-  --   config = function()
-  --     require("rayso").setup {}
-  --   end,
-  -- },
-
-  -- { -- Stylish Code Shots
-  --   "ellisonleao/carbon-now.nvim",
-  --   cmd = "CarbonNow",
-  --   ---@param opts cn.ConfigSchema
-  --   opts = { [[ your custom config here ]] },
-  -- },
-
   { -- https://github.com/t-troebst/perfanno.nvim
     "t-troebst/perfanno.nvim",
 
@@ -1352,19 +1061,6 @@ local plugins = {
 
     keys = require("configs.perfanno").keys,
     opts = require("configs.perfanno").opts,
-  },
-
-  { -- TODO: CHECKMEOUT
-    "pwntester/octo.nvim",
-    config = function(_, opts)
-      require("octo").setup(opts)
-      status.github = true
-    end,
-
-    dependencies = require("configs.octo").dependencies,
-    opts = require("configs.octo").opts,
-    keys = require("configs.octo").keys,
-    cmd = require("configs.octo").cmd,
   },
 
   { -- Folding. The fancy way
@@ -1603,207 +1299,6 @@ local plugins = {
     },
   },
 
-  -- { --- FIXME
-  --   "p00f/godbolt.nvim",
-  --
-  --   config = function(_, opts)
-  --     require("godbolt").setup(opts)
-  --   end,
-  --
-  --   opts = {
-  --     languages = {
-  --       cpp = { compiler = "g122", options = {} },
-  --       c = { compiler = "cg122", options = {} },
-  --       rust = { compiler = "r1650", options = {} },
-  --       -- any_additional_filetype = { compiler = ..., options = ... },
-  --     },
-  --     quickfix = {
-  --       enable = true, -- whether to populate the quickfix list in case of errors
-  --       auto_open = true, -- whether to open the quickfix list in case of errors
-  --     },
-  --     url = "https://godbolt.org", -- can be changed to a different godbolt instance
-  --   },
-  --
-  --   -- cmd = {
-  --   --   "Godbolt",
-  --   --   "GodboltCompiler",
-  --   -- },
-  --
-  --   keys = {
-  --     { "<leader>nc", ":Godbolt<CR>", mode = { "n", "v" }, desc = "Compile" },
-  --     -- Note that telescope could be fzf, fzy + nvim-fzy, skim
-  --     { "<leader>nt", ":GodboltCompiler telescope<CR>", mode = { "n", "v" }, desc = "Telescope Compile" },
-  --   },
-  -- },
-
-  { -- TODO: Config
-    "rktjmp/lush.nvim",
-
-    cmd = {
-      "Lushify",
-      "LushImport",
-      "LushRunTutorial",
-    },
-
-    keys = {
-      -- stylua: ignore start
-      { "<leader>mll", "<cmd> Lushify<CR>",         mode = "n", desc = "Lushify Colorscheme" },
-      { "<leader>mli", "<cmd> LushImport<CR>",      mode = "n", desc = "Lush Import"         },
-      { "<leader>mlt", "<cmd> LushRunTutorial<CR>", mode = "n", desc = "Lush Tutorial"       },
-      { "<leader>mlp", '"zp',                       mode = "n", desc = "Lush Paste"          },
-      -- stylua: ignore end
-    },
-  },
-
-  { -- TODO: Config
-    "folke/twilight.nvim",
-
-    cmd = {
-      "Twilight",
-      "TwilightEnable",
-      "TwilightDisable",
-    },
-
-    keys = {
-      { "<leader>mt", "<cmd>Twilight<CR>", mode = "n", desc = "Toggle Twilight" },
-    },
-
-    opts = {
-      dimming = {
-        alpha = 0.25, -- amount of dimming
-        -- we try to get the foreground from the highlight groups or fallback color
-        color = { "Normal", "#ffffff" },
-        term_bg = "#000000", -- if guibg=NONE, this will be used to calculate text color
-        inactive = false, -- when true, other windows will be fully dimmed (unless they contain the same buffer)
-      },
-      context = 10, -- amount of lines we will try to show around the current line
-      treesitter = true, -- use treesitter when available for the filetype
-      -- treesitter is used to automatically expand the visible text,
-      -- but you can further control the types of nodes that should always be fully expanded
-      expand = { -- for treesitter, we we always try to expand to the top-most ancestor with these types
-        "function",
-        "method",
-        "table",
-        "if_statement",
-      },
-      exclude = {}, -- exclude these filetypes
-    },
-  },
-
-  { -- FIXME: Breaks Lazy.nvim startup installation
-    "mawkler/modicator.nvim",
-    -- dependencies = 'mawkler/onedark.nvim', -- Add your colorscheme plugin here
-
-    -- event = "BufRead",
-
-    keys = {
-      { "<leader>md", "", mode = "n", desc = "Enable Cursor Mod Line" },
-    },
-
-    init = function()
-      -- These are required for Modicator to work
-      vim.o.cursorline = true
-      vim.o.number = true
-      vim.o.termguicolors = true
-    end,
-
-    config = function(_, opts)
-      require("modicator").setup(opts)
-    end,
-
-    opts = {
-      -- Show warning if any required option is missing
-      show_warnings = true,
-      highlights = {
-        -- Default options for bold/italic
-        defaults = {
-          bold = true,
-          italic = false,
-        },
-      },
-    },
-  },
-
-  {
-    "folke/zen-mode.nvim",
-
-    config = function(_, opts)
-      require("zen-mode").toggle(opts)
-    end,
-
-    keys = {
-      {
-        "<leader>mz",
-        "<cmd> ZenMode<CR>",
-        mode = "n",
-        desc = "Zen Mode",
-      },
-    },
-
-    opts = {
-      {
-        window = {
-          backdrop = 0.95, -- shade the backdrop of the Zen window. Set to 1 to keep the same as Normal
-          -- height and width can be:
-          -- * an absolute number of cells when > 1
-          -- * a percentage of the width / height of the editor when <= 1
-          -- * a function that returns the width or the height
-          width = 120, -- width of the Zen window
-          height = 1, -- height of the Zen window
-          -- by default, no options are changed for the Zen window
-          -- uncomment any of the options below, or add other vim.wo options you want to apply
-          options = {
-            -- signcolumn = "no", -- disable signcolumn
-            -- number = false, -- disable number column
-            -- relativenumber = false, -- disable relative numbers
-            -- cursorline = false, -- disable cursorline
-            -- cursorcolumn = false, -- disable cursor column
-            -- foldcolumn = "0", -- disable fold column
-            -- list = false, -- disable whitespace characters
-          },
-        },
-        plugins = {
-          -- disable some global vim options (vim.o...)
-          -- comment the lines to not apply the options
-          options = {
-            enabled = true,
-            ruler = false, -- disables the ruler text in the cmd line area
-            showcmd = false, -- disables the command in the last line of the screen
-          },
-          twilight = { enabled = true }, -- enable to start Twilight when zen mode opens
-          gitsigns = { enabled = false }, -- disables git signs
-          tmux = { enabled = false }, -- disables the tmux statusline
-          -- this will change the font size on kitty when in zen mode
-          -- to make this work, you need to set the following kitty options:
-          -- - allow_remote_control socket-only
-          -- - listen_on unix:/tmp/kitty
-          kitty = {
-            enabled = false,
-            font = "+4", -- font size increment
-          },
-          -- this will change the font size on alacritty when in zen mode
-          -- requires  Alacritty Version 0.10.0 or higher
-          -- uses `alacritty msg` subcommand to change font size
-          alacritty = {
-            enabled = false,
-            font = "14", -- font size
-          },
-          -- this will change the font size on wezterm when in zen mode
-          -- See alse also the Plugins/Wezterm section in this projects README
-          wezterm = {
-            enabled = false,
-            -- can be either an absolute font size or the number of incremental steps
-            font = "+4", -- (10% increase per step)
-          },
-        },
-        -- callback where you can add custom code when the Zen window opens
-        on_open = function(win) end,
-        -- callback where you can add custom code when the Zen window closes
-        on_close = function() end,
-      },
-    },
-  },
-
   { -- TODO add hlgroups according to repo
     "ThePrimeagen/harpoon",
 
@@ -1876,193 +1371,6 @@ local plugins = {
       },
     },
   },
-
-  -- { -- NOTE: Breaks syntax highlighting + slow
-  --   "simrat39/rust-tools.nvim",
-  --
-  --   config = function(_, opts)
-  --     require("rust-tools").setup(opts)
-  --   end,
-  --
-  --   event = "BufRead *.rs",
-  --
-  --   opts = {
-  --     tools = { -- rust-tools options
-  --
-  --       -- how to execute terminal commands
-  --       -- options right now: termopen / quickfix / toggleterm / vimux
-  --       --
-  --       -- FIX: Not working <17-09-23, utfeight>
-  --       -- executor = require("rust-tools.executors").termopen,
-  --
-  --       -- callback to execute once rust-analyzer is done initializing the workspace
-  --       -- The callback receives one parameter indicating the `health` of the server: "ok" | "warning" | "error"
-  --       on_initialized = nil,
-  --
-  --       -- automatically call RustReloadWorkspace when writing to a Cargo.toml file.
-  --       reload_workspace_from_cargo_toml = true,
-  --
-  --       -- These apply to the default RustSetInlayHints command
-  --       inlay_hints = {
-  --         -- automatically set inlay hints (type hints)
-  --         -- default: true
-  --         auto = true,
-  --
-  --         -- Only show inlay hints for the current line
-  --         only_current_line = false,
-  --
-  --         -- whether to show parameter hints with the inlay hints or not
-  --         -- default: true
-  --         show_parameter_hints = true,
-  --
-  --         -- prefix for parameter hints
-  --         -- default: "<-"
-  --         parameter_hints_prefix = "<- ",
-  --
-  --         -- prefix for all the other hints (type, chaining)
-  --         -- default: "=>"
-  --         other_hints_prefix = "=> ",
-  --
-  --         -- whether to align to the length of the longest line in the file
-  --         max_len_align = false,
-  --
-  --         -- padding from the left if max_len_align is true
-  --         max_len_align_padding = 1,
-  --
-  --         -- whether to align to the extreme right or not
-  --         right_align = false,
-  --
-  --         -- padding from the right if right_align is true
-  --         right_align_padding = 7,
-  --
-  --         -- The color of the hints
-  --         highlight = "Comment",
-  --       },
-  --
-  --       -- options same as lsp hover / vim.lsp.util.open_floating_preview()
-  --       hover_actions = {
-  --
-  --         -- the border that is used for the hover window
-  --         -- see vim.api.nvim_open_win()
-  --         border = {
-  --           { "╭", "FloatBorder" },
-  --           { "─", "FloatBorder" },
-  --           { "╮", "FloatBorder" },
-  --           { "│", "FloatBorder" },
-  --           { "╯", "FloatBorder" },
-  --           { "─", "FloatBorder" },
-  --           { "╰", "FloatBorder" },
-  --           { "│", "FloatBorder" },
-  --         },
-  --
-  --         -- Maximal width of the hover window. Nil means no max.
-  --         max_width = nil,
-  --
-  --         -- Maximal height of the hover window. Nil means no max.
-  --         max_height = nil,
-  --
-  --         -- whether the hover action window gets automatically focused
-  --         -- default: false
-  --         auto_focus = false,
-  --       },
-  --
-  --       -- settings for showing the crate graph based on graphviz and the dot
-  --       -- command
-  --       crate_graph = {
-  --         -- Backend used for displaying the graph
-  --         -- see: https://graphviz.org/docs/outputs/
-  --         -- default: x11
-  --         backend = "x11",
-  --         -- where to store the output, nil for no output stored (relative
-  --         -- path from pwd)
-  --         -- default: nil
-  --         output = nil,
-  --         -- true for all crates.io and external crates, false only the local
-  --         -- crates
-  --         -- default: true
-  --         full = true,
-  --
-  --         -- List of backends found on: https://graphviz.org/docs/outputs/
-  --         -- Is used for input validation and autocompletion
-  --         -- Last updated: 2021-08-26
-  --         enabled_graphviz_backends = {
-  --           "bmp",
-  --           "cgimage",
-  --           "canon",
-  --           "dot",
-  --           "gv",
-  --           "xdot",
-  --           "xdot1.2",
-  --           "xdot1.4",
-  --           "eps",
-  --           "exr",
-  --           "fig",
-  --           "gd",
-  --           "gd2",
-  --           "gif",
-  --           "gtk",
-  --           "ico",
-  --           "cmap",
-  --           "ismap",
-  --           "imap",
-  --           "cmapx",
-  --           "imap_np",
-  --           "cmapx_np",
-  --           "jpg",
-  --           "jpeg",
-  --           "jpe",
-  --           "jp2",
-  --           "json",
-  --           "json0",
-  --           "dot_json",
-  --           "xdot_json",
-  --           "pdf",
-  --           "pic",
-  --           "pct",
-  --           "pict",
-  --           "plain",
-  --           "plain-ext",
-  --           "png",
-  --           "pov",
-  --           "ps",
-  --           "ps2",
-  --           "psd",
-  --           "sgi",
-  --           "svg",
-  --           "svgz",
-  --           "tga",
-  --           "tiff",
-  --           "tif",
-  --           "tk",
-  --           "vml",
-  --           "vmlz",
-  --           "wbmp",
-  --           "webp",
-  --           "xlib",
-  --           "x11",
-  --         },
-  --       },
-  --     },
-  --
-  --     -- all the opts to send to nvim-lspconfig
-  --     -- these override the defaults set by rust-tools.nvim
-  --     -- see https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#rust_analyzer
-  --     server = {
-  --       -- standalone file support
-  --       -- setting it to false may improve startup time
-  --       standalone = true,
-  --     }, -- rust-analyzer options
-  --
-  --     -- debugging stuff
-  --     dap = {
-  --       adapter = {
-  --         type = "executable",
-  --         command = "lldb-vscode",
-  --         name = "rt_lldb",
-  --       },
-  --     },
-  --   },
-  -- },
 
   { -- TODO FIXME:
     "AckslD/nvim-neoclip.lua",
@@ -2157,80 +1465,6 @@ local plugins = {
     },
   },
 
-  -- TODO: Enable multicursors
-
-  -- { --  The superior project management solution for neovim.
-  --   "ahmedkhalf/project.nvim",
-  --   dependencies = {
-  --     {
-  --       "nvim-tree/nvim-tree.lua",
-  --       opts = {
-  --         sync_root_with_cwd = true,
-  --         respect_buf_cwd = true,
-  --         update_focused_file = {
-  --           enable = true,
-  --           update_root = true,
-  --         },
-  --       },
-  --     },
-  --   },
-  --
-  --   keys = {
-  --     {
-  --       "<leader>fp",
-  --       "<cmd>lua require('telescope').extensions.projects.projects{}<cr>",
-  --       mode = "n",
-  --       desc = "Telescope Projects",
-  --     },
-  --   },
-  --
-  --   config = function(_, opts)
-  --     require("project_nvim").setup(opts)
-  --     require("telescope").load_extension "projects" -- FIXME: Conflicting or smt with cmp-tabnine
-  --   end,
-  --
-  --   opts = {
-  --     -- Manual mode doesn't automatically change your root directory, so you have
-  --     -- the option to manually do so using `:ProjectRoot` command.
-  --     manual_mode = false,
-  --
-  --     -- Methods of detecting the root directory. **"lsp"** uses the native neovim
-  --     -- lsp, while **"pattern"** uses vim-rooter like glob pattern matching. Here
-  --     -- order matters: if one is not detected, the other is used as fallback. You
-  --     -- can also delete or rearangne the detection methods.
-  --     detection_methods = { "lsp", "pattern" },
-  --
-  --     -- All the patterns used to detect root dir, when **"pattern"** is in
-  --     -- detection_methods
-  --     patterns = { ".git", "_darcs", ".hg", ".bzr", ".svn", "Makefile", "package.json", "^Github" },
-  --
-  --     -- Table of lsp clients to ignore by name
-  --     -- eg: { "efm", ... }
-  --     ignore_lsp = {},
-  --
-  --     -- Don't calculate root dir on specific directories
-  --     -- Ex: { "~/.cargo/*", ... }
-  --     exclude_dirs = {},
-  --
-  --     -- Show hidden files in telescope
-  --     show_hidden = false,
-  --
-  --     -- When set to false, you will get a message when project.nvim changes your
-  --     -- directory.
-  --     silent_chdir = true,
-  --
-  --     -- What scope to change the directory, valid options are
-  --     -- * global (default)
-  --     -- * tab
-  --     -- * win
-  --     scope_chdir = "global",
-  --
-  --     -- Path where project.nvim will store the project history for use in
-  --     -- telescope
-  --     datapath = vim.fn.stdpath "data",
-  --   },
-  -- },
-
   { --  🌻 A Vim alignment plugin
     -- Nice
     "junegunn/vim-easy-align",
@@ -2244,30 +1478,6 @@ local plugins = {
       },
     },
   },
-
-  -- {
-  --   "declancm/cinnamon.nvim",
-  --   config = function(_, opts)
-  --     require("cinnamon").setup(opts)
-  --   end,
-  --
-  -- --   keys = {
-  -- --     {
-  -- --       "<leader>ms",
-  -- --       "",
-  -- --       mode = "n",
-  -- --       desc = "Enable Smooth Scrolling",
-  -- --     },
-  -- --   },
-  --
-  --   opts = {
-  --     extra_keymaps = true,
-  --     extended_keymaps = true,
-  --     -- override_keymaps = true,
-  --     -- max_length = 500,
-  --     scroll_limit = -1,
-  --   },
-  -- },
 
   { -- Smooth scrolling
     "karb94/neoscroll.nvim",
@@ -2307,119 +1517,6 @@ local plugins = {
   },
 
   {
-    "folke/todo-comments.nvim",
-
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      "kevinhwang91/nvim-bqf",
-    }, -- bqf is optional
-
-    keys = {
-      {
-        "<leader>ltq",
-        "<cmd>TodoQuickFix<cr>",
-        mode = "n",
-        desc = "QuickFix TODOs",
-      },
-      {
-        "<leader>ltt",
-        "<cmd>TodoTelescope<cr>",
-        mode = "n",
-        desc = "Telescope TODOs",
-      },
-      {
-        "<leader>ltl",
-        "<cmd>TodoLocList<cr>",
-        mode = "n",
-        desc = "LocList TODOs",
-      },
-      -- 🚦 :TodoTrouble is an option too!
-      {
-        "<leader>ltn",
-        function()
-          require("todo-comments").jump_next() -- More arguments: {keywords = { "ERROR", "WARNING"}}
-        end,
-        mode = "n",
-        desc = "Next TODO",
-      },
-      {
-        "<leader>ltp",
-        function()
-          require("todo-comments").jump_prev()
-        end,
-        mode = "n",
-        desc = "Prev TODO",
-      },
-    },
-
-    opts = {
-
-      signs = true, -- show icons in the signs column
-      sign_priority = 8, -- sign priority
-      -- keywords recognized as todo comments
-      keywords = {
-        FIX = {
-          icon = " ", -- icon used for the sign, and in search results
-          color = "error", -- can be a hex color, or a named color (see below)
-          alt = { "FIXME", "BUG", "FIXIT", "ISSUE" }, -- a set of other keywords that all map to this FIX keywords
-          -- signs = false, -- configure signs for some keywords individually
-        },
-        TODO = { icon = " ", color = "info" },
-        HACK = { icon = " ", color = "warning" },
-        WARN = { icon = " ", color = "warning", alt = { "WARNING", "XXX" } },
-        PERF = { icon = " ", alt = { "OPTIM", "PERFORMANCE", "OPTIMIZE" } },
-        NOTE = { icon = " ", color = "hint", alt = { "INFO" } },
-        TEST = { icon = "⏲ ", color = "test", alt = { "TESTING", "PASSED", "FAILED" } },
-      },
-      gui_style = {
-        fg = "NONE", -- The gui style to use for the fg highlight group.
-        bg = "BOLD", -- The gui style to use for the bg highlight group.
-      },
-      merge_keywords = true, -- when true, custom keywords will be merged with the defaults
-      -- highlighting of the line containing the todo comment
-      -- * before: highlights before the keyword (typically comment characters)
-      -- * keyword: highlights of the keyword
-      -- * after: highlights after the keyword (todo text)
-      highlight = {
-        multiline = true, -- enable multine todo comments
-        multiline_pattern = "^.", -- lua pattern to match the next multiline from the start of the matched keyword
-        multiline_context = 10, -- extra lines that will be re-evaluated when changing a line
-        before = "", -- "fg" or "bg" or empty
-        keyword = "wide", -- "fg", "bg", "wide", "wide_bg", "wide_fg" or empty. (wide and wide_bg is the same as bg, but will also highlight surrounding characters, wide_fg acts accordingly but with fg)
-        after = "fg", -- "fg" or "bg" or empty
-        pattern = [[.*<(KEYWORDS)\s*:]], -- pattern or table of patterns, used for highlighting (vim regex)
-        comments_only = true, -- uses treesitter to match keywords in comments only
-        max_line_len = 400, -- ignore lines longer than this
-        exclude = {}, -- list of file types to exclude highlighting
-      },
-      -- list of named colors where we try to extract the guifg from the
-      -- list of highlight groups or use the hex color if hl not found as a fallback
-      colors = { -- TODO. Add hlgroups
-        error = { "DiagnosticError", "ErrorMsg", "#DC2626" },
-        warning = { "DiagnosticWarn", "WarningMsg", "#FBBF24" },
-        info = { "DiagnosticInfo", "#2563EB" },
-        hint = { "DiagnosticHint", "#10B981" },
-        default = { "Identifier", "#7C3AED" },
-        test = { "Identifier", "#FF00FF" },
-      },
-      search = {
-        command = "rg",
-        args = {
-          "--color=never",
-          "--no-heading",
-          "--with-filename",
-          "--line-number",
-          "--column",
-        },
-        -- regex that will be used to match keywords.
-        -- don't replace the (KEYWORDS) placeholder
-        pattern = [[\b(KEYWORDS):]], -- ripgrep regex
-        -- pattern = [[\b(KEYWORDS)\b]], -- match without the extra colon. You'll likely get false positives
-      },
-    },
-  },
-
-  {
     "michaelb/sniprun",
     build = "sh ./install.sh",
     keys = require("configs.sniprun").keys,
@@ -2430,95 +1527,95 @@ local plugins = {
   },
 
   ------- GAMES -------
-  {
-    "jim-fx/sudoku.nvim",
-    cmd = "Sudoku",
-
-    config = function(_, opts)
-      require("sudoku").setup(opts)
-      status.games = true
-    end,
-
-    opts = require("configs.sudoku").opts,
-    keys = require("configs.sudoku").keys,
-  },
-
-  {
-    "ThePrimeagen/vim-be-good",
-    cmd = "VimBeGood",
-
-    config = function(_, opts)
-      status.games = true
-    end,
-    keys = {
-      { "<leader>vg", "<cmd> VimBeGood<CR>", mode = "n", desc = "Play VimBeGood" },
-    },
-  },
-
-  {
-    "alec-gibson/nvim-tetris",
-
-    cmd = "Tetris",
-
-    config = function(_, opts)
-      status.games = true
-    end,
-
-    keys = {
-      { "<leader>vt", "<cmd> Tetris<CR>", mode = "n", desc = "Play Tetris" },
-    },
-  },
-
-  { -- One of the nices things ever!
-    "seandewar/killersheep.nvim",
-
-    config = function(_, opts)
-      require("killersheep").setup(opts)
-      status.games = true
-    end,
-
-    opts = {
-      gore = true, -- Enables/disables blood and gore.
-      keymaps = {
-        move_left = "h", -- Keymap to move cannon to the left.
-        move_right = "l", -- Keymap to move cannon to the right.
-        shoot = "<Space>", -- Keymap to shoot the cannon.
-      },
-    },
-
-    cmd = "KillKillKill",
-
-    keys = {
-      { "<leader>vk", "<cmd> KillKillKill<CR>", mode = "n", desc = "Play Killer Sheep" },
-    },
-  },
-
-  { -- Nice actions using your buffers text
-    "Eandrju/cellular-automaton.nvim",
-
-    cmd = "CellularAutomaton",
-
-    keys = {
-      { "<leader>vr", "<cmd> CellularAutomaton make_it_rain<CR>", mode = "n", desc = "Rain" },
-      { "<leader>vl", "<cmd> CellularAutomaton game_of_life<CR>", mode = "n", desc = "Game of Life" },
-      { "<leader>vx", "<cmd> CellularAutomaton scramble<CR>", mode = "n", desc = "Scrable" },
-    },
-  },
-
-  {
-    "seandewar/nvimesweeper",
-
-    cmd = "Nvimesweeper",
-
-    config = function(_, opts)
-      status.games = true
-    end,
-
-    keys = {
-      { "<leader>vw", "<cmd> Nvimesweeper<CR>", mode = "n", desc = "Play MineSweeper" },
-    },
-  },
-
+  -- {
+  --   "jim-fx/sudoku.nvim",
+  --   cmd = "Sudoku",
+  --
+  --   config = function(_, opts)
+  --     require("sudoku").setup(opts)
+  --     status.games = true
+  --   end,
+  --
+  --   opts = require("configs.sudoku").opts,
+  --   keys = require("configs.sudoku").keys,
+  -- },
+  --
+  -- {
+  --   "ThePrimeagen/vim-be-good",
+  --   cmd = "VimBeGood",
+  --
+  --   config = function(_, opts)
+  --     status.games = true
+  --   end,
+  --   keys = {
+  --     { "<leader>vg", "<cmd> VimBeGood<CR>", mode = "n", desc = "Play VimBeGood" },
+  --   },
+  -- },
+  --
+  -- {
+  --   "alec-gibson/nvim-tetris",
+  --
+  --   cmd = "Tetris",
+  --
+  --   config = function(_, opts)
+  --     status.games = true
+  --   end,
+  --
+  --   keys = {
+  --     { "<leader>vt", "<cmd> Tetris<CR>", mode = "n", desc = "Play Tetris" },
+  --   },
+  -- },
+  --
+  -- { -- One of the nices things ever!
+  --   "seandewar/killersheep.nvim",
+  --
+  --   config = function(_, opts)
+  --     require("killersheep").setup(opts)
+  --     status.games = true
+  --   end,
+  --
+  --   opts = {
+  --     gore = true, -- Enables/disables blood and gore.
+  --     keymaps = {
+  --       move_left = "h", -- Keymap to move cannon to the left.
+  --       move_right = "l", -- Keymap to move cannon to the right.
+  --       shoot = "<Space>", -- Keymap to shoot the cannon.
+  --     },
+  --   },
+  --
+  --   cmd = "KillKillKill",
+  --
+  --   keys = {
+  --     { "<leader>vk", "<cmd> KillKillKill<CR>", mode = "n", desc = "Play Killer Sheep" },
+  --   },
+  -- },
+  --
+  -- { -- Nice actions using your buffers text
+  --   "Eandrju/cellular-automaton.nvim",
+  --
+  --   cmd = "CellularAutomaton",
+  --
+  --   keys = {
+  --     { "<leader>vr", "<cmd> CellularAutomaton make_it_rain<CR>", mode = "n", desc = "Rain" },
+  --     { "<leader>vl", "<cmd> CellularAutomaton game_of_life<CR>", mode = "n", desc = "Game of Life" },
+  --     { "<leader>vx", "<cmd> CellularAutomaton scramble<CR>", mode = "n", desc = "Scrable" },
+  --   },
+  -- },
+  --
+  -- {
+  --   "seandewar/nvimesweeper",
+  --
+  --   cmd = "Nvimesweeper",
+  --
+  --   config = function(_, opts)
+  --     status.games = true
+  --   end,
+  --
+  --   keys = {
+  --     { "<leader>vw", "<cmd> Nvimesweeper<CR>", mode = "n", desc = "Play MineSweeper" },
+  --   },
+  -- },
+  --
   {
     "madskjeldgaard/cppman.nvim",
 
@@ -2562,7 +1659,7 @@ local plugins = {
 
     keys = {
       {
-        "<leader>mw",
+        "<M-w>",
         "<cmd> WinShift<CR>",
         mode = "n",
         desc = "Window Shift Mode",
@@ -2575,7 +1672,7 @@ local plugins = {
 
     opts = {
       highlight_moving_win = true, -- Highlight the window being moved
-      focused_hl_group = "Visual", -- The highlight group used for the moving window
+      -- focused_hl_group = "Visual", -- The highlight group used for the moving window
 
       moving_win_options = {
         -- These are local options applied to the moving window while it's
@@ -2633,103 +1730,6 @@ local plugins = {
         }
       end,
     },
-  },
-
-  {
-    "pocco81/true-zen.nvim",
-
-    -- stylua: ignore start
-    keys = {
-      { "<leader>mn", "<cmd> TZNarrow<CR>",      mode  = "n", desc = "Narrow Mode"     },
-      { "<leader>mn", "<cmd> '<,'>TZNarrow<CR>", mode  = "v", desc = "Narrow Mode"     },
-      { "<leader>mf", "<cmd> TZFocus<CR>",       mode  = "n", desc = "Focus Mode"      },
-      { "<leader>mi", "<cmd> TZMinimalist<CR>",  mode  = "n", desc = "Minimalist Mode" },
-      { "<leader>mx", "<cmd> TZAtaraxis<CR>",    mode  = "n", desc = "Atarix Mode"     },
-    },
-    -- stylua: ignore end
-
-    -- config = function(_, opts)
-    --   require("true-zen").setup(opts)
-    -- end,
-
-    -- opts = {
-    --   modes = { -- configurations per mode
-    --     ataraxis = {
-    --       shade = "dark", -- if `dark` then dim the padding windows, otherwise if it's `light` it'll brighten said windows
-    --       backdrop = 0, -- percentage by which padding windows should be dimmed/brightened. Must be a number between 0 and 1. Set to 0 to keep the same background color
-    --       minimum_writing_area = { -- minimum size of main window
-    --         width = 70,
-    --         height = 44,
-    --       },
-    --       quit_untoggles = true, -- type :q or :qa to quit Ataraxis mode
-    --       padding = { -- padding windows
-    --         left = 52,
-    --         right = 52,
-    --         top = 0,
-    --         bottom = 0,
-    --       },
-    --       callbacks = { -- run functions when opening/closing Ataraxis mode
-    --         open_pre = nil,
-    --         open_pos = nil,
-    --         close_pre = nil,
-    --         close_pos = nil,
-    --       },
-    --     },
-    --     minimalist = {
-    --       ignored_buf_types = { "nofile" }, -- save current options from any window except ones displaying these kinds of buffers
-    --       options = { -- options to be disabled when entering Minimalist mode
-    --         number = false,
-    --         relativenumber = false,
-    --         showtabline = 0,
-    --         signcolumn = "no",
-    --         statusline = "",
-    --         cmdheight = 1,
-    --         laststatus = 0,
-    --         showcmd = false,
-    --         showmode = false,
-    --         ruler = false,
-    --         numberwidth = 1,
-    --       },
-    --       callbacks = { -- run functions when opening/closing Minimalist mode
-    --         open_pre = nil,
-    --         open_pos = nil,
-    --         close_pre = nil,
-    --         close_pos = nil,
-    --       },
-    --     },
-    --     narrow = {
-    --       --- change the style of the fold lines. Set it to:
-    --       --- `informative`: to get nice pre-baked folds
-    --       --- `invisible`: hide them
-    --       --- function() end: pass a custom func with your fold lines. See :h foldtext
-    --       folds_style = "informative",
-    --       run_ataraxis = true, -- display narrowed text in a Ataraxis session
-    --       callbacks = { -- run functions when opening/closing Narrow mode
-    --         open_pre = nil,
-    --         open_pos = nil,
-    --         close_pre = nil,
-    --         close_pos = nil,
-    --       },
-    --     },
-    --     focus = {
-    --       callbacks = { -- run functions when opening/closing Focus mode
-    --         open_pre = nil,
-    --         open_pos = nil,
-    --         close_pre = nil,
-    --         close_pos = nil,
-    --       },
-    --     },
-    --   },
-    --   integrations = {
-    --     tmux = false, -- hide tmux status bar in (minimalist, ataraxis)
-    --     kitty = { -- increment font size in Kitty. Note: you must set `allow_remote_control socket-only` and `listen_on unix:/tmp/kitty` in your personal config (ataraxis)
-    --       enabled = false,
-    --       font = "+3",
-    --     },
-    --     twilight = false, -- enable twilight (ataraxis)
-    --     lualine = false, -- hide nvim-lualine (ataraxis)
-    --   },
-    -- },
   },
 
   -- {
@@ -2835,19 +1835,6 @@ local plugins = {
   -- },
 
   {
-    "junegunn/goyo.vim",
-    cmd = "Goyo",
-    keys = {
-      {
-        "<leader>mg",
-        "<cmd> Goyo<CR>",
-        mode = "n",
-        desc = "Goyo Mode",
-      },
-    },
-  },
-
-  {
     "axieax/urlview.nvim",
     cmd = "UrlView",
 
@@ -2867,79 +1854,79 @@ local plugins = {
     },
   },
 
-  -- {
-  --   "nvim-treesitter/nvim-treesitter-textobjects",
-  --
-  --   config = function(_, opts)
-  --     require("nvim-treesitter.configs").setup(opts)
-  --   end,
-  --
-  --   opts = {
-  --     textobjects = {
-  --       select = {
-  --         enable = true,
-  --
-  --         -- Automatically jump forward to textobj, similar to targets.vim
-  --         lookahead = true,
-  --
-  --         keymaps = {
-  --           -- You can use the capture groups defined in textobjects.scm
-  --           ["af"] = "@function.outer",
-  --           ["if"] = "@function.inner",
-  --           ["ac"] = "@class.outer",
-  --           -- You can optionally set descriptions to the mappings (used in the desc parameter of
-  --           -- nvim_buf_set_keymap) which plugins like which-key display
-  --           ["ic"] = { query = "@class.inner", desc = "Select inner part of a class region" },
-  --           -- You can also use captures from other query groups like `locals.scm`
-  --           ["as"] = { query = "@scope", query_group = "locals", desc = "Select language scope" },
-  --         },
-  --         -- You can choose the select mode (default is charwise 'v')
-  --         --
-  --         -- Can also be a function which gets passed a table with the keys
-  --         -- * query_string: eg '@function.inner'
-  --         -- * method: eg 'v' or 'o'
-  --         -- and should return the mode ('v', 'V', or '<c-v>') or a table
-  --         -- mapping query_strings to modes.
-  --         selection_modes = {
-  --           ["@parameter.outer"] = "v", -- charwise
-  --           ["@function.outer"] = "V", -- linewise
-  --           ["@class.outer"] = "<c-v>", -- blockwise
-  --         },
-  --         -- If you set this to `true` (default is `false`) then any textobject is
-  --         -- extended to include preceding or succeeding whitespace. Succeeding
-  --         -- whitespace has priority in order to act similarly to eg the built-in
-  --         -- `ap`.
-  --         --
-  --         -- Can also be a function which gets passed a table with the keys
-  --         -- * query_string: eg '@function.inner'
-  --         -- * selection_mode: eg 'v'
-  --         -- and should return true of false
-  --         include_surrounding_whitespace = true,
-  --       },
-  --
-  --       swap = {
-  --         enable = true,
-  --         swap_next = {
-  --           ["<leader>sl"] = "@parameter.inner",
-  --         },
-  --         swap_previous = {
-  --           ["<leader>sh"] = "@parameter.inner",
-  --         },
-  --       },
-  --       lsp_interop = {
-  --         enable = true,
-  --         border = "none",
-  --         floating_preview_opts = {},
-  --         peek_definition_code = {
-  --           ["<leader>df"] = "@function.outer",
-  --           ["<leader>dF"] = "@class.outer",
-  --         },
-  --       },
-  --     },
-  --   },
-  --
-  --   dependencies = "nvim-treesitter/nvim-treesitter",
-  -- },
+  {
+    "nvim-treesitter/nvim-treesitter-textobjects",
+
+    config = function(_, opts)
+      require("nvim-treesitter.configs").setup(opts)
+    end,
+
+    opts = {
+      textobjects = {
+        select = {
+          enable = true,
+
+          -- Automatically jump forward to textobj, similar to targets.vim
+          lookahead = true,
+
+          keymaps = {
+            -- You can use the capture groups defined in textobjects.scm
+            ["af"] = "@function.outer",
+            ["if"] = "@function.inner",
+            ["ac"] = "@class.outer",
+            -- You can optionally set descriptions to the mappings (used in the desc parameter of
+            -- nvim_buf_set_keymap) which plugins like which-key display
+            ["ic"] = { query = "@class.inner", desc = "Select inner part of a class region" },
+            -- You can also use captures from other query groups like `locals.scm`
+            ["as"] = { query = "@scope", query_group = "locals", desc = "Select language scope" },
+          },
+          -- You can choose the select mode (default is charwise 'v')
+          --
+          -- Can also be a function which gets passed a table with the keys
+          -- * query_string: eg '@function.inner'
+          -- * method: eg 'v' or 'o'
+          -- and should return the mode ('v', 'V', or '<c-v>') or a table
+          -- mapping query_strings to modes.
+          selection_modes = {
+            ["@parameter.outer"] = "v", -- charwise
+            ["@function.outer"] = "V", -- linewise
+            ["@class.outer"] = "<c-v>", -- blockwise
+          },
+          -- If you set this to `true` (default is `false`) then any textobject is
+          -- extended to include preceding or succeeding whitespace. Succeeding
+          -- whitespace has priority in order to act similarly to eg the built-in
+          -- `ap`.
+          --
+          -- Can also be a function which gets passed a table with the keys
+          -- * query_string: eg '@function.inner'
+          -- * selection_mode: eg 'v'
+          -- and should return true of false
+          include_surrounding_whitespace = true,
+        },
+
+        swap = {
+          enable = true,
+          swap_next = {
+            ["<leader>sl"] = "@parameter.inner",
+          },
+          swap_previous = {
+            ["<leader>sh"] = "@parameter.inner",
+          },
+        },
+        lsp_interop = {
+          enable = true,
+          border = "none",
+          floating_preview_opts = {},
+          peek_definition_code = {
+            ["<leader>df"] = "@function.outer",
+            ["<leader>dF"] = "@class.outer",
+          },
+        },
+      },
+    },
+
+    dependencies = "nvim-treesitter/nvim-treesitter",
+  },
 
   {
     "mbbill/undotree",
@@ -3003,144 +1990,6 @@ local plugins = {
         },
       },
     },
-  },
-
-  -- { -- WARNING: Doesn't work
-  --   {
-  --     "antosha417/nvim-lsp-file-operations",
-  --     dependencies = {
-  --       "nvim-lua/plenary.nvim",
-  --       "nvim-tree/nvim-tree.lua",
-  --     },
-  --   },
-  -- },
-
-  {
-    "aPeoplesCalendar/apc.nvim",
-    -- Required for APeoplesCalendarTeaser
-    -- dependencies = {
-    --   "rcarriga/nvim-notify",
-    -- },
-    -- event = "VeryLazy",
-    config = function(_, opts)
-      require("apeoplescalendar").setup(opts) -- configuration options are described below
-    end,
-
-    keys = {
-      { "<leader>vc", "<cmd> APeoplesCalendar<CR>", mode = "n", desc = "Daily Calendar" },
-    },
-
-    opts = {
-      -- auto_teaser_filetypes = { "dashboard", "alpha", "starter" }, -- will enable running the teaser automatically for listed filetypes
-    },
-  },
-
-  {
-    "monaqa/dial.nvim",
-
-    keys = {
-      {
-        "<leader><C-a>",
-        function()
-          require("dial.map").manipulate("increment", "visual")
-        end,
-        mode = "v",
-        desc = "Custom Toggle",
-      },
-      {
-        "<leader><C-a>",
-        function()
-          require("dial.map").manipulate("increment", "normal")
-        end,
-        mode = "n",
-        desc = "Custom Toggle",
-      },
-    },
-
-    config = function(_, opts)
-      local augend = require "dial.augend"
-      require("dial.config").augends:register_group {
-        -- default augends used when no group name is specified
-        default = {
-          augend.integer.alias.decimal, -- nonnegative decimal number (0, 1, 2, 3, ...)
-          augend.integer.alias.hex, -- nonnegative hex number  (0x01, 0x1a1f, etc.)
-          augend.date.alias["%Y/%m/%d"], -- date (2022/02/19, etc.)
-          augend.integer.alias.decimal,
-          augend.constant.alias.bool, -- boolean value (true <-> false)
-
-          augend.constant.new {
-            elements = { "and", "or" },
-            word = true, -- if false, "sand" is incremented into "sor", "doctor" into "doctand", etc.
-            cyclic = true, -- "or" is incremented into "and".
-          },
-
-          augend.constant.new {
-            elements = { "&&", "||" },
-            word = false,
-            cyclic = true,
-          },
-        },
-
-        -- -- augends used when group with name `<below>` is specified
-        -- custom = {
-        --   augend.integer.alias.decimal,
-        --   augend.constant.alias.bool, -- boolean value (true <-> false)
-        --   augend.date.alias["%m/%d/%Y"], -- date (02/19/2022, etc.)
-        -- },
-      }
-    end,
-  },
-
-  -- { -- WARNING: Doesn't work
-  --   "richardbizik/nvim-toc",
-  --
-  --   config = function(_, opts)
-  --     require("nvim-toc").setup(opts)
-  --   end,
-  --
-  --   opts = {},
-  --
-  --   keys = {
-  --     { "<leader>cmg", "<cmd> TOC<CR>", mode = "n", desc = "Generaate TOC" },
-  --   },
-  -- },
-
-  {
-    "gsuuon/llm.nvim",
-
-    cmd = "Llm", -- Others cmds are ignored for now
-
-    keys = {
-      {
-        "<leader>al",
-        "<cmd> Llm<CR>",
-        mode = { "n", "v" },
-        desc = "LLM Generate",
-      },
-    },
-
-    config = function(_, opts)
-      require("llm").setup(opts)
-    end,
-
-    opts = function()
-      return {
-        default_prompt = {
-          provider = require("llm.prompts.starters").palm,
-          builder = function(input, context)
-            return {
-              model = "text-bison-001",
-              prompt = {
-                text = input,
-              },
-              temperature = 0.2,
-            }
-          end,
-        },
-        hl_group = "",
-        -- prompts = {},
-      }
-    end,
   },
 
   {
@@ -3656,24 +2505,6 @@ local plugins = {
     end,
   },
 
-  -- { -- `nvim` inside terminal triggers new tab instead opening a nested nvim instance
-  --   "willothy/flatten.nvim",
-  --   config = true,
-  --   -- or pass configuration with
-  --   -- opts = {  },
-  --
-  --   -- Ensure that it runs first to minimize delay when opening file from terminal
-  --   lazy = false, -- TODO: think more about it
-  --   priority = 1001,
-  -- },
-  -- { -- Same as above but different implementation
-  --   "samjwill/nvim-unception",
-  --   init = function()
-  --     -- Optional settings go here!
-  --     -- e.g.) vim.g.unception_open_buffer_in_new_tab = true
-  --   end,
-  -- },
-
   { -- Same with nvim-biscuits
     -- TODO: migrate to this
     "andersevenrud/nvim_context_vt",
@@ -3764,218 +2595,6 @@ local plugins = {
     --   }
     -- end,
   },
-
-  -- { -- Center a window
-  --   FIXME: TODO
-  --   "shortcuts/no-neck-pain.nvim",
-  --   config = function(_, opts)
-  --     require("no-neck-pain").setup(opts)
-  --   end,
-  --
-  --   opts = {
-  --     -- Prints useful logs about triggered events, and reasons actions are executed.
-  --     --- @type boolean
-  --     debug = false,
-  --     -- The width of the focused window that will be centered. When the terminal width is less than the `width` option, the side buffers won't be created.
-  --     --- @type integer|"textwidth"|"colorcolumn"
-  --     width = 100,
-  --     -- Represents the lowest width value a side buffer should be.
-  --     -- This option can be useful when switching window size frequently, example:
-  --     -- in full screen screen, width is 210, you define an NNP `width` of 100, which creates each side buffer with a width of 50. If you resize your terminal to the half of the screen, each side buffer would be of width 5 and thereforce might not be useful and/or add "noise" to your workflow.
-  --     --- @type integer
-  --     minSideBufferWidth = 10,
-  --     -- Disables the plugin if the last valid buffer in the list have been closed.
-  --     --- @type boolean
-  --     disableOnLastBuffer = false,
-  --     -- When `true`, disabling the plugin closes every other windows except the initially focused one.
-  --     --- @type boolean
-  --     killAllBuffersOnDisable = false,
-  --     -- Adds autocmd (@see `:h autocmd`) which aims at automatically enabling the plugin.
-  --     --- @type table
-  --     autocmds = {
-  --       -- When `true`, enables the plugin when you start Neovim.
-  --       -- If the main window is  a side tree (e.g. NvimTree) or a dashboard, the command is delayed until it finds a valid window.
-  --       -- The command is cleaned once it has successfuly ran once.
-  --       --- @type boolean
-  --       enableOnVimEnter = false,
-  --       -- When `true`, enables the plugin when you enter a new Tab.
-  --       -- note: it does not trigger if you come back to an existing tab, to prevent unwanted interfer with user's decisions.
-  --       --- @type boolean
-  --       enableOnTabEnter = false,
-  --       -- When `true`, reloads the plugin configuration after a colorscheme change.
-  --       --- @type boolean
-  --       reloadOnColorSchemeChange = false,
-  --     },
-  --     -- Creates mappings for you to easily interact with the exposed commands.
-  --     --- @type table
-  --     mappings = {
-  --       -- When `true`, creates all the mappings that are not set to `false`.
-  --       --- @type boolean
-  --       enabled = false,
-  --       -- Sets a global mapping to Neovim, which allows you to toggle the plugin.
-  --       -- When `false`, the mapping is not created.
-  --       --- @type string
-  --       toggle = "<Leader>np",
-  --       -- Sets a global mapping to Neovim, which allows you to increase the width (+5) of the main window.
-  --       -- When `false`, the mapping is not created.
-  --       --- @type string
-  --       widthUp = "<Leader>n=",
-  --       -- Sets a global mapping to Neovim, which allows you to decrease the width (-5) of the main window.
-  --       -- When `false`, the mapping is not created.
-  --       --- @type string
-  --       widthDown = "<Leader>n-",
-  --       -- Sets a global mapping to Neovim, which allows you to toggle the scratchpad feature.
-  --       -- When `false`, the mapping is not created.
-  --       --- @type string
-  --       scratchPad = "<Leader>ns",
-  --     },
-  --     --- Common options that are set to both side buffers.
-  --     --- See |NoNeckPain.bufferOptions| for option scoped to the `left` and/or `right` buffer.
-  --     --- @type table
-  --     buffers = {
-  --       -- When `true`, the side buffers will be named `no-neck-pain-left` and `no-neck-pain-right` respectively.
-  --       --- @type boolean
-  --       setNames = false,
-  --       -- Leverages the side buffers as notepads, which work like any Neovim buffer and automatically saves its content at the given `location`.
-  --       -- note: quitting an unsaved scratchpad buffer is non-blocking, and the content is still saved.
-  --       --- see |NoNeckPain.bufferOptionsScratchpad|
-  --       -- scratchPad = NoNeckPain.bufferOptionsScratchpad,
-  --       -- -- colors to apply to both side buffers, for buffer scopped options @see |NoNeckPain.bufferOptions|
-  --       -- --- see |NoNeckPain.bufferOptionsColors|
-  --       -- colors = NoNeckPain.bufferOptionsColors,
-  --       -- -- Vim buffer-scoped options: any `vim.bo` options is accepted here.
-  --       -- --- @see NoNeckPain.bufferOptionsBo `:h NoNeckPain.bufferOptionsBo`
-  --       -- bo = NoNeckPain.bufferOptionsBo,
-  --       -- -- Vim window-scoped options: any `vim.wo` options is accepted here.
-  --       -- --- @see NoNeckPain.bufferOptionsWo `:h NoNeckPain.bufferOptionsWo`
-  --       -- wo = NoNeckPain.bufferOptionsWo,
-  --       -- --- Options applied to the `left` buffer, options defined here overrides the `buffers` ones.
-  --       -- --- @see NoNeckPain.bufferOptions `:h NoNeckPain.bufferOptions`
-  --       -- left = NoNeckPain.bufferOptions,
-  --       -- --- Options applied to the `right` buffer, options defined here overrides the `buffers` ones.
-  --       -- --- @see NoNeckPain.bufferOptions `:h NoNeckPain.bufferOptions`
-  --       -- right = NoNeckPain.bufferOptions,
-  --     },
-  --     -- Supported integrations that might clash with `no-neck-pain.nvim`'s behavior.
-  --     --- @type table
-  --     integrations = {
-  --       -- By default, if NvimTree is open, we will close it and reopen it when enabling the plugin,
-  --       -- this prevents having the side buffers wrongly positioned.
-  --       -- @link https://github.com/nvim-tree/nvim-tree.lua
-  --       --- @type table
-  --       NvimTree = {
-  --         -- The position of the tree.
-  --         --- @type "left"|"right"
-  --         position = "left",
-  --         -- When `true`, if the tree was opened before enabling the plugin, we will reopen it.
-  --         --- @type boolean
-  --         reopen = true,
-  --       },
-  --       -- By default, if NeoTree is open, we will close it and reopen it when enabling the plugin,
-  --       -- this prevents having the side buffers wrongly positioned.
-  --       -- @link https://github.com/nvim-neo-tree/neo-tree.nvim
-  --       NeoTree = {
-  --         -- The position of the tree.
-  --         --- @type "left"|"right"
-  --         position = "left",
-  --         -- When `true`, if the tree was opened before enabling the plugin, we will reopen it.
-  --         reopen = true,
-  --       },
-  --       -- @link https://github.com/mbbill/undotree
-  --       undotree = {
-  --         -- The position of the tree.
-  --         --- @type "left"|"right"
-  --         position = "left",
-  --       },
-  --     },
-  --   },
-  --
-  --   -- NoNeckPain.bufferOptions = {
-  --   --     -- When `false`, the buffer won't be created.
-  --   --     --- @type boolean
-  --   --     enabled = true,
-  --   --     --- @see NoNeckPain.bufferOptionsColors `:h NoNeckPain.bufferOptionsColors`
-  --   --     colors = NoNeckPain.bufferOptionsColors,
-  --   --     --- @see NoNeckPain.bufferOptionsBo `:h NoNeckPain.bufferOptionsBo`
-  --   --     bo = NoNeckPain.bufferOptionsBo,
-  --   --     --- @see NoNeckPain.bufferOptionsWo `:h NoNeckPain.bufferOptionsWo`
-  --   --     wo = NoNeckPain.bufferOptionsWo,
-  --   --     --- @see NoNeckPain.bufferOptionsScratchpad `:h NoNeckPain.bufferOptionsScratchpad`
-  --   --     scratchPad = NoNeckPain.bufferOptionsScratchpad,
-  --   -- }
-  --   --
-  --   -- NoNeckPain.bufferOptionsWo = {
-  --   --     --- @type boolean
-  --   --     cursorline = false,
-  --   --     --- @type boolean
-  --   --     cursorcolumn = false,
-  --   --     --- @type string
-  --   --     colorcolumn = "0",
-  --   --     --- @type boolean
-  --   --     number = false,
-  --   --     --- @type boolean
-  --   --     relativenumber = false,
-  --   --     --- @type boolean
-  --   --     foldenable = false,
-  --   --     --- @type boolean
-  --   --     list = false,
-  --   --     --- @type boolean
-  --   --     wrap = true,
-  --   --     --- @type boolean
-  --   --     linebreak = true,
-  --   -- }
-  --   --
-  --   -- NoNeckPain.bufferOptionsBo = {
-  --   --     --- @type string
-  --   --     filetype = "no-neck-pain",
-  --   --     --- @type string
-  --   --     buftype = "nofile",
-  --   --     --- @type string
-  --   --     bufhidden = "hide",
-  --   --     --- @type boolean
-  --   --     buflisted = false,
-  --   --     --- @type boolean
-  --   --     swapfile = false,
-  --   -- }
-  --   --
-  --   -- --- NoNeckPain's scratchpad buffer options.
-  --   -- ---
-  --   -- --- Leverages the side buffers as notepads, which work like any Neovim buffer and automatically saves its content at the given `location`.
-  --   -- --- note: quitting an unsaved scratchpad buffer is non-blocking, and the content is still saved.
-  --   -- ---
-  --   -- ---@type table
-  --   -- ---Default values:
-  --   -- ---@eval return MiniDoc.afterlines_to_code(MiniDoc.current.eval_section)
-  --   -- NoNeckPain.bufferOptionsScratchpad = {
-  --   --     -- When `true`, automatically sets the following options to the side buffers:
-  --   --     -- - `autowriteall`
-  --   --     -- - `autoread`.
-  --   --     --- @type boolean
-  --   --     enabled = false,
-  --   --     -- The name of the generated file. See `location` for more information.
-  --   --     --- @type string
-  --   --     --- @example: `no-neck-pain-left.norg`
-  --   --     fileName = "no-neck-pain",
-  --   --     -- By default, files are saved at the same location as the current Neovim session.
-  --   --     -- note: filetype is defaulted to `norg` (https://github.com/nvim-neorg/neorg), but can be changed in `buffers.bo.filetype` or |NoNeckPain.bufferOptions| for option scoped to the `left` and/or `right` buffer.
-  --   --     --- @type string?
-  --   --     --- @example: `no-neck-pain-left.norg`
-  --   --     location = nil,
-  --   -- }
-  --   --
-  --   -- NoNeckPain.bufferOptionsColors = {
-  --   --     -- Hexadecimal color code to override the current background color of the buffer. (e.g. #24273A)
-  --   --     -- Transparent backgrounds are supported by default.
-  --   --     --- @type string?
-  --   --     background = nil,
-  --   --     -- Brighten (positive) or darken (negative) the side buffers background color. Accepted values are [-1..1].
-  --   --     --- @type integer
-  --   --     blend = 0,
-  --   --     -- Hexadecimal color code to override the current text color of the buffer. (e.g. #7480c2)
-  --   --     --- @type string?
-  --   --     text = nil,
-  --   -- }
-  -- },
 
   {
     "chrisgrieser/nvim-various-textobjs",
@@ -4144,123 +2763,6 @@ local plugins = {
     },
   },
 
-  -- { -- Lazy plugin installlation system
-  --   -- WARNING: Laggy, incomplete
-  --   "roobert/activate.nvim",
-  --   keys = {
-  --     {
-  --       "<leader>P",
-  --       function()
-  --         require("activate").list_plugins()
-  --       end,
-  --       desc = "Plugins",
-  --     },
-  --   },
-  -- },
-
-  { -- FIXME: TODO: remove telescope override and write it as a dependency
-    "nvim-telescope/telescope.nvim",
-    keys = {
-      {
-        "<leader>P",
-        "<cmd> Telescope lazy<CR>",
-        desc = "Surf Plugins",
-      },
-    },
-
-    dependencies = {
-      "tsakirist/telescope-lazy.nvim",
-      opts = {
-        extensions = {
-          lazy = {
-            -- Optional theme (the extension doesn't set a default theme)
-            theme = "ivy",
-            -- Whether or not to show the icon in the first column
-            show_icon = true,
-            -- Mappings for the actions
-            mappings = {
-              open_in_browser = "<C-o>",
-              open_in_file_browser = "<M-b>",
-              open_in_find_files = "<C-f>",
-              open_in_live_grep = "<C-g>",
-              open_plugins_picker = "<C-b>", -- Works only after having called first another action
-              open_lazy_root_find_files = "<C-r>f",
-              open_lazy_root_live_grep = "<C-r>g",
-            },
-            -- Other telescope configuration options
-          },
-        },
-      },
-    },
-  },
-
-  -- { -- Embed Neovim into browsers
-  --   -- Doesn't work. (Probably because the installation method I used to install my browser)
-  --   "glacambre/firenvim",
-  --
-  --   -- Lazy load firenvim
-  --   -- Explanation: https://github.com/folke/lazy.nvim/discussions/463#discussioncomment-4819297
-  --   -- lazy = not vim.g.started_by_firenvim,
-  --   lazy = false,
-  --   build = function()
-  --     vim.fn["firenvim#install"](0)
-  --   end,
-  -- },
-
-  {
-    "NStefan002/speedtyper.nvim",
-    cmd = "Speedtyper",
-
-    keys = {
-      {
-        "<leader>vf",
-        "<cmd> Speedtyper<CR>",
-        mode = "n",
-        desc = "Type Speed Game",
-      },
-    },
-
-    opts = {
-      -- your config
-    },
-  },
-
-  -- { -- Reminds you to drink water
-  --   "stefanlogue/hydrate.nvim",
-  --   -- This installs the latest stable release.
-  --   -- Set to false or omit to install the latest development version
-  --   version = "*",
-  --   opts = {
-  --     -- The interval between notifications in minutes
-  --     minute_interval = 20,
-  --
-  --     -- The render style for notifications
-  --     -- Accepted values are "default", "minimal", "simple" or "compact"
-  --     render_style = "compact",
-  --
-  --     -- Loads time of last drink on startup
-  --     -- Useful if you don't have long-running neovim instances
-  --     -- or if you tend to have multiple instances running at a time
-  --     persist_timer = false,
-  --   },
-  -- },
-
-  -- { -- Breaks vimacs
-  --   "Rawnly/gist.nvim",
-  --   cmd = { "GistCreate", "GistCreateFromFile", "GistsList" },
-  --   -- dependencies = {
-  --   --   -- `GistsList` opens the selected gif in a terminal buffer,
-  --   --   -- nvim-unception uses neovim remote rpc functionality to open the gist in an actual buffer
-  --   --   -- and prevents neovim buffer inception
-  --   --   "samjwill/nvim-unception",
-  --   --   -- lazy = false,
-  --   --   config = function()
-  --   --     vim.g.unception_block_while_host_edits = true
-  --   --   end,
-  --   -- },
-  --
-  --   config = true,
-  -- },
   {
     "m4xshen/smartcolumn.nvim",
     keys = {
@@ -4376,59 +2878,6 @@ local plugins = {
       },
       mappings = {},
     },
-  },
-
-  {
-    "mrjones2014/smart-splits.nvim",
-    -- For Kitty Terminal Emulator
-    -- build = "./kitty/install-kittens.bash",
-    keys = {
-      {
-        "<C-Up",
-        function()
-          require("smart-splits").resize_up(5)
-        end,
-        mode = "n",
-        desc = "Resize Up",
-      },
-      {
-        "<C-Down>",
-        function()
-          require("smart-splits").resize_down(5)
-        end,
-        mode = "n",
-        desc = "Resize Down",
-      },
-      {
-        "<C-Left>",
-        function()
-          require("smart-splits").resize_left(5)
-        end,
-        mode = "n",
-        desc = "Resize Left",
-      },
-      {
-        "<C-Right>",
-        function()
-          require("smart-splits").resize_right(5)
-        end,
-        mode = "n",
-        desc = "Resize Right",
-      },
-
-      {
-        "<leader>mr",
-        function()
-          require("smart-splits").start_resize_mode()
-        end,
-        mode = "n",
-        desc = "Resize Mode",
-      },
-    },
-
-    config = function(_, opts)
-      require("smart-splits").setup()
-    end,
   },
 
   {
