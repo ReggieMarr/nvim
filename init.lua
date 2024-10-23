@@ -144,8 +144,7 @@ local function find_default_file(root_dir)
       return matches[1]
     end
   end
-  
-  vim.notify("No default file found", vim.log.levels.DEBUG)
+  -- vim.notify("No default file found", vim.log.levels.DEBUG)
   return nil
 end
 
@@ -177,16 +176,11 @@ local function load_new_project()
   local timeout = 2000  -- 2 seconds in milliseconds
   local start_time = vim.loop.now()
 
-  vim.notify("waiting until we can start browsing the new project...", vim.log.levels.INFO)
-
   local function check_condition()
-    vim.notify("Checking conditions...", vim.log.levels.DEBUG)
     if check_ready() then
       local root = find_project_root()
-      vim.notify("Opening file browser at: " .. root, vim.log.levels.INFO)
       open_file_browser(root)
     elseif (vim.loop.now() - start_time) < timeout then
-      vim.notify("Conditions not met, scheduling next check", vim.log.levels.DEBUG)
       vim.defer_fn(check_condition, 50)
     else
       vim.notify("Timed out waiting for project to be ready", vim.log.levels.ERROR)
@@ -208,7 +202,6 @@ vim.api.nvim_create_autocmd("SessionLoadPost", {
   desc = "Open file browser when session is loaded",
   callback = function()
     if not browser_opened then
-      vim.notify("SessionLoadPost triggered, opening file browser", vim.log.levels.INFO)
       browser_opened = true
       load_new_project()
       -- reset after we openend it
@@ -220,7 +213,6 @@ vim.api.nvim_create_autocmd("SessionLoadPost", {
 -- Keybinding for manual trigger remains the same
 vim.keymap.set('n', '<leader><leader>', function()
   local root = find_project_root()
-  vim.notify("Opening file browser at: " .. root, vim.log.levels.INFO)
   require("telescope").extensions.file_browser.file_browser({
     path = root,
     select_buffer = true,
