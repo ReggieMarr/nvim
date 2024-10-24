@@ -68,3 +68,5 @@ require "myinit"
 vim.schedule(function()
   require "mappings"
 end)
+
+require "overseer_test"

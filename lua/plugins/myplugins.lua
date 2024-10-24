@@ -585,6 +585,15 @@ local plugins = {
         desc = "Tasks DWIM",
       },
       {
+        "<leader>cd",
+        function()
+          local overseer = require "overseer"
+          overseer.run_template()
+        end,
+        mode = "n",
+        desc = "Stop running tasks",
+      },
+      {
         "<leader>cs",
         function()
           local overseer = require "overseer"
@@ -621,75 +630,21 @@ local plugins = {
     },
 
     config = function(_, opts)
-      local overseer = require "overseer"
-      overseer.setup {
-        strategy = "orchestrator",
-        -- strategy = {
-        --   "toggleterm",
-        --   -- toggleterm strategy config
-        --   open_on_start = true,
-        --   close_on_exit = false,
-        --   direction = "horizontal",
-        --   auto_scroll = true,
-        --   quit_on_exit = "success",
-        -- },
-        --
-        -- -- Templates configuration
-        -- templates = {
-        --   "builtin.make",
-        --   "builtin.shell",
-        -- },
-        --
-        -- -- Configure UI
-        -- task_list = {
-        --   direction = "bottom",
-        --   min_height = 25,
-        --   max_height = 25,
-        --   default_detail = 1,
-        --   bindings = {
-        --     ["q"] = function()
-        --       vim.cmd "OverseerClose"
-        --     end,
-        --   },
-        -- },
-        --
-        -- -- Configure task output handling
-        -- component_aliases = {
-        --   default = {
-        --     "on_output_quickfix",
-        --     "on_result_diagnostics",
-        --     "on_result_diagnostics_quickfix",
-        --     "on_complete_notify",
-        --     { "display_duration", detail_level = 1 },
-        --     "default",
-        --   },
-        -- },
-        --
-        -- -- Configure default components for all tasks
-        -- default_components = { "default" },
-        --
-        -- -- Status display configuration
-        -- status_win_opts = {
-        --   winblend = 10,
-        --   border = "rounded",
-        -- },
-        --
-        -- -- Configure how tasks are run
-        -- task = {
-        --   default_strategy = "toggleterm",
-        --   -- Auto-opened buffers get this width
-        --   terminal_width = vim.o.columns > 160 and math.floor(vim.o.columns * 0.4) or math.floor(vim.o.columns * 0.8),
-        --   terminal_height = math.floor(vim.o.lines * 0.4),
-        -- },
-        --
-        -- -- Configure actions that can be performed on tasks
-        -- actions = {
-        --   ["open output"] = {
-        --     components = {
-        --       { "open_output", direction = "horizontal" },
-        --     },
-        --   },
-        -- },
+      vim.api.nvim_create_user_command("WatchRun", function()
+        local overseer = require("overseer")
+        overseer.run_template({ name = "run script" }, function(task)
+          if task then
+            task:add_component({ "restart_on_save", paths = {vim.fn.expand("%:p")} })
+            local main_win = vim.api.nvim_get_current_win()
+            overseer.run_action(task, "open vsplit")
+            vim.api.nvim_set_current_win(main_win)
+          else
+            vim.notify("WatchRun not supported for filetype " .. vim.bo.filetype, vim.log.levels.ERROR)
+          end
+        end)
+      end, {})
+
+      require("overseer").setup {
       }
     end,
 
