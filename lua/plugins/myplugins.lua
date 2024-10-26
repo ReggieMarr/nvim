@@ -628,28 +628,205 @@ local plugins = {
         desc = "Toggle Task List",
       },
     },
+    -- ---@type overseer.ComponentFileDefinition
+    -- local comp = {
+    --   desc = "After task is completed, dispose it after a timeout",
+    --   params = {
+    --     timeout = {
+    --       desc = "Time to wait (in seconds) before disposing",
+    --       default = 300, -- 5 minutes
+    --       type = "number",
+    --       validate = function(v)
+    --         return v > 0
+    --       end,
+    --     },
+    --     statuses = {
+    --       desc = "Tasks with one of these statuses will be disposed",
+    --       type = "list",
+    --       default = { STATUS.SUCCESS, STATUS.FAILURE, STATUS.CANCELED },
+    --       subtype = {
+    --         type = "enum",
+    --         choices = STATUS.values,
+    --       },
+    --     },
+    --     require_view = {
+    --       desc = "Tasks with these statuses must be viewed before they will be disposed",
+    --       type = "list",
+    --       default = {},
+    --       subtype = {
+    --         type = "enum",
+    --         choices = STATUS.values,
+    --       },
+    --     },
+    --   },
+    --   constructor = function(opts)
+    --     opts = opts or {}
+    --     vim.validate({
+    --       timeout = { opts.timeout, "n" },
+    --     })
+    --     return {
+    --       timer = nil,
+    --
+    --       _stop_timer = function(self)
+    --         if self.timer then
+    --           self.timer:close()
+    --           self.timer = nil
+    --         end
+    --       end,
+    --       _del_autocmd = function(self)
+    --         if self.autocmd_id then
+    --           vim.api.nvim_del_autocmd(self.autocmd_id)
+    --           self.autocmd_id = nil
+    --         end
+    --       end,
+    --       _start_timer = function(self, task)
+    --         self:_stop_timer()
+    --         log:debug(
+    --           "task(%s)[on_complete_dispose] starting dispose timer for %ds",
+    --           task.id,
+    --           opts.timeout
+    --         )
+    --         self.timer = uv.new_timer()
+    --         -- Start a repeating timer because the dispose could fail with a
+    --         -- temporary reason (e.g. the task buffer is open, or the action menu is
+    --         -- displayed for the task)
+    --         self.timer:start(
+    --           1000 * opts.timeout,
+    --           1000 * opts.timeout,
+    --           vim.schedule_wrap(function()
+    --             log:debug("task(%s)[on_complete_dispose] attempt dispose", task.id)
+    --             task:dispose()
+    --           end)
+    --         )
+    --       end,
+    --
+    --       on_complete = function(self, task, status)
+    --         if not vim.tbl_contains(opts.statuses, task.status) then
+    --           log:debug(
+    --             "task(%s)[on_complete_dispose] complete, not auto-disposing task of status %s",
+    --             task.id,
+    --             status
+    --           )
+    --           return
+    --         end
+    --         local bufnr = task:get_bufnr()
+    --         if
+    --           not bufnr
+    --           or is_buffer_visible(bufnr)
+    --           or not vim.tbl_contains(opts.require_view, status)
+    --         then
+    --           self:_start_timer(task)
+    --         else
+    --           log:debug(
+    --             "task(%s)[on_complete_dispose] complete, waiting for output view",
+    --             task.id,
+    --             status
+    --           )
+    --           self.autocmd_id = vim.api.nvim_create_autocmd("BufWinEnter", {
+    --             desc = "Start dispose timer when buffer is visible",
+    --             callback = function(ev)
+    --               if ev.buf ~= bufnr then
+    --                 return
+    --               end
+    --               self:_start_timer(task)
+    --               self.autocmd_id = nil
+    --               return true
+    --             end,
+    --           })
+    --         end
+    --       end,
+    --       on_reset = function(self, task)
+    --         self:_del_autocmd()
+    --         self:_stop_timer()
+    --       end,
+    --       on_dispose = function(self, task)
+    --         self:_del_autocmd()
+    --         self:_stop_timer()
+    --       end,
+    --     }
+    --   end,
+    -- }
+    --
+    -- return comp
 
     config = function(_, opts)
-      vim.api.nvim_create_user_command("WatchRun", function()
-        local overseer = require("overseer")
-        overseer.run_template({ name = "run script" }, function(task)
-          if task then
-            task:add_component({ "restart_on_save", paths = {vim.fn.expand("%:p")} })
-            local main_win = vim.api.nvim_get_current_win()
-            overseer.run_action(task, "open vsplit")
-            vim.api.nvim_set_current_win(main_win)
-          else
-            vim.notify("WatchRun not supported for filetype " .. vim.bo.filetype, vim.log.levels.ERROR)
-          end
-        end)
-      end, {})
-
       require("overseer").setup {
+        -- Aliases for bundles of components. Redefine the builtins, or create your own.
+        -- strategy = "toggleterm",
+        strategy = "terminal",
+        component_aliases = {
+          -- Most tasks are initialized with the default components
+          default = {
+            "unique",
+            "on_output_summarize",
+            "on_result_diagnostics",
+            "on_result_diagnostics_trouble",
+            "on_output_quickfix",
+            "on_exit_set_status",
+            "on_complete_notify",
+            { "display_duration", detail_level = 1 },
+            -- not needed with toggleterm
+            {
+              "open_output",
+              direction = "horizontal",
+              on_start = "always",
+              focus = true,
+            },
+            {
+              "on_complete_dispose",
+              require_view = { "FAILURE" },
+              statuses = { "SUCCESS", "FAILURE", "CANCELLED" },
+              timeout = 5,
+            },
+          },
+          -- Tasks from tasks.json use these components
+          default_vscode = {
+            "default",
+            "on_result_diagnostics",
+          },
+        },
       }
     end,
 
     dependencies = {
       "nvim-neotest/nvim-nio",
+      {
+        "folke/trouble.nvim",
+        opts = {}, -- for default options, refer to the configuration section for custom setup.
+        cmd = "Trouble",
+        keys = {
+          {
+            "<leader>xx",
+            "<cmd>Trouble diagnostics toggle<cr>",
+            desc = "Diagnostics (Trouble)",
+          },
+          {
+            "<leader>xX",
+            "<cmd>Trouble diagnostics toggle filter.buf=0<cr>",
+            desc = "Buffer Diagnostics (Trouble)",
+          },
+          {
+            "<leader>cs",
+            "<cmd>Trouble symbols toggle focus=false<cr>",
+            desc = "Symbols (Trouble)",
+          },
+          {
+            "<leader>cl",
+            "<cmd>Trouble lsp toggle focus=false win.position=right<cr>",
+            desc = "LSP Definitions / references / ... (Trouble)",
+          },
+          {
+            "<leader>xL",
+            "<cmd>Trouble loclist toggle<cr>",
+            desc = "Location List (Trouble)",
+          },
+          {
+            "<leader>xQ",
+            "<cmd>Trouble qflist toggle<cr>",
+            desc = "Quickfix List (Trouble)",
+          },
+        },
+      },
       "akinsho/toggleterm.nvim", -- Make sure to add toggleterm as a dependency
       {
         "stevearc/dressing.nvim",
