@@ -851,16 +851,78 @@ require('lazy').setup({
 
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    build = ':TSUpdate',
+    main = 'nvim-treesitter', -- Sets main module to use for opts
+    -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
+    opts = {
+      ensure_installed = { 'bash', 'c', 'diff', 'html', 'org', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      -- Autoinstall languages that are not installed
+      auto_install = true,
+      highlight = {
+        enable = true,
+        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
+        --  If you are experiencing weird indenting issues, add the language to
+        --  the list of additional_vim_regex_highlighting and disabled languages for indent.
+        additional_vim_regex_highlighting = { 'ruby', 'org' },
+      },
+      indent = { enable = true, disable = { 'ruby' } },
+    },
+    -- There are additional nvim-treesitter modules that you can use to interact
+    -- with nvim-treesitter. You should go explore a few and see what interests you:
+    --
+    --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
+    --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
+    --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
+  },
+  -- Orgmode
+  {
+    'nvim-orgmode/orgmode',
+    ft = { 'org' },
     config = function()
-      local filetypes = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
-      require('nvim-treesitter').install(filetypes)
-      vim.api.nvim_create_autocmd('FileType', {
-        pattern = filetypes,
-        callback = function() vim.treesitter.start() end,
-      })
+      require('orgmode').setup()
     end,
   },
 
+  -- Prettier bullets
+  {
+    'akinsho/org-bullets.nvim',
+    ft = { 'org' },
+    config = function()
+      require('org-bullets').setup {
+        symbols = {
+          headlines = { '◉', '○', '✸', '✿' },
+          checkboxes = {
+            half = { '', 'OrgTSCheckboxHalfChecked' },
+            done = { '✓', 'OrgDone' },
+            todo = { '˟', 'OrgTODO' },
+          },
+        },
+      }
+    end,
+  },
+  {
+    'nvim-orgmode/telescope-orgmode.nvim',
+    event = 'VeryLazy',
+    dependencies = {
+      'nvim-orgmode/orgmode',
+      'nvim-telescope/telescope.nvim',
+    },
+    config = function()
+      require('telescope').load_extension 'orgmode'
+
+      vim.keymap.set('n', '<leader>ok', require('telescope').extensions.orgmode.refile_heading)
+      vim.keymap.set('n', '<leader>ofh', require('telescope').extensions.orgmode.search_headings)
+      vim.keymap.set('n', '<leader>li', require('telescope').extensions.orgmode.insert_link)
+    end,
+  },
+  -- Optional: Telescope integration for org
+  {
+    'nvim-telescope/telescope.nvim',
+    dependencies = { 'nvim-orgmode/orgmode' },
+    config = function()
+      require('telescope').load_extension 'orgmode'
+    end,
+  },
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
