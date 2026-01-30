@@ -388,11 +388,18 @@ require('lazy').setup({
         -- },
         -- pickers = {}
         extensions = {
-          ['ui-select'] = { require('telescope.themes').get_dropdown() },
+          ['file_browser'] = {
+            theme = 'ivy',
+            hijack_netrw = true,
+          },
+          ['ui-select'] = {
+            require('telescope.themes').get_dropdown(),
+          },
         },
       }
 
-      -- Enable Telescope extensions if they are installed
+      -- Enable Telescope extensions
+      pcall(require('telescope').load_extension, 'file_browser')
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
 
@@ -471,6 +478,17 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sn', function() builtin.find_files { cwd = vim.fn.stdpath 'config' } end, { desc = '[S]earch [N]eovim files' })
     end,
   },
+  {
+    'NeogitOrg/neogit',
+    lazy = true,
+    dependencies = {
+      'nvim-lua/plenary.nvim', -- required
+      'sindrets/diffview.nvim', -- optional - Diff integration
+
+      'nvim-telescope/telescope.nvim',
+    },
+    cmd = 'Neogit',
+  },
 
   -- LSP Plugins
   {
@@ -522,14 +540,17 @@ require('lazy').setup({
       vim.api.nvim_create_autocmd('LspAttach', {
         group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
         callback = function(event)
-          -- NOTE: Remember that Lua is a real programming language, and as such it is possible
-          -- to define small helper and utility functions so you don't have to repeat yourself.
-          --
-          -- In this case, we create a function that lets us more easily define mappings specific
-          -- for LSP related items. It sets the mode, buffer and description for us each time.
-          local map = function(keys, func, desc, mode)
-            mode = mode or 'n'
-            vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
+          -- This function resolves a difference between neovim nightly (version 0.11) and stable (version 0.10)
+          ---@param client vim.lsp.Client
+          ---@param method vim.lsp.protocol.Method
+          ---@param bufnr? integer some lsp support methods only in specific files
+          ---@return boolean
+          local function client_supports_method(client, method, bufnr)
+            if vim.fn.has 'nvim-0.11' == 1 then
+              return client:supports_method(method, bufnr)
+            else
+              return client.supports_method(method, { bufnr = bufnr })
+            end
           end
 
           -- Rename the variable under your cursor.
@@ -660,14 +681,16 @@ require('lazy').setup({
     'stevearc/conform.nvim',
     event = { 'BufWritePre' },
     cmd = { 'ConformInfo' },
-    keys = {
-      {
-        '<leader>f',
-        function() require('conform').format { async = true, lsp_format = 'fallback' } end,
-        mode = '',
-        desc = '[F]ormat buffer',
-      },
-    },
+    -- keys = {
+    --   {
+    --     '<leader>f',
+    --     function()
+    --       require('conform').format { async = true, lsp_format = 'fallback' }
+    --     end,
+    --     mode = '',
+    --     desc = '[F]ormat buffer',
+    --   },
+    -- },
     opts = {
       notify_on_error = false,
       format_on_save = function(bufnr)
@@ -882,7 +905,135 @@ require('lazy').setup({
       require('orgmode').setup()
     end,
   },
+  -- In your nvim-tree plugin configuration (e.g., in lua/kickstart/plugins/neo-tree.lua or similar)
+  {
+    'nvim-tree/nvim-tree.lua',
+    dependencies = {
+      'nvim-tree/nvim-web-devicons',
+    },
+    config = function()
+      require('nvim-tree').setup {
+        -- Disable netrw for better integration
+        disable_netrw = true,
+        hijack_netrw = true,
 
+        -- View settings for a cleaner, Vertico-like appearance
+        view = {
+          float = {
+            enable = true,
+            open_win_config = function()
+              local screen_w = vim.opt.columns:get()
+              local screen_h = vim.opt.lines:get() - vim.opt.cmdheight:get()
+              local window_w = screen_w * 0.8
+              local window_h = screen_h * 0.5
+              local window_w_int = math.floor(window_w)
+              local window_h_int = math.floor(window_h)
+              local center_x = (screen_w - window_w) / 2
+              local center_y = ((vim.opt.lines:get() - window_h) / 2) - vim.opt.cmdheight:get()
+              return {
+                border = 'rounded',
+                relative = 'editor',
+                row = center_y,
+                col = center_x,
+                width = window_w_int,
+                height = window_h_int,
+              }
+            end,
+          },
+          width = function()
+            return math.floor(vim.opt.columns:get() * 0.8)
+          end,
+        },
+        -- Renderer settings
+        renderer = {
+          group_empty = false,
+          highlight_opened_files = 'name',
+          icons = {
+            show = {
+              file = true,
+              folder = true,
+              folder_arrow = true,
+              git = true,
+            },
+          },
+        },
+
+        -- Filter settings for live search
+        filters = {
+          dotfiles = false,
+          custom = {},
+        },
+
+        -- Live filter (search) configuration
+        live_filter = {
+          prefix = '[FILTER]: ',
+          always_show_folders = false,
+        },
+
+        -- Actions configuration
+        actions = {
+          open_file = {
+            quit_on_open = true, -- Close tree after opening file
+            window_picker = {
+              enable = true,
+            },
+          },
+        },
+
+        -- Key mappings within nvim-tree
+        on_attach = function(bufnr)
+          local api = require 'nvim-tree.api'
+
+          local function opts(desc)
+            return { desc = 'nvim-tree: ' .. desc, buffer = bufnr, noremap = true, silent = true, nowait = true }
+          end
+
+          -- Default mappings
+          api.config.mappings.default_on_attach(bufnr)
+
+          -- Custom mappings for Vertico-like behavior
+          vim.keymap.set('n', '<CR>', api.node.open.edit, opts 'Open')
+          vim.keymap.set('n', '<Tab>', api.node.open.preview, opts 'Preview')
+          vim.keymap.set('n', 'L', api.node.open.edit, opts 'Open')
+          vim.keymap.set('n', 'Q', api.node.navigate.parent_close, opts 'Close Directory')
+          vim.keymap.set('n', 'l', api.node.open.replace_tree_buffer, opts 'Open dwim')
+
+          -- Directory-specific actions
+          vim.keymap.set('n', '<leader>wv', api.node.open.vertical, opts 'Open: Vertical Split')
+          vim.keymap.set('n', '<leader>wh', api.node.open.horizontal, opts 'Open: Horizontal Split')
+
+          -- Navigate up directory (like Vertico/Dired)
+          vim.keymap.set('n', 'h', api.tree.change_root_to_parent, opts 'Up Directory')
+          vim.keymap.set('n', '<BS>', api.tree.change_root_to_parent, opts 'Up Directory')
+
+          -- Quick filter/search
+          vim.keymap.set('n', 'f', api.live_filter.start, opts 'Filter')
+          vim.keymap.set('n', 'F', api.live_filter.clear, opts 'Clear Filter')
+
+          -- Create, delete, rename (Dired-like operations)
+          vim.keymap.set('n', 'a', api.fs.create, opts 'Create File/Directory')
+          vim.keymap.set('n', 'd', api.fs.remove, opts 'Delete')
+          vim.keymap.set('n', 'r', api.fs.rename, opts 'Rename')
+          vim.keymap.set('n', 'x', api.fs.cut, opts 'Cut')
+          vim.keymap.set('n', 'c', api.fs.copy.node, opts 'Copy')
+          vim.keymap.set('n', 'p', api.fs.paste, opts 'Paste')
+
+          -- Toggle hidden files
+          vim.keymap.set('n', 'H', api.tree.toggle_hidden_filter, opts 'Toggle Hidden')
+          vim.keymap.set('n', 'I', api.tree.toggle_gitignore_filter, opts 'Toggle Gitignore')
+
+          -- Refresh
+          vim.keymap.set('n', 'R', api.tree.reload, opts 'Refresh')
+          -- Quit
+          vim.keymap.set('n', 'q', api.tree.close, opts 'Close')
+          vim.keymap.set('n', '<Esc>', api.tree.close, opts 'Close')
+
+          -- Change root to selected directory
+          vim.keymap.set('n', '<leader>C', api.tree.change_root_to_node, opts 'CD')
+        end,
+      }
+    end,
+  },
   -- Prettier bullets
   {
     'akinsho/org-bullets.nvim',
@@ -935,9 +1086,9 @@ require('lazy').setup({
   -- require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
-  -- require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.autopairs',
+  require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
@@ -970,6 +1121,10 @@ require('lazy').setup({
     },
   },
 })
+-- require 'mappings',
+require 'utils'
+require 'info'
+require('custom.keymaps').setup()
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
