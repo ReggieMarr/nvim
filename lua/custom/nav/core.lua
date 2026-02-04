@@ -1,125 +1,116 @@
 local M = {}
 
 local function get_git_root(path)
-  local git_cmd = vim.fn.system(string.format("cd %s && git rev-parse --show-toplevel", path))
-  local git_root = string.gsub(git_cmd, "\n", "")
-  return git_root ~= "" and git_root or nil
+  local git_cmd = vim.fn.system(string.format('cd %s && git rev-parse --show-toplevel', path))
+  local git_root = string.gsub(git_cmd, '\n', '')
+  return git_root ~= '' and git_root or nil
 end
 
-local builtin = require "telescope.builtin"
+local builtin = require 'telescope.builtin'
 function M.browser_setup()
-  local telescope = require "telescope"
-  local fb_actions = require("telescope").extensions.file_browser.actions
-  local Path = require "plenary.path"
+  local telescope = require 'telescope'
+  local fb_actions = require('telescope').extensions.file_browser.actions
+  local Path = require 'plenary.path'
 
   local git_files_from_browser = function(prompt_bufnr)
-    local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+    local current_picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
     local path
     if current_picker.finder.files then
       path = current_picker.finder.path
     else
-      local selection = require("telescope.actions.state").get_selected_entry()
+      local selection = require('telescope.actions.state').get_selected_entry()
       path = selection and selection.Path:absolute() or current_picker.finder.path
     end
 
     -- Get the git root
     local git_root = get_git_root(path)
     if not git_root then
-      print "Not a git repository"
+      print 'Not a git repository'
       return
     end
 
     -- Calculate the relative path from git root to the selected path
     local relative_path = Path:new(path):make_relative(git_root)
 
-    require("telescope.actions").close(prompt_bufnr)
+    require('telescope.actions').close(prompt_bufnr)
 
     builtin.git_files {
       git_command = {
-        "git",
-        "ls-files",
-        "--exclude-standard",
-        "--cached",
-        "--",
+        'git',
+        'ls-files',
+        '--exclude-standard',
+        '--cached',
+        '--',
         relative_path,
       },
     }
   end
 
   local find_file_from_browser = function(prompt_bufnr)
-    local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+    local current_picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
     local path
     if current_picker.finder.files then
       path = current_picker.finder.path
     else
-      local selection = require("telescope.actions.state").get_selected_entry()
+      local selection = require('telescope.actions.state').get_selected_entry()
       path = selection and selection.Path:absolute() or current_picker.finder.path
     end
-    require("telescope.actions").close(prompt_bufnr)
-    require("telescope.builtin").find_files { cwd = path }
+    require('telescope.actions').close(prompt_bufnr)
+    require('telescope.builtin').find_files { cwd = path }
   end
 
   local search_files_from_browser = function(prompt_bufnr)
-    local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+    local current_picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
     local path
     if current_picker.finder.files then
       path = current_picker.finder.path
     else
-      local selection = require("telescope.actions.state").get_selected_entry()
+      local selection = require('telescope.actions.state').get_selected_entry()
       path = selection and selection.Path:absolute() or current_picker.finder.path
     end
-    require("telescope.actions").close(prompt_bufnr)
-    require("telescope.builtin").live_grep { cwd = path }
+    require('telescope.actions').close(prompt_bufnr)
+    require('telescope.builtin').live_grep { cwd = path }
   end
 
   local search_git_files_from_browser = function(prompt_bufnr)
-    local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+    local current_picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
     local path
     if current_picker.finder.files then
       path = current_picker.finder.path
     else
-      local selection = require("telescope.actions.state").get_selected_entry()
+      local selection = require('telescope.actions.state').get_selected_entry()
       path = selection and selection.Path:absolute() or current_picker.finder.path
     end
-    require("telescope.actions").close(prompt_bufnr)
-    require("git_grep").live_grep {
+    require('telescope.actions').close(prompt_bufnr)
+    require('git_grep').live_grep {
       cwd = path,
       use_git_root = false,
       skip_binary_files = true,
     }
   end
 
-  -- local search_git_files_from_browser = function(prompt_bufnr)
-  --   local current_picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
-  --   local path
-  --   if current_picker.finder.files then
-  --     path = current_picker.finder.path
-  --   else
-  --     local selection = require("telescope.actions.state").get_selected_entry()
-  --     path = selection and selection.Path:absolute() or current_picker.finder.path
-  --   end
-  --   require("telescope.actions").close(prompt_bufnr)
-  --   require("telescope.builtin").live_grep({
-  --     -- cwd = path,
-  --     additional_args = function()
-  --       return {
-  --         "--glob=!.git/*",
-  --         "-g",
-  --         -- NOTE we should see if we can just pull in the git_command
-  --         -- from git files to keep things consistent
-  --         "$(git ls-files --exclude-standard --cached -- " .. path .. ")"
-  --       }
-  --     end
-  --   })
-  -- end
+  local function open_nvim_tree(prompt_bufnr)
+    local actions = require 'telescope.actions'
+    local action_state = require 'telescope.actions.state'
+
+    actions.select_default:replace(function()
+      local api = require 'nvim-tree.api'
+
+      actions.close(prompt_bufnr)
+      local selection = action_state.get_selected_entry()
+      api.tree.open()
+      api.tree.find_file(selection.cwd .. '/' .. selection.value)
+    end)
+    return true
+  end
 
   local open_in_file_browser = function(prompt_bufnr)
-    local selection = require("telescope.actions.state").get_selected_entry()
+    local selection = require('telescope.actions.state').get_selected_entry()
     if selection then
       if selection.Path:is_dir() then
         fb_actions.open_dir(prompt_bufnr, nil, selection.Path:absolute())
       else
-        require("telescope.actions").select_default(prompt_bufnr)
+        require('telescope.actions').select_default(prompt_bufnr)
       end
     end
   end
@@ -127,34 +118,38 @@ function M.browser_setup()
   telescope.setup {
     extensions = {
       file_browser = {
-        select_buffer = true,
+        select_buffer = false,
         grouped = true,
         collapse_dirs = true,
         mappings = {
-          ["i"] = {
-            ["<C-f>"] = git_files_from_browser,
-            ["<C-F>"] = find_file_from_browser,
-            ["<C-s>"] = search_git_files_from_browser,
-            ["<C-S>"] = search_files_from_browser,
+          ['i'] = {
+            ['<C-o>'] = open_in_file_browser,
+            ['<C-f>'] = git_files_from_browser,
+            ['<C-F>'] = find_file_from_browser,
+            ['<C-s>'] = search_git_files_from_browser,
+            ['<C-S>'] = search_files_from_browser,
+            ['<Tab>'] = open_in_file_browser,
           },
-          ["n"] = {
-            ["f"] = git_files_from_browser,
-            ["F"] = find_file_from_browser,
-            ["s"] = search_git_files_from_browser,
-            ["S"] = search_files_from_browser,
-            ["h"] = fb_actions.goto_parent_dir,
-            ["l"] = open_in_file_browser,
+          ['n'] = {
+            ['<C-o>'] = open_in_file_browser,
+            ['<C-f>'] = git_files_from_browser,
+            ['f'] = git_files_from_browser,
+            ['F'] = find_file_from_browser,
+            ['s'] = search_git_files_from_browser,
+            ['S'] = search_files_from_browser,
+            ['h'] = fb_actions.goto_parent_dir,
+            ['l'] = open_in_file_browser,
           },
         },
       },
     },
   }
 
-  telescope.load_extension "file_browser"
+  telescope.load_extension 'file_browser'
 end
 
 function M.git_grep_files_from_project()
-  require("git_grep").live_grep {
+  require('git_grep').live_grep {
     -- not needed
     -- cwd = path,
     -- use_git_root = false,
@@ -163,8 +158,8 @@ function M.git_grep_files_from_project()
 end
 
 function M.git_grep_files_from_buffer()
-  local buffer_dir = vim.fn.expand "%:p:h"
-  require("git_grep").live_grep {
+  local buffer_dir = vim.fn.expand '%:p:h'
+  require('git_grep').live_grep {
     cwd = path,
     use_git_root = false,
     skip_binary_files = true,
@@ -172,7 +167,7 @@ function M.git_grep_files_from_buffer()
 end
 
 function M.live_grep_from_buffer()
-  local buffer_dir = vim.fn.expand "%:p:h"
+  local buffer_dir = vim.fn.expand '%:p:h'
   builtin.live_grep {
     cwd = buffer_dir,
   }
@@ -180,25 +175,28 @@ end
 
 function M.find_files_from_buffer(opts)
   opts = opts or {}
-  opts.cwd = vim.fn.expand "%:p:h"
+  opts.cwd = vim.fn.expand '%:p:h'
   builtin.find_files(opts)
 end
 
 function M.file_browser()
-  require("telescope").extensions.file_browser.file_browser {
-    path = "%:p:h",
-    select_buffer = true,
+  require('telescope').extensions.file_browser.file_browser {
+    path = '%:p:h',
+    select_buffer = false,
+    previewer = false,
+    theme = 'ivy',
+    display_stat = { date = true, size = true, mode = true },
   }
 end
 
 -- Project root finding functionality
 function M.find_project_root()
   -- Get current buffer's directory
-  local buf_dir = vim.fn.expand "%:p:h"
+  local buf_dir = vim.fn.expand '%:p:h'
   -- Try git root from buffer's directory
-  local git_cmd = string.format("cd %s && git rev-parse --show-toplevel", vim.fn.shellescape(buf_dir))
-  local git_dir = vim.fn.system(git_cmd):gsub("\n", "")
-  if vim.v.shell_error == 0 and git_dir ~= "" then
+  local git_cmd = string.format('cd %s && git rev-parse --show-toplevel', vim.fn.shellescape(buf_dir))
+  local git_dir = vim.fn.system(git_cmd):gsub('\n', '')
+  if vim.v.shell_error == 0 and git_dir ~= '' then
     return git_dir
   end
 
@@ -211,30 +209,30 @@ function M.find_project_root()
     end
   end
   -- Fallback to current buffer's directory
-  vim.notify("Falling back to current directory: " .. buf_dir, vim.log.levels.WARN)
+  vim.notify('Falling back to current directory: ' .. buf_dir, vim.log.levels.WARN)
   return buf_dir
 end
 
 function M.check_ready()
   local bufnr = vim.api.nvim_get_current_buf()
   local buf_name = vim.api.nvim_buf_get_name(bufnr)
-  local is_real_file = buf_name ~= "" and vim.fn.filereadable(buf_name) == 1
+  local is_real_file = buf_name ~= '' and vim.fn.filereadable(buf_name) == 1
   local vim_ready = vim.v.vim_did_enter == 1
   return is_real_file and vim_ready
 end
 
 function M.find_default_file(root_dir)
   local patterns = {
-    "README.org",
-    "README.md",
-    "README.*",
-    ".*%.org",
-    ".*%.md",
-    ".*%.txt",
+    'README.org',
+    'README.md',
+    'README.*',
+    '.*%.org',
+    '.*%.md',
+    '.*%.txt',
   }
 
   for _, pattern in ipairs(patterns) do
-    local matches = vim.fn.glob(root_dir .. "/" .. pattern, false, true)
+    local matches = vim.fn.glob(root_dir .. '/' .. pattern, false, true)
     if #matches > 0 then
       return matches[1]
     end
@@ -250,10 +248,10 @@ function M.open_file_browser(root)
     attach_mappings = function(prompt_bufnr, map)
       if default_file then
         vim.schedule(function()
-          local action_state = require "telescope.actions.state"
+          local action_state = require 'telescope.actions.state'
           local current_picker = action_state.get_current_picker(prompt_bufnr)
           local finder = current_picker.finder
-          require("telescope._extensions.file_browser.utils").selection_callback(current_picker, default_file)
+          require('telescope._extensions.file_browser.utils').selection_callback(current_picker, default_file)
           current_picker:refresh(finder, { reset_prompt = true, multi = current_picker._multi })
         end)
       end
@@ -261,7 +259,7 @@ function M.open_file_browser(root)
     end,
   }
 
-  require("telescope").extensions.file_browser.file_browser(opts)
+  require('telescope').extensions.file_browser.file_browser(opts)
 end
 
 function M.load_new_project()
@@ -275,7 +273,7 @@ function M.load_new_project()
     elseif (vim.loop.now() - start_time) < timeout then
       vim.defer_fn(check_condition, 50)
     else
-      vim.notify("Timed out waiting for project to be ready", vim.log.levels.ERROR)
+      vim.notify('Timed out waiting for project to be ready', vim.log.levels.ERROR)
     end
   end
 

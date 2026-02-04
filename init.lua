@@ -88,10 +88,10 @@ P.S. You can delete this when you're done too. It's your config now! :)
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
-vim.g.maplocalleader = ' '
+vim.g.maplocalleader = ';'
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -99,7 +99,7 @@ vim.g.have_nerd_font = false
 --  For more options, you can see `:help option-list`
 
 -- Make line numbers default
-vim.o.number = true
+vim.o.number = false
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
 -- vim.o.relativenumber = true
@@ -144,7 +144,7 @@ vim.o.splitbelow = true
 --  and `:help 'listchars'`
 --
 --  Notice listchars is set using `vim.opt` instead of `vim.o`.
---  It is very similar to `vim.o` but offers an interface for conveniently interacting with tables.
+--  It is very similar to `vim.o` but offers an interface for conveniently interacting with jables.
 --   See `:help lua-options`
 --   and `:help lua-guide-options`
 vim.o.list = true
@@ -242,6 +242,19 @@ end
 ---@type vim.Option
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
+-- Install lazy.nvim if not present
+local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system {
+    'git',
+    'clone',
+    '--filter=blob:none',
+    'https://github.com/folke/lazy.nvim.git',
+    '--branch=stable',
+    lazypath,
+  }
+end
+vim.opt.rtp:prepend(lazypath)
 
 -- [[ Configure and install plugins ]]
 --
@@ -255,7 +268,19 @@ rtp:prepend(lazypath)
 --
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
-  -- NOTE: Plugins can be added via a link or github org/name. To run setup automatically, use `opts = {}`
+  -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
+  'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
+  -- Import custom plugins (including your nav plugin)
+  { import = 'custom.plugins' },
+
+  -- Import kickstart plugins
+  { import = 'kickstart.plugins' },
+  -- NOTE: Plugins can also be added by using a table,
+  -- with the first argument being the link and the following
+  -- keys can be used to configure plugin behavior/loading/etc.
+  --
+  -- Use `opts = {}` to automatically pass options to a plugin's `setup()` function, forcing the plugin to be loaded.
+  --
   { 'NMAC427/guess-indent.nvim', opts = {} },
 
   -- Alternatively, use `config = function() ... end` for full control over the configuration.
@@ -324,7 +349,79 @@ require('lazy').setup({
   --
   -- Use the `dependencies` key to specify the dependencies of a particular plugin
 
-  { -- Fuzzy Finder (files, lsp, etc)
+  -- { -- Fuzzy Finder (files, lsp, etc)
+  --   'nvim-telescope/telescope.nvim',
+  --   event = 'VimEnter',
+  --   dependencies = {
+  --     'nvim-lua/plenary.nvim',
+  --     { -- If encountering errors, see telescope-fzf-native README for installation instructions
+  --       'nvim-telescope/telescope-fzf-native.nvim',
+
+  --       -- `build` is used to run some command when the plugin is installed/updated.
+  --       -- This is only run then, not every time Neovim starts up.
+  --       build = 'make',
+
+  --       -- `cond` is a condition used to determine whether this plugin should be
+  --       -- installed and loaded.
+  --       cond = function()
+  --         return vim.fn.executable 'make' == 1
+  --       end,
+  --     },
+  --     { 'nvim-telescope/telescope-ui-select.nvim' },
+
+  --     -- Useful for getting pretty icons, but requires a Nerd Font.
+  --     { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
+  --   },
+  --   config = function()
+  --     -- Telescope is a fuzzy finder that comes with a lot of different things that
+  --     -- it can fuzzy find! It's more than just a "file finder", it can search
+  --     -- many different aspects of Neovim, your workspace, LSP, and more!
+  --     --
+  --     -- The easiest way to use Telescope, is to start by doing something like:
+  --     --  :Telescope help_tags
+  --     --
+  --     -- After running this command, a window will open up and you're able to
+  --     -- type in the prompt window. You'll see a list of `help_tags` options and
+  --     -- a corresponding preview of the help.
+  --     --
+  --     -- Two important keymaps to use while in Telescope are:
+  --     --  - Insert mode: <c-/>
+  --     --  - Normal mode: ?
+  --     --
+  --     -- This opens a window that shows you all of the keymaps for the current
+  --     -- Telescope picker. This is really useful to discover what Telescope can
+  --     -- do as well as how to actually do it!
+
+  --     -- [[ Configure Telescope ]]
+  --     -- See `:help telescope` and `:help telescope.setup()`
+  --     require('telescope').setup {
+  --       -- You can put your default mappings / updates / etc. in here
+  --       --  All the info you're looking for is in `:help telescope.setup()`
+  --       --
+  --       -- defaults = {
+  --       --   mappings = {
+  --       --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+  --       --   },
+  --       -- },
+  --       -- pickers = {}
+  --       extensions = {
+  --         ['file_browser'] = {
+  --           theme = 'ivy',
+  --           hijack_netrw = true,
+  --         },
+  --         ['ui-select'] = {
+  --           require('telescope.themes').get_dropdown(),
+  --         },
+  --       },
+  --     }
+
+  --     -- Enable Telescope extensions
+  --     pcall(require('telescope').load_extension, 'file_browser')
+  --     pcall(require('telescope').load_extension, 'fzf')
+  --     pcall(require('telescope').load_extension, 'ui-select')
+  --   end,
+  -- },
+  {
     'nvim-telescope/telescope.nvim',
     -- By default, Telescope is included and acts as your picker for everything.
 
@@ -338,8 +435,7 @@ require('lazy').setup({
     enabled = true,
     event = 'VimEnter',
     dependencies = {
-      'nvim-lua/plenary.nvim',
-      { -- If encountering errors, see telescope-fzf-native README for installation instructions
+      {
         'nvim-telescope/telescope-fzf-native.nvim',
 
         -- `build` is used to run some command when the plugin is installed/updated.
@@ -350,50 +446,142 @@ require('lazy').setup({
         -- installed and loaded.
         cond = function() return vim.fn.executable 'make' == 1 end,
       },
-      { 'nvim-telescope/telescope-ui-select.nvim' },
-
-      -- Useful for getting pretty icons, but requires a Nerd Font.
-      { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
+      -- NOTE this is an awesome ui package but I need to spend some time to properly configure it
+      -- its also worth noting this is considered experimental
+      {
+        'folke/noice.nvim',
+        event = 'VeryLazy',
+        keys = {
+          { '<leader>su', '<cmd>Noice pick<CR>', { desc = 'Search notifications' } },
+          { '<leader>nl', '<cmd>Noice last<CR>', { desc = 'Show the last notification' } },
+          { '<leader>nd', '<cmd>Noice dismiss<CR>', { desc = 'Dismiss noice' } },
+        },
+        config = function()
+          require('noice').setup {
+            routes = {
+              {
+                -- Filter out low-priority notifications
+                filter = {
+                  event = 'notify',
+                  min_height = 1,
+                },
+                view = 'mini',
+              },
+              {
+                -- Ignore LSP progress updates
+                filter = {
+                  event = 'lsp',
+                  kind = 'progress',
+                },
+                opts = { skip = true },
+              },
+              {
+                -- Skip written/yanked messages
+                filter = {
+                  event = 'msg_show',
+                  kind = { 'echo', 'echomsg' },
+                  any = {
+                    { find = 'written' },
+                    { find = 'yanked' },
+                    { find = 'line' },
+                    { find = 'more lines' },
+                  },
+                },
+                opts = { skip = true },
+              },
+              {
+                -- Route other messages to mini view
+                filter = {
+                  event = 'msg_show',
+                },
+                view = 'mini',
+              },
+              {
+                -- Skip all messages that aren't errors or warnings
+                filter = {
+                  event = 'msg_show',
+                  ['not'] = {
+                    kind = { 'error', 'warning' },
+                  },
+                },
+                opts = { skip = true },
+              },
+            },
+            messages = {
+              -- NOTE: If you enable messages, then the cmdline is enabled automatically.
+              -- This is a current Neovim limitation.
+              enabled = true,
+              view = 'mini', -- default view for messages
+              view_error = 'notify', -- view for errors
+              view_warn = 'notify', -- view for warnings
+              view_history = 'messages', -- view for :messages
+              view_search = false, -- view for search count messages. Set to `false` to disable
+            },
+            notify = {
+              -- Reduce visual noise
+              enabled = true,
+              view = 'mini',
+            },
+          }
+        end,
+        dependencies = {
+          -- if you lazy-load any plugin below, make sure to add proper `module="..."` entries
+          'MunifTanjim/nui.nvim',
+          -- OPTIONAL:
+          --   `nvim-notify` is only needed, if you want to use the notification view.
+          --   If not available, we use `mini` as the fallback
+          'rcarriga/nvim-notify',
+        },
+      },
+    },
+    keys = {
+      { '<leader>sn', '<cmd>Telescope notify<CR>', { desc = 'Search notifications' } },
+      { '<leader>sN', '<cmd>Notification<CR>', { desc = 'Get logs' } },
     },
     config = function()
-      -- Telescope is a fuzzy finder that comes with a lot of different things that
-      -- it can fuzzy find! It's more than just a "file finder", it can search
-      -- many different aspects of Neovim, your workspace, LSP, and more!
-      --
-      -- The easiest way to use Telescope, is to start by doing something like:
-      --  :Telescope help_tags
-      --
-      -- After running this command, a window will open up and you're able to
-      -- type in the prompt window. You'll see a list of `help_tags` options and
-      -- a corresponding preview of the help.
-      --
-      -- Two important keymaps to use while in Telescope are:
-      --  - Insert mode: <c-/>
-      --  - Normal mode: ?
-      --
-      -- This opens a window that shows you all of the keymaps for the current
-      -- Telescope picker. This is really useful to discover what Telescope can
-      -- do as well as how to actually do it!
+      -- load extensions
+      local telescope = require 'telescope'
+      telescope.load_extension 'fzf'
+      telescope.load_extension 'notify'
+      telescope.load_extension 'git_grep'
+      telescope.load_extension 'file_browser'
+      telescope.load_extension 'noice'
 
-      -- [[ Configure Telescope ]]
-      -- See `:help telescope` and `:help telescope.setup()`
-      require('telescope').setup {
-        -- You can put your default mappings / updates / etc. in here
-        --  All the info you're looking for is in `:help telescope.setup()`
-        --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
-        -- pickers = {}
-        extensions = {
-          ['file_browser'] = {
-            theme = 'ivy',
-            hijack_netrw = true,
+      local actions = require 'telescope.actions'
+      telescope.setup {
+        defaults = {
+          select_buffer = true,
+          grouped = true,
+          sorting_strategy = 'ascending',
+          path_display = { 'filename_first' },
+          layout_config = {
+            prompt_position = 'top',
           },
-          ['ui-select'] = {
-            require('telescope.themes').get_dropdown(),
+          mappings = {
+            i = {
+              ['<C-n>'] = actions.toggle_selection + actions.move_selection_worse,
+              ['<C-p>'] = actions.toggle_selection + actions.move_selection_better,
+              ['<TAB>'] = actions.select_default,
+            },
+            n = {
+              ['<TAB>'] = actions.select_default,
+            },
+          },
+        },
+        pickers = {
+          lsp_references = {
+            show_line = false,
+          },
+          find_files = {
+            hidden = true,
+          },
+          live_grep = {
+            additional_args = { '--hidden' },
+          },
+          file_browser = {
+            select_buffer = true,
+            grouped = true,
+            hidden = true,
           },
         },
       }
@@ -499,6 +687,7 @@ require('lazy').setup({
       -- Mason must be loaded before its dependents so we need to set it up here.
       -- NOTE: `opts = {}` is the same as calling `require('mason').setup({})`
       { 'mason-org/mason.nvim', opts = {} },
+      { 'mason-org/mason-lspconfig.nvim', opts = {} },
       'WhoIsSethDaniel/mason-tool-installer.nvim',
 
       -- Useful status updates for LSP.
@@ -553,18 +742,6 @@ require('lazy').setup({
             end
           end
 
-          -- Rename the variable under your cursor.
-          --  Most Language Servers support renaming across files, etc.
-          map('grn', vim.lsp.buf.rename, '[R]e[n]ame')
-
-          -- Execute a code action, usually your cursor needs to be on top of an error
-          -- or a suggestion from your LSP for this to activate.
-          map('gra', vim.lsp.buf.code_action, '[G]oto Code [A]ction', { 'n', 'x' })
-
-          -- WARN: This is not Goto Definition, this is Goto Declaration.
-          --  For example, in C this would take you to the header.
-          map('grD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
-
           -- The following two autocommands are used to highlight references of the
           -- word under your cursor when your cursor rests there for a little while.
           --    See `:help CursorHold` for information about when this is executed
@@ -599,7 +776,12 @@ require('lazy').setup({
           --
           -- This may be unwanted, since they displace some of your code
           if client and client:supports_method('textDocument/inlayHint', event.buf) then
-            map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
+            vim.keymap.set(
+              'n',
+              '<leader>th',
+              function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end,
+              { desc = '[T]oggle Inlay [H]ints', remap = true }
+            )
           end
         end,
       })
@@ -901,8 +1083,271 @@ require('lazy').setup({
   {
     'nvim-orgmode/orgmode',
     ft = { 'org' },
+    config = function() require('orgmode').setup() end,
+  },
+  {
+    'nvim-neo-tree/neo-tree.nvim',
+    branch = 'v3.x',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons',
+      'MunifTanjim/nui.nvim',
+    },
     config = function()
-      require('orgmode').setup()
+      require('neo-tree').setup {
+        close_if_last_window = true,
+        popup_border_style = 'rounded',
+        enable_git_status = true,
+        enable_diagnostics = false,
+
+        -- Dired-like: don't open files in splits by default
+        open_files_do_not_replace_types = { 'terminal', 'trouble', 'qf' },
+
+        default_component_configs = {
+          container = {
+            enable_character_fade = true,
+          },
+          indent = {
+            indent_size = 2,
+            padding = 1,
+            with_markers = true,
+            indent_marker = '│',
+            last_indent_marker = '└',
+            highlight = 'NeoTreeIndentMarker',
+            with_expanders = nil,
+            expander_collapsed = '',
+            expander_expanded = '',
+            expander_highlight = 'NeoTreeExpander',
+          },
+          icon = {
+            folder_closed = '',
+            folder_open = '',
+            folder_empty = '',
+            default = '',
+            highlight = 'NeoTreeFileIcon',
+          },
+          modified = {
+            symbol = '[+]',
+            highlight = 'NeoTreeModified',
+          },
+          name = {
+            trailing_slash = false,
+            use_git_status_colors = true,
+            highlight = 'NeoTreeFileName',
+          },
+          git_status = {
+            symbols = {
+              added = '',
+              modified = '',
+              deleted = '✖',
+              renamed = '󰁕',
+              untracked = '',
+              ignored = '',
+              unstaged = '󰄱',
+              staged = '',
+              conflict = '',
+            },
+          },
+        },
+
+        -- Floating window setup (Vertico/Dired-like)
+        window = {
+          position = 'float',
+          mappings = {
+            -- Navigation (Dired-style)
+            ['<cr>'] = 'open',
+            ['l'] = 'set_root',
+            ['<Tab>'] = 'open',
+            ['h'] = 'close_node',
+            ['<bs>'] = 'navigate_up',
+
+            -- Splits
+            ['<leader>wv'] = 'open_vsplit',
+            ['<leader>wh'] = 'open_split',
+            ['t'] = 'open_tabnew',
+
+            -- File operations (Dired commands)
+            ['a'] = {
+              'add',
+              config = {
+                show_path = 'relative',
+              },
+            },
+            ['d'] = 'delete',
+            ['r'] = 'rename',
+            ['y'] = 'copy_to_clipboard',
+            ['x'] = 'cut_to_clipboard',
+            ['p'] = 'paste_from_clipboard',
+            ['c'] = 'copy',
+            ['M'] = 'move',
+
+            -- Refresh and toggle
+            ['R'] = 'refresh',
+            ['H'] = 'toggle_hidden',
+            ['I'] = 'toggle_git_ignored',
+
+            -- Filtering/search
+            ['f'] = 'filter_on_submit',
+            ['F'] = 'clear_filter',
+            ['/'] = 'fuzzy_finder',
+
+            -- Close
+            ['q'] = 'close_window',
+            ['<esc>'] = 'close_window',
+
+            -- Preview
+            ['<tab>'] = 'toggle_preview',
+            ['P'] = { 'toggle_preview', config = { use_float = true } },
+            ['<tab>'] = 'toggle_preview',
+
+            -- Selection (Dired marks)
+            ['<space>'] = 'toggle_node',
+            ['v'] = 'toggle_node',
+            ['m'] = 'toggle_node',
+
+            -- Help
+            ['?'] = 'show_help',
+          },
+        },
+
+        filesystem = {
+          filtered_items = {
+            visible = false,
+            hide_dotfiles = false,
+            hide_gitignored = false,
+            hide_hidden = false,
+            hide_by_name = {},
+            hide_by_pattern = {},
+            always_show = {},
+            never_show = {},
+          },
+          follow_current_file = {
+            enabled = true,
+            leave_dirs_open = false,
+          },
+          group_empty_dirs = false,
+          hijack_netrw_behavior = 'open_current',
+          use_libuv_file_watcher = true,
+          window = {
+            mappings = {
+              ['<bs>'] = 'navigate_up',
+              ['.'] = 'set_root',
+              ['H'] = 'toggle_hidden',
+              ['/'] = 'fuzzy_finder',
+              ['D'] = 'fuzzy_finder_directory',
+              ['#'] = 'fuzzy_sorter',
+              ['f'] = 'filter_on_submit',
+              ['F'] = 'clear_filter',
+              ['[g'] = 'prev_git_modified',
+              [']g'] = 'next_git_modified',
+              ['o'] = {
+                'show_help',
+                nowait = false,
+                config = { title = 'Order by', prefix_key = 'o' },
+              },
+              ['oc'] = { 'order_by_created', nowait = false },
+              ['od'] = { 'order_by_diagnostics', nowait = false },
+              ['og'] = { 'order_by_git_status', nowait = false },
+              ['om'] = { 'order_by_modified', nowait = false },
+              ['on'] = { 'order_by_name', nowait = false },
+              ['os'] = { 'order_by_size', nowait = false },
+              ['ot'] = { 'order_by_type', nowait = false },
+            },
+          },
+          fuzzy_finder_mappings = { -- define keymaps for filter popup window in fuzzy_finder_mode
+            ['<down>'] = 'move_cursor_down',
+            ['<up>'] = 'move_cursor_up',
+            ['<esc>'] = 'noop', -- to support normal mode
+            ['<S-CR>'] = 'close_keep_filter',
+            ['<C-CR>'] = 'close_clear_filter',
+            ['<C-w>'] = { '<C-S-w>', raw = true },
+            {
+              -- normal mode mappings
+              n = {
+                ['j'] = 'move_cursor_down',
+                ['k'] = 'move_cursor_up',
+                ['<S-CR>'] = 'close_keep_filter',
+                ['<C-CR>'] = 'close_clear_filter',
+                ['<esc>'] = 'close',
+              },
+            },
+          },
+        },
+
+        buffers = {
+          follow_current_file = {
+            enabled = true,
+            leave_dirs_open = false,
+          },
+          group_empty_dirs = true,
+          show_unloaded = true,
+          window = {
+            mappings = {
+              ['bd'] = 'buffer_delete',
+              ['<bs>'] = 'navigate_up',
+              ['.'] = 'set_root',
+            },
+          },
+        },
+
+        git_status = {
+          window = {
+            position = 'float',
+            mappings = {
+              ['A'] = 'git_add_all',
+              ['gu'] = 'git_unstage_file',
+              ['ga'] = 'git_add_file',
+              ['gr'] = 'git_revert_file',
+              ['gc'] = 'git_commit',
+              ['gp'] = 'git_push',
+              ['gg'] = 'git_commit_and_push',
+            },
+          },
+        },
+
+        -- Event handlers
+        event_handlers = {
+          {
+            event = 'file_opened',
+            handler = function(file_path)
+              -- Close neo-tree after opening file (like Dired)
+              require('neo-tree.command').execute { action = 'close' }
+            end,
+          },
+        },
+      }
+
+      -- Global keybinding to open neo-tree
+      vim.keymap.set('n', '<C-n>', ':Neotree toggle<CR>', { noremap = true, silent = true, desc = 'Toggle Neo-tree' })
+      vim.keymap.set('n', '<leader>e', ':Neotree reveal<CR>', { noremap = true, silent = true, desc = 'Reveal in Neo-tree' })
+      vim.keymap.set('n', '<leader>o', ':Neotree float<CR>', { noremap = true, silent = true, desc = 'Open Neo-tree float' })
+    end,
+  },
+  {
+    'antosha417/nvim-lsp-file-operations',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-neo-tree/neo-tree.nvim', -- makes sure that this loads after Neo-tree.
+    },
+    config = function() require('lsp-file-operations').setup() end,
+  },
+  {
+    's1n7ax/nvim-window-picker',
+    version = '2.*',
+    config = function()
+      require('window-picker').setup {
+        filter_rules = {
+          include_current_win = false,
+          autoselect_one = true,
+          -- filter using buffer options
+          bo = {
+            -- if the file type is one of following, the window will be ignored
+            filetype = { 'neo-tree', 'neo-tree-popup', 'notify' },
+            -- if the buffer type is one of following, the window will be ignored
+            buftype = { 'terminal', 'quickfix' },
+          },
+        },
+      }
     end,
   },
   -- In your nvim-tree plugin configuration (e.g., in lua/kickstart/plugins/neo-tree.lua or similar)
@@ -940,9 +1385,7 @@ require('lazy').setup({
               }
             end,
           },
-          width = function()
-            return math.floor(vim.opt.columns:get() * 0.8)
-          end,
+          width = function() return math.floor(vim.opt.columns:get() * 0.8) end,
         },
         -- Renderer settings
         renderer = {
@@ -984,9 +1427,7 @@ require('lazy').setup({
         on_attach = function(bufnr)
           local api = require 'nvim-tree.api'
 
-          local function opts(desc)
-            return { desc = 'nvim-tree: ' .. desc, buffer = bufnr, noremap = true, silent = true, nowait = true }
-          end
+          local function opts(desc) return { desc = 'nvim-tree: ' .. desc, buffer = bufnr, noremap = true, silent = true, nowait = true } end
 
           -- Default mappings
           api.config.mappings.default_on_attach(bufnr)
@@ -1070,9 +1511,7 @@ require('lazy').setup({
   {
     'nvim-telescope/telescope.nvim',
     dependencies = { 'nvim-orgmode/orgmode' },
-    config = function()
-      require('telescope').load_extension 'orgmode'
-    end,
+    config = function() require('telescope').load_extension 'orgmode' end,
   },
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
@@ -1124,7 +1563,6 @@ require('lazy').setup({
 -- require 'mappings',
 require 'utils'
 require 'info'
-require('custom.keymaps').setup()
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et

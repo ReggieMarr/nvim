@@ -85,7 +85,7 @@ function M.setup()
     end)
   end
 
-  vim.keymap.set('n', '<leader>ff', vertico_style_file_finder, { desc = 'Find file from buffer directory' })
+  -- vim.keymap.set('n', '<leader>ff', vertico_style_file_finder, { desc = 'Find file from buffer directory' })
   vim.keymap.set('n', '<leader>fC', copy_this_file, { desc = 'Copy this file' })
   vim.keymap.set('n', '<leader>fD', delete_this_file, { desc = 'Delete this file' })
   vim.keymap.set('n', '<leader>fR', move_this_file, { desc = 'Rename/move this file' })
