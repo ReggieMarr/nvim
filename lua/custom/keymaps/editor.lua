@@ -12,9 +12,7 @@ function M.setup()
   vim.keymap.set('n', '<C-e>', '$', { desc = 'End of line' })
 
   -- Format
-  vim.keymap.set('n', '<leader>fm', function()
-    require('conform').format { lsp_fallback = true }
-  end, { desc = 'Format file' })
+  vim.keymap.set('n', '<leader>fm', function() require('conform').format { lsp_fallback = true } end, { desc = 'Format file' })
 
   -- Comments
   vim.keymap.set('n', '<A-;>', 'gcc', { desc = 'toggle comment', remap = true })
@@ -83,9 +81,7 @@ function M.setup()
             if original_win and vim.api.nvim_win_is_valid(original_win) then
               vim.api.nvim_win_set_cursor(original_win, { selection.lnum, 0 })
               -- Center the line in the window
-              vim.api.nvim_win_call(original_win, function()
-                vim.cmd 'normal! zz'
-              end)
+              vim.api.nvim_win_call(original_win, function() vim.cmd 'normal! zz' end)
             end
           end
         end
@@ -104,20 +100,14 @@ function M.setup()
         -- Also jump on any input change
         vim.api.nvim_create_autocmd('TextChangedI', {
           buffer = prompt_bufnr,
-          callback = function()
-            vim.schedule(jump_to_line)
-          end,
+          callback = function() vim.schedule(jump_to_line) end,
         })
 
         -- Keep default enter behavior
-        map('i', '<CR>', function()
-          actions.select_default(prompt_bufnr)
-        end)
+        map('i', '<CR>', function() actions.select_default(prompt_bufnr) end)
 
         -- Exit with escape
-        map('i', '<Esc>', function()
-          actions.close(prompt_bufnr)
-        end)
+        map('i', '<Esc>', function() actions.close(prompt_bufnr) end)
 
         return true
       end,
@@ -141,10 +131,6 @@ function M.setup()
   -- ============================================================================
   -- LSP
   -- ============================================================================
-  -- Fuzzy find all the symbols in your current document.
-  --  Symbols are things like variables, functions, types, etc.
-  vim.keymap.set('n', '<leader>ls', require('telescope.builtin').lsp_document_symbols, { desc = '[Lsp] find [S]ymbols' })
-  vim.keymap.set('n', '<leader>lS', require('telescope.builtin').lsp_dynamic_workspace_symbols, { desc = '[Lsp] find workplace [S]ymbols' })
   --  Most Language Servers support renaming across files, etc.
   vim.keymap.set('n', '<leader>lR', vim.lsp.buf.rename, { desc = '[L]sp [R]ename' })
   vim.keymap.set('n', '<leader>lr', require('telescope.builtin').lsp_references, { desc = '[L]sp [R]eferenaces' })
@@ -162,20 +148,10 @@ function M.setup()
   -- WARN: This is not Goto Definition, this is Goto Declaration.
   --  For example, in C this would take you to the header.
   vim.keymap.set('n', '<leader>lD', vim.lsp.buf.declaration, { desc = '[G]oto [D]eclaration' })
-  -- The following code creates a keymap to toggle inlay hints in your
-  -- code, if the language server you are using supports them
-  --
-  -- This may be unwanted, since they displace some of your code
-  if client and client_supports_method(client, vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf) then
-    vim.keymap.set('n', '<leader>lh', function()
-      vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
-    end, '[T]oggle Inlay [H]ints')
-  end
 
   -- Jump to the type of the word under your cursor.
   --  Useful when you're not sure what type a variable is and you want to see
   --  the definition of its *type*, not where it was *defined*.
-  vim.keymap.set('n', '<leader>lt', require('telescope.builtin').lsp_type_definitions, { desc = '[G]oto [T]ype [D]eclaration' })
 
   -- ============================================================================
   -- Quit Operations
