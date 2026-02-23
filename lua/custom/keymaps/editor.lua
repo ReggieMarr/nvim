@@ -46,7 +46,7 @@ function M.setup()
   -- ============================================================================
   -- Buffer Operations
   -- ============================================================================
-  vim.keymap.set('n', '<leader>bb', '<cmd>Telescope buffers<CR>', { desc = 'Switch buffer' })
+  -- vim.keymap.set('n', '<leader>bb', '<cmd>Telescope buffers<CR>', { desc = 'Switch buffer' })
   vim.keymap.set('n', '<leader>`', '<c-^>', { desc = 'Switch to last buffer' })
   vim.keymap.set('n', '<leader>bd', '<cmd>bdelete<CR>', { desc = 'Delete buffer' })
   vim.keymap.set('n', '<leader>bn', '<cmd>bnext<CR>', { desc = 'Next buffer' })
@@ -55,7 +55,7 @@ function M.setup()
   -- ============================================================================
   -- Search Operations
   -- ============================================================================
-  vim.keymap.set('n', '<leader>/', '<cmd>Telescope live_grep<CR>', { desc = 'Search in project' })
+  -- vim.keymap.set('n', '<leader>/', '<cmd>Telescope live_grep<CR>', { desc = 'Search in project' })
   vim.keymap.set('n', '<leader>sb', function()
     local builtin = require 'telescope.builtin'
     local themes = require 'telescope.themes'
@@ -113,9 +113,9 @@ function M.setup()
       end,
     })
   end, { desc = 'Search in buffer' })
-  vim.keymap.set('n', '<leader>sg', '<cmd>Telescope live_grep<CR>', { desc = 'Search by grep' })
-  vim.keymap.set('n', '<leader>sm', '<cmd>Telescope marks<CR>', { desc = 'Search marks' })
-  vim.keymap.set('n', '<leader>si', '<cmd>Telescope treesitter<CR>', { desc = 'Search with treesitter' })
+  -- vim.keymap.set('n', '<leader>sg', '<cmd>Telescope live_grep<CR>', { desc = 'Search by grep' })
+  -- vim.keymap.set('n', '<leader>sm', '<cmd>Telescope marks<CR>', { desc = 'Search marks' })
+  -- vim.keymap.set('n', '<leader>si', '<cmd>Telescope treesitter<CR>', { desc = 'Search with treesitter' })
 
   -- Search symbol at point in project
   local function search_project_for_symbol_at_point()
@@ -164,9 +164,9 @@ function M.setup()
   -- ============================================================================
   -- Help & Discovery
   -- ============================================================================
-  vim.keymap.set('n', '<M-x>', '<cmd>Telescope keymaps<CR>', { desc = '[H]elp [K]eymaps' })
-  vim.keymap.set('n', '<leader>ht', '<cmd>Telescope help_tags<CR>', { desc = '[H]elp [T]ags' })
-  vim.keymap.set('n', '<leader>ho', '<cmd>Telescope vim_options<CR>', { desc = '[H]elp vim [O]ptions' })
+  -- vim.keymap.set('n', '<M-x>', '<cmd>Telescope keymaps<CR>', { desc = '[H]elp [K]eymaps' })
+  -- vim.keymap.set('n', '<leader>ht', '<cmd>Telescope help_tags<CR>', { desc = '[H]elp [T]ags' })
+  -- vim.keymap.set('n', '<leader>ho', '<cmd>Telescope vim_options<CR>', { desc = '[H]elp vim [O]ptions' })
 end
 
 return M

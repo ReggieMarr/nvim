@@ -3,13 +3,6 @@
 -- ============================================================================
 local M = {}
 
-local function map(mode, lhs, rhs, opts)
-  opts = opts or {}
-  opts.noremap = opts.noremap == nil and true or opts.noremap
-  opts.silent = opts.silent == nil and true or opts.silent
-  vim.keymap.set(mode, lhs, rhs, opts)
-end
-
 -- Window zoom toggle (simplified)
 local function toggle_zoom()
   local function is_zoomed()
@@ -60,13 +53,10 @@ local function move_window(direction)
   vim.cmd 'wincmd x'
 end
 
-local function split_and_follow(cmd)
-  vim.cmd(cmd)
-  vim.cmd 'wincmd w'
-end
 
 function M.setup()
   -- Window navigation
+  vim.keymap.set('n', '<leader>wf', toggle_zoom, { desc = 'Toggle Zoom' })
   vim.keymap.set('n', '<leader>ww', '<C-w>w', { desc = 'Next window' })
   vim.keymap.set('n', '<leader>wh', '<C-w>h', { desc = 'Window left' })
   vim.keymap.set('n', '<leader>wj', '<C-w>j', { desc = 'Window down' })
@@ -74,16 +64,8 @@ function M.setup()
   vim.keymap.set('n', '<leader>wl', '<C-w>l', { desc = 'Window right' })
 
   -- Window splits
-  map('n', '<leader>ws', '<cmd>split<CR>', { desc = 'Split horizontal' })
-  map('n', '<leader>wv', '<cmd>vsplit<CR>', { desc = 'Split vertical' })
-
-  -- Window splits
-  vim.keymap.set('n', '<leader>ws', function()
-    split_and_follow 'split'
-  end, { desc = 'Split horizontal' })
-  vim.keymap.set('n', '<leader>wv', function()
-    split_and_follow 'vsplit'
-  end, { desc = 'Split vertical' })
+  vim.keymap.set('n', '<leader>ws', '<cmd>split<CR>', { desc = 'Split horizontal' })
+  vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<CR>', { desc = 'Split vertical' })
 
   -- Window moving
   vim.keymap.set('n', '<leader>wH', function()
