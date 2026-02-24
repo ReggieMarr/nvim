@@ -106,7 +106,13 @@ function M.setup()
             navigate_to(picker, parent)
             end
         end
-
+	  -- open neo-tree at cwd
+	  local function open_neotree(picker)
+	    picker:close()
+	    vim.schedule(function()
+	      vim.cmd(("Neotree dir=%s reveal"):format(vim.fn.fnameescape(cwd)))
+	    end)
+	  end
         -- TODO make this it's own picker module
         Snacks.picker.pick({
             title  = "Find: " .. vim.fn.fnamemodify(cwd, ":~"),
@@ -149,8 +155,12 @@ function M.setup()
             },
 
             confirm = function(picker, item)
-                if not item then return end
+		local search = picker.input:get() or ""
 
+		if not item or search == "" then
+		  open_neotree(picker)
+		  return
+		end
                 if item.dir then
                     cwd = item.file
                     find_file_at(cwd)
@@ -169,9 +179,11 @@ function M.setup()
                         ["<a-k>"] = {"list_up", mode = {"n"}},
                         ["<BS>"] = {"dwim_backspace", mode = {"n", "i"}},
                         ["h"] = {"dwim_backspace", mode = {"n"}},
-                        ["c-p"] = {"toggle_preview", mode = {"n", "i"}},
+                        ["<c-p>"] = {"toggle_preview", mode = {"n", "i"}},
+                        ["<c-h>"] = {"toggle_hidden", mode = {"n", "i"}},
                         ["l"] = {"confirm", mode = {"n"}},
-                        ["<ESC>"] = {"focus_list", mode = {"n", "i"}},
+                        ["<c-ESC>"] = {"focus_list", mode = {"n", "i"}},
+			["<ESC>"] = {"close", mode = {"n"}},
                     },
                 },
                 list = {
@@ -183,6 +195,7 @@ function M.setup()
                     ["<a-j>"] = {"list_down", mode = {"n"}},
                     ["<a-k>"] = {"list_up", mode = {"n"}},
                     ["a"] = "explorer_add",
+                    ["<c-h>"] = {"toggle_hidden", mode = {"n", "i"}},
                     ["c"] = "explorer_copy",
                     ["d"] = "explorer_del",
                     ["l"] = "explorer_focus",
@@ -202,12 +215,40 @@ function M.setup()
     })
     end
 
-  local function vertico_style_file_finder()
+  -- TODO add this with explorer
+  local function vertico_style_explorer()
         local dir = vim.fn.expand("%:p:h")
         find_file_at(dir ~= "" and dir or vim.fn.getcwd())
   end
 
-  vim.keymap.set('n', '<leader>ff', vertico_style_file_finder, { desc = 'Find file from buffer directory' })
+  --local function vertico_style_file_finder()
+  --      local picker = require 'snacks.picker'
+  --      local dir = vim.fn.expand("%:p:h")
+  --      picker.explorer({
+  --          layout = { preset = "default", preview = false },
+  --          focus = "input",
+  --          tree = true,
+  --          filter = {cwd = dir},
+  --          focus = "input",
+  --          follow_file = true,
+  --          hidden = true,
+  --          live = true,
+  --      })
+  --end
+
+  vim.keymap.set('n', '<leader>ff', vertico_style_explorer, { desc = 'Explore buffer directory (vertico style)' })
+-- search for files in the same directory as the current buffer
+vim.keymap.set("n", "<leader>sd", function()
+  local path = vim.fn.expand("%:p:h")  -- current file's parent directory
+  require("snacks").picker.files({ cwd = path })
+end, { noremap = true })
+
+-- grep in the same directory as the current buffer
+vim.keymap.set("n", "<leader>sg", function()
+  local path = vim.fn.expand("%:p:h")
+  require("snacks").picker.grep({ cwd = path })
+end, { noremap = true })
+  vim.keymap.set('n', '<leader>sf', vertico_style_explorer, { desc = 'Find file from buffer directory' })
   vim.keymap.set('n', '<leader>fC', copy_this_file, { desc = 'Copy this file' })
   vim.keymap.set('n', '<leader>fD', delete_this_file, { desc = 'Delete this file' })
   vim.keymap.set('n', '<leader>fR', move_this_file, { desc = 'Rename/move this file' })
