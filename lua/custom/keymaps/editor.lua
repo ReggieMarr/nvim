@@ -12,11 +12,12 @@ function M.setup()
   vim.keymap.set('n', '<C-e>', '$', { desc = 'End of line' })
 
   -- Format
-  vim.keymap.set('n', '<leader>fm', function() require('conform').format { lsp_fallback = true } end, { desc = 'Format file' })
-
-  -- Comments
-  vim.keymap.set('n', '<A-;>', 'gcc', { desc = 'toggle comment', remap = true })
-  vim.keymap.set('v', '<A-;>', 'gc', { desc = 'toggle comment', remap = true })
+  vim.keymap.set(
+    'n',
+    '<leader>fm',
+    function() require('conform').format { lsp_fallback = true } end,
+    { desc = 'Format file' }
+  )
 
   -- Visual mode improvements
   vim.keymap.set('v', '<', '<gv', { desc = 'Indent left (keep selection)' })
@@ -28,7 +29,12 @@ function M.setup()
 
   -- Toggles
   vim.keymap.set('n', '<leader>tn', '<cmd>set number!<CR>', { desc = 'Toggle line numbers' })
-  vim.keymap.set('n', '<leader>tr', '<cmd>set relativenumber!<CR>', { desc = 'Toggle relative numbers' })
+  vim.keymap.set(
+    'n',
+    '<leader>tr',
+    '<cmd>set relativenumber!<CR>',
+    { desc = 'Toggle relative numbers' }
+  )
   vim.keymap.set('n', '<leader>ts', '<cmd>setlocal spell!<CR>', { desc = 'Toggle spell check' })
   vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>', { desc = 'Toggle word wrap' })
 
@@ -36,8 +42,7 @@ function M.setup()
   vim.keymap.set('t', '<C-x>', '<C-\\><C-N>', { desc = 'Exit terminal mode' })
 
   -- Quit commands
-  vim.keymap.set('n', '<leader>qq', '<cmd>qa<CR>', { desc = 'Quit all' })
-  vim.keymap.set('n', '<leader>qQ', '<cmd>qa!<CR>', { desc = 'Force quit all' })
+  vim.keymap.set('n', '<leader>qq', '<cmd>qa!<CR>', { desc = 'Quit all' })
   vim.keymap.set('n', '<C-x><C-c>', '<cmd>xa<CR>', { desc = 'Save all and quit (Emacs-style)' })
 
   -- Inspect
@@ -46,16 +51,15 @@ function M.setup()
   -- ============================================================================
   -- Buffer Operations
   -- ============================================================================
-  -- vim.keymap.set('n', '<leader>bb', '<cmd>Telescope buffers<CR>', { desc = 'Switch buffer' })
-  vim.keymap.set('n', '<leader>`', '<c-^>', { desc = 'Switch to last buffer' })
-  vim.keymap.set('n', '<leader>bd', '<cmd>bdelete<CR>', { desc = 'Delete buffer' })
-  vim.keymap.set('n', '<leader>bn', '<cmd>bnext<CR>', { desc = 'Next buffer' })
-  vim.keymap.set('n', '<leader>bp', '<cmd>bprevious<CR>', { desc = 'Previous buffer' })
+  --vim.keymap.set('n', '<leader>bb', require("snacks").picker().buffers(), { desc = 'Switch buffer' })
 
   -- ============================================================================
   -- Search Operations
   -- ============================================================================
   -- vim.keymap.set('n', '<leader>/', '<cmd>Telescope live_grep<CR>', { desc = 'Search in project' })
+  -- vim.keymap.set('n', '<leader>sb', require("snacks").picker().lines(
+  --     { layout = { preset = "default", preview = false },}), { desc = 'Search in buffer' })
+
   vim.keymap.set('n', '<leader>sb', function()
     local builtin = require 'telescope.builtin'
     local themes = require 'telescope.themes'
@@ -125,7 +129,12 @@ function M.setup()
       prompt_title = 'Search for "' .. word .. '" in project',
     }
   end
-  vim.keymap.set('n', '<leader>*', search_project_for_symbol_at_point, { desc = 'Search symbol at point' })
+  vim.keymap.set(
+    'n',
+    '<leader>*',
+    search_project_for_symbol_at_point,
+    { desc = 'Search symbol at point' }
+  )
   vim.keymap.set('n', '<leader>ds', vim.diagnostic.setloclist, { desc = 'Diagnostic loclist' })
 
   -- ============================================================================
@@ -133,18 +142,33 @@ function M.setup()
   -- ============================================================================
   --  Most Language Servers support renaming across files, etc.
   vim.keymap.set('n', '<leader>lR', vim.lsp.buf.rename, { desc = '[L]sp [R]ename' })
-  vim.keymap.set('n', '<leader>lr', require('telescope.builtin').lsp_references, { desc = '[L]sp [R]eferenaces' })
+  vim.keymap.set(
+    'n',
+    '<leader>lr',
+    require('telescope.builtin').lsp_references,
+    { desc = '[L]sp [R]eferenaces' }
+  )
   -- Execute a code action, usually your cursor needs to be on top of an error
   -- or a suggestion from your LSP for this to activate.
   vim.keymap.set('n', '<leader>la', vim.lsp.buf.code_action, { desc = '[L]sp [A]ction' })
   vim.keymap.set('x', '<leader>la', vim.lsp.buf.code_action, { desc = '[L]sp [A]ction' })
   -- Jump to the implementation of the word under your cursor.
   --  Useful when your language has ways of declaring types without an actual implementation.
-  vim.keymap.set('n', '<leader>li', require('telescope.builtin').lsp_implementations, { desc = '[G]oto [I]mplementation' })
+  vim.keymap.set(
+    'n',
+    '<leader>li',
+    require('telescope.builtin').lsp_implementations,
+    { desc = '[G]oto [I]mplementation' }
+  )
   -- Jump to the definition of the word under your cursor.
   --  This is where a variable was first declared, or where a function is defined, etc.
   --  To jump back, press <C-t>.
-  vim.keymap.set('n', '<leader>ld', require('telescope.builtin').lsp_definitions, { desc = '[G]oto [D]efinition' })
+  vim.keymap.set(
+    'n',
+    '<leader>ld',
+    require('telescope.builtin').lsp_definitions,
+    { desc = '[G]oto [D]efinition' }
+  )
   -- WARN: This is not Goto Definition, this is Goto Declaration.
   --  For example, in C this would take you to the header.
   vim.keymap.set('n', '<leader>lD', vim.lsp.buf.declaration, { desc = '[G]oto [D]eclaration' })
@@ -164,9 +188,30 @@ function M.setup()
   -- ============================================================================
   -- Help & Discovery
   -- ============================================================================
-  -- vim.keymap.set('n', '<M-x>', '<cmd>Telescope keymaps<CR>', { desc = '[H]elp [K]eymaps' })
-  -- vim.keymap.set('n', '<leader>ht', '<cmd>Telescope help_tags<CR>', { desc = '[H]elp [T]ags' })
-  -- vim.keymap.set('n', '<leader>ho', '<cmd>Telescope vim_options<CR>', { desc = '[H]elp vim [O]ptions' })
+  vim.keymap.set(
+    'n',
+    '<leader>hk',
+    function() require('snacks').picker.keymaps() end,
+    { desc = '[H]elp [K]eymaps' }
+  )
+  vim.keymap.set(
+    'n',
+    '<leader>hp',
+    function() require('snacks').picker.help() end,
+    { desc = '[H]elp [P]rojects' }
+  )
+  vim.keymap.set(
+    'n',
+    '<leader>hm',
+    function() require('snacks').picker.man() end,
+    { desc = '[H]elp [M]anpages' }
+  )
+  vim.keymap.set(
+    'n',
+    '<leader>hl',
+    function() Snacks.picker.lsp_config() end,
+    { desc = '[H]elp [M]anpages' }
+  )
 end
 
 return M
