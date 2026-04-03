@@ -1,3 +1,7 @@
+-- This contains the core options and keymaps required only for the most
+-- basic of functionality.
+-- NOTE this file should not introduce dependencies on external plugins
+
 -- [[ Base Vim Options ]]
 
 -- Set <space> as the leader key
@@ -20,14 +24,11 @@ vim.g.have_nerd_font = true
 -- -- Markdown links can get concealed with this also.
 -- -- NOTE: Moved to org-mode config
 vim.opt.conceallevel = 2
-vim.opt.concealcursor = "nc"
+vim.opt.concealcursor = 'nc'
 vim.opt.foldenable = true
 
 -- Make line numbers default
 vim.opt.number = false
--- You can also add relative line numbers, to help with jumping.
---  Experiment for yourself to see if you like it!
--- vim.opt.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
@@ -56,22 +57,22 @@ vim.opt.cindent = true -- Stricter rules for C programs
 -- vim.cmd('filetype plugin indent on')
 
 -- for make files we need to ensure we're using spaces not tabs
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "make",
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'make',
   callback = function()
     vim.bo.expandtab = false
     vim.bo.tabstop = 8
     vim.bo.shiftwidth = 8
-	vim.opt.expandtab = false
+    vim.opt.expandtab = false
   end,
 })
 -- for all others use 4
-vim.opt.tabstop = 4      -- Width of a tab character
-vim.opt.shiftwidth = 4   -- Width of indentation (<<, >>)
+vim.opt.tabstop = 4 -- Width of a tab character
+vim.opt.shiftwidth = 4 -- Width of indentation (<<, >>)
 vim.opt.expandtab = true -- Convert tabs to spaces (optional but recommended)
-vim.opt.softtabstop = 4  -- Tab width in insert mode
+vim.opt.softtabstop = 4 -- Tab width in insert mode
 
-vim.opt.sessionoptions:remove "folds" -- Don't save folds in sessions
+vim.opt.sessionoptions:remove 'folds' -- Don't save folds in sessions
 
 -- Save undo history
 vim.opt.undofile = true
@@ -110,12 +111,12 @@ vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
 
 -- By default don't wrap
 vim.opt.wrap = false
-vim.opt.selection = "exclusive" -- More like traditional GUI editors
+vim.opt.selection = 'exclusive' -- More like traditional GUI editors
 
 -- editing style
 -- Allow visual selection of blocks of text
 -- that don't end on the same column number
-vim.opt.virtualedit = "block"
+vim.opt.virtualedit = 'block'
 
 -- Preview substitutions live, as you type!
 vim.opt.inccommand = 'split'
@@ -154,8 +155,6 @@ vim.diagnostic.config {
   jump = { float = true },
 }
 
--- vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
-
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
 -- is not what someone will guess without a bit more experience.
@@ -170,6 +169,63 @@ vim.keymap.set('n', '<leader>L', '<C-w>L', { desc = 'Move window to the right' }
 vim.keymap.set('n', '<leader>J', '<C-w>J', { desc = 'Move window to the lower' })
 vim.keymap.set('n', '<leader>K', '<C-w>K', { desc = 'Move window to the upper' })
 
+-- Emacs-style line navigation
+vim.keymap.set('i', '<C-a>', '<ESC>^i', { desc = 'Beginning of line' })
+vim.keymap.set('n', '<C-a>', '^', { desc = 'Beginning of line' })
+vim.keymap.set('i', '<C-e>', '<End>', { desc = 'End of line' })
+vim.keymap.set('n', '<C-e>', '$', { desc = 'End of line' })
+
+-- Visual mode improvements
+vim.keymap.set('v', '<', '<gv', { desc = 'Indent left (keep selection)' })
+vim.keymap.set('v', '>', '>gv', { desc = 'Indent right (keep selection)' })
+vim.keymap.set('v', 'p', 'pgv', { desc = 'Paste (keep selection)' })
+
+-- Terminal
+vim.keymap.set('t', '<C-x>', '<C-\\><C-N>', { desc = 'Exit terminal mode' })
+
+-- Quit commands
+-- ============================================================================
+-- Quit Operations
+-- ============================================================================
+vim.keymap.set('n', '<leader>qq', '<cmd>qa<cr>', { desc = 'Quit all' })
+vim.keymap.set('n', '<leader>qQ', '<cmd>qa!<cr>', { desc = 'Quit all (force)' })
+vim.keymap.set('n', '<leader>wq', '<cmd>wqa<cr>', { desc = 'Save and quit all' })
+vim.keymap.set('n', '<C-x><C-c>', '<cmd>wqa!<cr>', { desc = 'Save and quit (force)' })
+-- Toggles
+vim.keymap.set('n', '<leader>tn', '<cmd>set number!<CR>', { desc = 'Toggle line numbers' })
+vim.keymap.set(
+  'n',
+  '<leader>tr',
+  '<cmd>set relativenumber!<CR>',
+  { desc = 'Toggle relative numbers' }
+)
+vim.keymap.set('n', '<leader>ts', '<cmd>setlocal spell!<CR>', { desc = 'Toggle spell check' })
+vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>', { desc = 'Toggle word wrap' })
+
+-- Support searching through config without plugins
+local config_dir = vim.fn.stdpath 'config'
+
+vim.keymap.set('n', '<leader>cf', function()
+  -- globpath with 4th arg `true` returns a table directly, no split needed
+  local files = vim.fn.globpath(config_dir, '**/*', false, true)
+  files = vim.tbl_filter(function(f) return vim.fn.isdirectory(f) == 0 end, files)
+
+  vim.ui.select(files, {
+    prompt = 'Find nvim config files:',
+    format_item = function(item) return item:gsub(config_dir .. '/', '') end,
+  }, function(choice)
+    if choice then vim.cmd.edit(choice) end
+  end)
+end, { desc = 'Find nvim config files' })
+
+vim.keymap.set('n', '<leader>cg', function()
+  local query = vim.fn.input 'Grep config> '
+  if query == '' then return end
+
+  vim.cmd('silent! vimgrep /' .. query .. '/gj ' .. config_dir .. '/**/*')
+  vim.cmd 'copen'
+end, { desc = 'Grep nvim config files' })
+
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 
@@ -182,42 +238,16 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   callback = function() vim.hl.on_yank() end,
 })
 
--- [[ Install `lazy.nvim` plugin manager ]]
---    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
-local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
-if not (vim.uv or vim.loop).fs_stat(lazypath) then
-  local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
-  local out = vim.fn.system { 'git', 'clone', '--filter=blob:none', '--branch=stable', lazyrepo, lazypath }
-  if vim.v.shell_error ~= 0 then error('Error cloning lazy.nvim:\n' .. out) end
-end
-
----@type vim.Option
-local rtp = vim.opt.rtp
-rtp:prepend(lazypath)
--- Install lazy.nvim if not present
-local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
-if not vim.loop.fs_stat(lazypath) then
-  vim.fn.system {
-    'git',
-    'clone',
-    '--filter=blob:none',
-    'https://github.com/folke/lazy.nvim.git',
-    '--branch=stable',
-    lazypath,
-  }
-end
-vim.opt.rtp:prepend(lazypath)
-
-vim.filetype.add({
+vim.filetype.add {
   extension = {
-    env = "dotenv",
+    env = 'dotenv',
   },
   filename = {
-    [".env"] = "dotenv",
-    ["env"] = "dotenv",
+    ['.env'] = 'dotenv',
+    ['env'] = 'dotenv',
   },
   pattern = {
-    ["[jt]sconfig.*.json"] = "jsonc",
-    ["%.env%.[%w_.-]+"] = "dotenv",
+    ['[jt]sconfig.*.json'] = 'jsonc',
+    ['%.env%.[%w_.-]+'] = 'dotenv',
   },
-})
+}

@@ -1,37 +1,30 @@
--- Load core configuration first
-require 'base.core'
+-- Load core info & configuration first
+INFO = require 'base.info'
+require 'core'
 
--- Bootstrap lazy.nvim (if not already installed)
-local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
-if not vim.loop.fs_stat(lazypath) then
-  vim.fn.system {
-    'git',
-    'clone',
-    '--filter=blob:none',
-    'https://github.com/folke/lazy.nvim.git',
-    '--branch=stable',
-    lazypath,
-  }
-end
-vim.opt.rtp:prepend(lazypath)
+BASE_PLUGINS = require 'base.plugins'
+BASE_PLUGINS.setup()
 
 -- ============================================================================
 -- FEATURE CONFIGURATION
 -- ============================================================================
 
 local features = {
-  lsp = true,
+  -- directory navigation, terminal interactions, package management ect
+  system_management = true,
+  -- project based directory tracking, jira integration, ect
   project_management = true,
-  tasks = true,
-  syntax = true,
+  -- managing shell processes, compilation ect
+  task_running = true,
+  -- file contents (buffer) navigation, syntax highlighting, autocompletion, ect
+  editing = true,
+  -- git integration
   version_control = true,
-  terminal = true,
-  treesitter = true,
 }
 
 -- Collect dependencies and modules
 local dependencies = {
-  { import = 'base.plugins' },
+  -- { import = 'base.plugins' },
   {
     'nvim-orgmode/orgmode',
     event = 'VeryLazy',
@@ -50,11 +43,6 @@ local dependencies = {
   {
     'folke/which-key.nvim',
     event = 'VeryLazy',
-    opts = {
-      -- your configuration comes here
-      -- or leave it empty to use the default settings
-      -- refer to the configuration section below
-    },
     keys = {
       {
         '<leader>?',
@@ -199,6 +187,12 @@ local dependencies = {
     },
   },
 }
+
+
+NAVIGATION = require 'base.navigation'
+
+dependencies =
+  vim.tbl_extend('keep', NAVIGATION.dependencies, dependencies)
 local modules = {}
 
 for name, enabled in pairs(features) do
@@ -242,39 +236,17 @@ require('lazy').setup(dependencies, {
   rocks = { hererocks = true },
 })
 
--- Set the default theme
-vim.cmd [[colorscheme tokyonight]]
-
 -- Setup features after plugins load
 for _, module in ipairs(modules) do
   if module.setup then module.setup() end
 end
+NAVIGATION.setup()
 
--- TODO should leverage something more basic than snacks for this
-vim.keymap.set(
-  'n',
-  '<leader>cf',
-  function()
-    require('snacks').picker.files {
-      cwd = vim.fn.stdpath 'config',
-      layout = { preset = 'default', preview = false },
-    }
-  end,
-  { desc = 'Find nvim config files' }
-)
+-- Set the default theme
+vim.cmd [[colorscheme tokyonight]]
 
-vim.keymap.set(
-  'n',
-  '<leader>cg',
-  function()
-    require('snacks').picker.grep {
-      cwd = vim.fn.stdpath 'config',
-    }
-  end,
-  { desc = 'Grep nvim config files' }
-)
 -- Add keymap handling
-require('custom.keymaps.files').setup()
-require('custom.keymaps.editor').setup()
-require('custom.keymaps.windows').setup()
-require('smart-paste').setup()
+-- require('custom.keymaps.files').setup()
+-- require('custom.keymaps.editor').setup()
+-- require('custom.keymaps.windows').setup()
+-- require('smart-paste').setup()
