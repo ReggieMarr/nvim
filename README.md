@@ -1,322 +1,347 @@
-# kickstart.nvim
+# Neovim Configuration
 
-## Introduction
+A modular Neovim configuration built around explicit feature flags, dependency
+declaration, and a formal interface layer designed to support both human and
+AI agent interaction with the editor.
 
-A starting point for Neovim that is:
+## Design Goals
 
-* Small
-* Single-file
-* Completely Documented
+- **Modularity** — features can be enabled or disabled in isolation
+- **Consistency** — all picking, searching, and navigation uses a single unified UI
+- **Introspection** — the running state of the config is queryable at any time
+- **Agent readiness** — the editor exposes a stable, structured action surface for AI agent articulation
+- **Explicitness** — dependencies, capabilities, and keymaps are declared, not implied
 
-**NOT** a Neovim distribution, but instead a starting point for your configuration.
+---
 
-## Installation
-
-### Install Neovim
-
-Kickstart.nvim targets *only* the latest
-['stable'](https://github.com/neovim/neovim/releases/tag/stable) and latest
-['nightly'](https://github.com/neovim/neovim/releases/tag/nightly) of Neovim.
-If you are experiencing issues, please make sure you have at least the latest
-stable version. Most likely, you want to install neovim via a [package
-manager](https://github.com/neovim/neovim/blob/master/INSTALL.md#install-from-package).
-To check your neovim version, run `nvim --version` and make sure it is not
-below the latest
-['stable'](https://github.com/neovim/neovim/releases/tag/stable) version. If
-your chosen install method only gives you an outdated version of neovim, find
-alternative [installation methods below](#alternative-neovim-installation-methods).
-
-### Install External Dependencies
-
-External Requirements:
-- Basic utils: `git`, `make`, `unzip`, C Compiler (`gcc`)
-- [ripgrep](https://github.com/BurntSushi/ripgrep#installation),
-  [fd-find](https://github.com/sharkdp/fd#installation)
-- Clipboard tool (xclip/xsel/win32yank or other depending on the platform)
-- A [Nerd Font](https://www.nerdfonts.com/): optional, provides various icons
-  - if you have it set `vim.g.have_nerd_font` in `init.lua` to true
-- Emoji fonts (Ubuntu only, and only if you want emoji!) `sudo apt install fonts-noto-color-emoji`
-- Language Setup:
-  - If you want to write Typescript, you need `npm`
-  - If you want to write Golang, you will need `go`
-  - etc.
-
-> [!NOTE]
-> See [Install Recipes](#Install-Recipes) for additional Windows and Linux specific notes
-> and quick install snippets
-
-### Install Kickstart
-
-> [!NOTE]
-> [Backup](#FAQ) your previous configuration (if any exists)
-
-Neovim's configurations are located under the following paths, depending on your OS:
-
-| OS | PATH |
-| :- | :--- |
-| Linux, MacOS | `$XDG_CONFIG_HOME/nvim`, `~/.config/nvim` |
-| Windows (cmd)| `%localappdata%\nvim\` |
-| Windows (powershell)| `$env:LOCALAPPDATA\nvim\` |
-
-#### Recommended Step
-
-[Fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) this repo
-so that you have your own copy that you can modify, then install by cloning the
-fork to your machine using one of the commands below, depending on your OS.
-
-> [!NOTE]
-> Your fork's URL will be something like this:
-> `https://github.com/<your_github_username>/kickstart.nvim.git`
-
-You likely want to remove `lazy-lock.json` from your fork's `.gitignore` file
-too - it's ignored in the kickstart repo to make maintenance easier, but it's
-[recommended to track it in version control](https://lazy.folke.io/usage/lockfile).
-
-#### Clone kickstart.nvim
-
-> [!NOTE]
-> If following the recommended step above (i.e., forking the repo), replace
-> `nvim-lua` with `<your_github_username>` in the commands below
-
-<details><summary> Linux and Mac </summary>
-
-```sh
-git clone https://github.com/nvim-lua/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
-```
-
-</details>
-
-<details><summary> Windows </summary>
-
-If you're using `cmd.exe`:
+## Directory Structure
 
 ```
-git clone https://github.com/nvim-lua/kickstart.nvim.git "%localappdata%\nvim"
+~/.config/nvim/
+├── init.lua                 # Entry point: feature flags, bootstrap, module loading
+├── lua/
+│   ├── base.lua             # Options, global keymaps, autocmds (no plugin deps)
+│   ├── lib/
+│   │   ├── module.lua       # Module registration, dependency resolution, lifecycle
+│   │   ├── keys.lua         # Keymap registration, conflict detection, action registry
+│   │   ├── capabilities.lua # Capability registration and interface validation
+│   │   ├── state.lua        # Editor state observation for agent context
+│   │   └── agent.lua        # Formal agent interface, tool registry, plan execution
+│   └── modules/
+│       ├── interface.lua    # UI chrome: statusline, colorscheme, notifications
+│       ├── navigation.lua   # Fuzzy finding, picking, search consistency layer
+│       ├── language.lua     # LSP, treesitter, completion, formatting, diagnostics
+│       ├── version_control.lua # Git signs, blame, diff, conflict resolution
+│       ├── execution.lua    # Terminals, build runners, test runners
+│       ├── system.lua       # File system, OS integration
+│       └── project.lua      # External services: issue trackers, project management
 ```
 
-If you're using `powershell.exe`
+---
 
-```
-git clone https://github.com/nvim-lua/kickstart.nvim.git "${env:LOCALAPPDATA}\nvim"
-```
+## Core Concepts
 
-</details>
+### Feature Flags
 
-### Post Installation
-
-Start Neovim
-
-```sh
-nvim
-```
-
-That's it! Lazy will install all the plugins you have. Use `:Lazy` to view
-the current plugin status. Hit `q` to close the window.
-
-#### Read The Friendly Documentation
-
-Read through the `init.lua` file in your configuration folder for more
-information about extending and exploring Neovim. That also includes
-examples of adding popularly requested plugins.
-
-> [!NOTE]
-> For more information about a particular plugin check its repository's documentation.
-
-
-### Getting Started
-
-[The Only Video You Need to Get Started with Neovim](https://youtu.be/m8C0Cq9Uv9o)
-
-### FAQ
-
-* What should I do if I already have a pre-existing Neovim configuration?
-  * You should back it up and then delete all associated files.
-  * This includes your existing init.lua and the Neovim files in `~/.local`
-    which can be deleted with `rm -rf ~/.local/share/nvim/`
-* Can I keep my existing configuration in parallel to kickstart?
-  * Yes! You can use [NVIM_APPNAME](https://neovim.io/doc/user/starting.html#%24NVIM_APPNAME)`=nvim-NAME`
-    to maintain multiple configurations. For example, you can install the kickstart
-    configuration in `~/.config/nvim-kickstart` and create an alias:
-    ```
-    alias nvim-kickstart='NVIM_APPNAME="nvim-kickstart" nvim'
-    ```
-    When you run Neovim using `nvim-kickstart` alias it will use the alternative
-    config directory and the matching local directory
-    `~/.local/share/nvim-kickstart`. You can apply this approach to any Neovim
-    distribution that you would like to try out.
-* What if I want to "uninstall" this configuration:
-  * See [lazy.nvim uninstall](https://lazy.folke.io/usage#-uninstalling) information
-* Why is the kickstart `init.lua` a single file? Wouldn't it make sense to split it into multiple files?
-  * The main purpose of kickstart is to serve as a teaching tool and a reference
-    configuration that someone can easily use to `git clone` as a basis for their own.
-    As you progress in learning Neovim and Lua, you might consider splitting `init.lua`
-    into smaller parts. A fork of kickstart that does this while maintaining the
-    same functionality is available here:
-    * [kickstart-modular.nvim](https://github.com/dam9000/kickstart-modular.nvim)
-  * Discussions on this topic can be found here:
-    * [Restructure the configuration](https://github.com/nvim-lua/kickstart.nvim/issues/218)
-    * [Reorganize init.lua into a multi-file setup](https://github.com/nvim-lua/kickstart.nvim/pull/473)
-
-### Install Recipes
-
-Below you can find OS specific install instructions for Neovim and dependencies.
-
-After installing all the dependencies continue with the [Install Kickstart](#install-kickstart) step.
-
-#### Windows Installation
-
-<details><summary>Windows with Microsoft C++ Build Tools and CMake</summary>
-Installation may require installing build tools and updating the run command for `telescope-fzf-native`
-
-See `telescope-fzf-native` documentation for [more details](https://github.com/nvim-telescope/telescope-fzf-native.nvim#installation)
-
-This requires:
-
-- Install CMake and the Microsoft C++ Build Tools on Windows
+Features are declared as a table in `init.lua` and exposed as an immutable
+global. This is the single source of truth for what is active in the config.
 
 ```lua
-{'nvim-telescope/telescope-fzf-native.nvim', build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build' }
-```
-</details>
-<details><summary>Windows with gcc/make using chocolatey</summary>
-Alternatively, one can install gcc and make which don't require changing the config,
-the easiest way is to use choco:
-
-1. install [chocolatey](https://chocolatey.org/install)
-either follow the instructions on the page or use winget,
-run in cmd as **admin**:
-```
-winget install --accept-source-agreements chocolatey.chocolatey
+local features = {
+  interface       = true,
+  navigation      = true,
+  language        = true,
+  version_control = true,
+  execution       = true,
+  system          = true,
+  project         = false, -- disabled
+}
 ```
 
-2. install all requirements using choco, exit the previous cmd and
-open a new one so that choco path is set, and run in cmd as **admin**:
-```
-choco install -y neovim git ripgrep wget fd unzip gzip mingw make
-```
-</details>
-<details><summary>WSL (Windows Subsystem for Linux)</summary>
+Toggling a feature disables all modules that belong to it and prevents their
+plugins from being passed to lazy. Disabled features still appear in
+`:ConfigStatus modules` so you can see the full picture.
 
-```
-wsl --install
-wsl
-sudo add-apt-repository ppa:neovim-ppa/unstable -y
-sudo apt update
-sudo apt install make gcc ripgrep unzip git xclip neovim
-```
-</details>
+---
 
-#### Linux Install
-<details><summary>Ubuntu Install Steps</summary>
+### Modules
 
-```
-sudo add-apt-repository ppa:neovim-ppa/unstable -y
-sudo apt update
-sudo apt install make gcc ripgrep unzip git xclip neovim
-```
-</details>
-<details><summary>Debian Install Steps</summary>
+A module is a single `.lua` file in `lua/modules/`. Each module:
 
-```
-sudo apt update
-sudo apt install make gcc ripgrep unzip git xclip curl
+- Belongs to exactly one feature flag
+- Declares its hard dependencies on other modules
+- Declares its optional dependencies
+- Organizes its plugin specs into `display` and `articulation` categories
 
-# Now we install nvim
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
-sudo rm -rf /opt/nvim-linux-x86_64
-sudo mkdir -p /opt/nvim-linux-x86_64
-sudo chmod a+rX /opt/nvim-linux-x86_64
-sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz
+```lua
+-- lua/modules/example.lua
+local module = require("lib.module")
+local keys   = require("lib.keys")
+local caps   = require("lib.capabilities")
 
-# make it available in /usr/local/bin, distro installs to /usr/bin
-sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/
-```
-</details>
-<details><summary>Fedora Install Steps</summary>
+module.register({
+  name       = "example",
+  feature    = "navigation",  -- maps to features.navigation
+  depends_on = { "interface" },
+  optional_deps = { "language" },
 
-```
-sudo dnf install -y gcc make git ripgrep fd-find unzip neovim
-```
-</details>
+  -- Plugins whose primary concern is rendering information
+  display = {
+    { "author/plugin.nvim", opts = {} },
+  },
 
-<details><summary>Arch Install Steps</summary>
-
-```
-sudo pacman -S --noconfirm --needed gcc make git ripgrep fd unzip neovim
-```
-</details>
-
-### Alternative neovim installation methods
-
-For some systems it is not unexpected that the [package manager installation
-method](https://github.com/neovim/neovim/blob/master/INSTALL.md#install-from-package)
-recommended by neovim is significantly behind. If that is the case for you,
-pick one of the following methods that are known to deliver fresh neovim versions very quickly.
-They have been picked for their popularity and because they make installing and updating
-neovim to the latest versions easy. You can also find more detail about the
-available methods being discussed
-[here](https://github.com/nvim-lua/kickstart.nvim/issues/1583).
-
-
-<details><summary>Bob</summary>
-
-[Bob](https://github.com/MordechaiHadad/bob) is a Neovim version manager for
-all plattforms. Simply install
-[rustup](https://rust-lang.github.io/rustup/installation/other.html),
-and run the following commands:
-
-```bash
-rustup default stable
-rustup update stable
-cargo install bob-nvim
-bob use stable
+  -- Plugins and keymaps whose primary concern is interaction
+  articulation = {
+    {
+      "author/plugin.nvim",
+      keys = (function()
+        keys.map_group("example", {
+          {
+            lhs  = "<leader>ex",
+            rhs  = function() end,
+            desc = "Example action",
+          },
+        })
+        return {}
+      end)(),
+    },
+  },
+})
 ```
 
-</details>
+#### Display vs Articulation
 
-<details><summary>Homebrew</summary>
+Every module organizes its plugin specs into two categories:
 
-[Homebrew](https://brew.sh) is a package manager popular on Mac and Linux.
-Simply install using [`brew install`](https://formulae.brew.sh/formula/neovim).
+| Category | Concern | Examples |
+|---|---|---|
+| `display` | Rendering information passively | Statusline, git signs, diagnostics virtual text, colorscheme |
+| `articulation` | Acting on or with information | Keymaps, pickers, commands, UI interactions |
 
-</details>
+Some plugins serve both concerns. Place them under whichever is their
+*primary* concern and document exceptions with a comment. Infrastructure
+plugins with no clear primary concern belong in `providers`.
 
-<details><summary>Flatpak</summary>
+This distinction is organizational — lazy receives a flat list of all specs
+regardless of category.
 
-Flatpak is a package manager for applications that allows developers to package their applications
-just once to make it available on all Linux systems. Simply [install flatpak](https://flatpak.org/setup/)
-and setup [flathub](https://flathub.org/setup) to [install neovim](https://flathub.org/apps/io.neovim.nvim).
+---
 
-</details>
+### Dependencies
 
-<details><summary>asdf and mise-en-place</summary>
+Modules declare dependencies explicitly. The module system validates the
+dependency graph before lazy loads any plugins.
 
-[asdf](https://asdf-vm.com/) and [mise](https://mise.jdx.dev/) are tool version managers,
-mostly aimed towards project-specific tool versioning. However both support managing tools
-globally in the user-space as well:
-
-<details><summary>mise</summary>
-
-[Install mise](https://mise.jdx.dev/getting-started.html), then run:
-
-```bash
-mise plugins install neovim
-mise use neovim@stable
+```lua
+module.register({
+  name       = "language",
+  feature    = "language",
+  depends_on = { "navigation" },  -- hard: must be present and enabled
+  optional_deps = { "interface" }, -- soft: degrades gracefully without
+  ...
+})
 ```
 
-</details>
+**Hard dependencies** (`depends_on`) — if a required module is missing or
+its feature is disabled, `validate()` reports an error at startup.
 
-<details><summary>asdf</summary>
+**Optional dependencies** (`optional_deps`) — if an optional module is
+unavailable, an info notification is emitted and the module loads with
+reduced functionality.
 
-[Install asdf](https://asdf-vm.com/guide/getting-started.html), then run:
+Load order is resolved automatically via topological sort of the dependency
+graph. You do not need to manually order module files.
 
-```bash
-asdf plugin add neovim
-asdf install neovim stable
-asdf set neovim stable --home
-asdf reshim neovim
+---
+
+### Capabilities
+
+Capabilities are the mechanism for enforcing a consistent UI across all
+features. Rather than each module calling its own picker or notification
+system, modules register what they provide and consumers retrieve it by name.
+
+```lua
+-- A module registers a capability once
+caps.register("picker", {
+  find_files   = function(opts) ... end,
+  live_grep    = function(opts) ... end,
+  find_buffers = function(opts) ... end,
+  ...
+}, "navigation")
+
+-- Any other module retrieves it without knowing the implementation
+local picker = caps.require("picker")
+picker.find_files()
 ```
 
-</details>
+This is what ensures that finding files, buffers, LSP references, git
+commits, and test results all use the same UI and the same keybinding
+grammar, regardless of which plugin is providing them.
 
-</details>
+#### Known Capability Interfaces
+
+The following capability interfaces are defined and validated:
+
+| Name | Provider Module | Purpose |
+|---|---|---|
+| `picker` | `navigation` | Unified fuzzy finding and list UI |
+| `filesystem` | `system` | File tree and file operations |
+| `notifier` | `interface` | Notifications and progress reporting |
+| `terminal` | `execution` | Terminal management |
+| `task_runner` | `execution` | Build and test execution |
+
+Capabilities not in this table are valid but receive no interface validation.
+See `lib/capabilities.lua` for the full interface definitions.
+
+---
+
+### Keymaps
+
+All keymaps are registered through `lib/keys.lua`. Direct calls to
+`vim.keymap.set()` are avoided outside of `lib/` itself.
+
+```lua
+keys.map_group("navigation", {
+  {
+    lhs  = "<leader>ff",
+    rhs  = function() caps.require("picker").find_files() end,
+    desc = "Find files",
+    when = function() return true end, -- optional precondition for agents
+  },
+})
+```
+
+Registering through `lib/keys.lua` provides:
+
+- **Conflict detection** — duplicate keymaps emit a warning with attribution
+- **Description enforcement** — keymaps without descriptions are rejected
+- **Action registry** — every global keymap is automatically addressable by
+  AI agents via a composed ID (`module.description_as_snake_case`)
+- **Introspection** — all keymaps queryable via `:ConfigStatus keys`
+
+#### Keymap Grammar
+
+| Prefix | Domain |
+|---|---|
+| `<leader>f` | Find (pickers, search) |
+| `<leader>b` | Buffers |
+| `<leader>g` | Git |
+| `<leader>l` | LSP |
+| `<leader>t` | Tasks |
+| `<leader>p` | Project |
+| `<leader>c` | Config |
+
+---
+
+### Agent Interface
+
+The config exposes a structured interface for AI agent articulation via
+`lib/agent.lua`. Agents interact with the editor through three mechanisms:
+
+**Action execution** — agents invoke any registered keymap action by its
+stable ID without needing to know the keybinding:
+
+```lua
+-- ID is composed automatically from module name and description
+-- "navigation" + "Find files" -> "navigation.find_files"
+require("lib.keys").execute("navigation.find_files")
+```
+
+**Plan execution** — agents submit an ordered sequence of actions with
+a failure policy:
+
+```lua
+require("lib.agent").execute_plan({
+  on_failure = "rollback", -- or "stop" or "continue"
+  steps = {
+    { action_id = "lsp.go_to_definition" },
+    { action_id = "lsp.show_diagnostics" },
+  },
+})
+```
+
+**Tool registration** — modules expose higher-level, parameterized
+operations beyond individual keymaps:
+
+```lua
+require("lib.agent").register_tool({
+  name        = "fix_diagnostics",
+  description = "Apply LSP code actions to fix auto-fixable diagnostics",
+  parameters  = {
+    severity = { type = "string", enum = { "error", "warning", "all" } },
+  },
+  execute = function(params) ... end,
+})
+```
+
+Tool schemas are available in OpenAI/Anthropic function calling format via
+`require("lib.agent").get_tool_schemas()`.
+
+---
+
+## Introspection
+
+The running state of the config is fully queryable. All introspection
+commands open a markdown-formatted scratch buffer.
+
+| Command | Description |
+|---|---|
+| `:ConfigStatus modules` | Module registry, feature flags, load order, dependency errors |
+| `:ConfigStatus keys` | All registered keymaps grouped by module |
+| `:ConfigStatus capabilities` | Registered capabilities and interface conformance |
+| `:ConfigStatus agent` | Registered tools and agent audit log |
+| `:ConfigStatus` | All of the above |
+
+---
+
+## Adding a New Module
+
+1. Create `lua/modules/yourmodule.lua`
+2. Call `module.register()` with your spec
+3. Add the module file to the load list in `init.lua`
+4. Register any capabilities your module provides
+5. Register keymaps through `keys.map_group()`
+
+The module system will validate your dependency declarations at startup and
+include your plugin specs in the lazy setup automatically.
+
+## Enabling and Disabling Features
+
+Edit the `features` table in `init.lua`:
+
+```lua
+local features = {
+  project = true, -- was false
+}
+```
+
+Restart Neovim. The module system will include or exclude all modules
+belonging to that feature and validate the dependency graph with the
+new configuration.
+
+---
+
+## Library Reference
+
+| Module | Purpose |
+|---|---|
+| `lib/module.lua` | Module registration, DAG validation, plugin spec collection |
+| `lib/keys.lua` | Keymap registration, conflict detection, action registry |
+| `lib/capabilities.lua` | Capability registration, interface validation, adapter layer |
+| `lib/state.lua` | Snapshot editor state for agent context and observation |
+| `lib/agent.lua` | Agent interface, plan execution, tool registry |
+
+---
+
+## Design Influences
+
+- **Doom Emacs** — feature flag system, module organization, and the principle
+  that a consistent UI matters more than flexibility in individual components
+- **Hexagonal Architecture** — the capability system acts as a ports-and-adapters
+  layer between feature modules and their underlying implementations
+- **CQRS** — the display/articulation split mirrors the command/query
+  responsibility distinction; display is the read model, articulation is the
+  write model
+- **Language Server Protocol** — the agent interface is modeled on the idea
+  of a formal protocol between the editor and an external process, rather
+  than ad-hoc integration

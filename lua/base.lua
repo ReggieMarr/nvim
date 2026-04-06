@@ -303,11 +303,11 @@ keys.map_group("base", {
     rhs  = "<cmd>qa<cr>",
     desc = "Quit all",
   },
-  {
-    lhs  = "<leader>qQ",
-    rhs  = "<cmd>qa!<cr>",
-    desc = "Quit all (force)",
-  },
+  -- {
+  --   lhs  = "<leader>qQ",
+  --   rhs  = "<cmd>qa!<cr>",
+  --   desc = "Quit all (force)",
+  -- },
   {
     lhs  = "<leader>wq",
     rhs  = "<cmd>wqa<cr>",
