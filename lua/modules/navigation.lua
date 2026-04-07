@@ -103,7 +103,7 @@ env.module.register({
             handler = function()
               env.use("picker").buffers()
             end,
-            desc     = "Find open buffers",
+            desc     = "Find open file buffers",
             bindings = { { lhs = "<leader>fb" } },
           },
           {

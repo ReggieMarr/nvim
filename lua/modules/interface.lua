@@ -19,6 +19,7 @@
 -- modules that load after can use it for their own notifications.
 
 local env = require("env")
+local IMG_PATH = vim.fn.expand '/home/reggiemarr/Pictures/Wallpapers/tent_in_nf.jpg'
 
 env.module.register({
   name          = "interface",
@@ -37,11 +38,58 @@ env.module.register({
       "folke/snacks.nvim",
       priority = 1000, -- load before everything else
       lazy     = false,
+        init = function()
+        -- require("etiennecollin.core.mappings.plugin").snacks()
+
+        ---@type table<number, {token:lsp.ProgressToken, msg:string, done:boolean}[]>
+        local progress = vim.defaulttable()
+        vim.api.nvim_create_autocmd('LspProgress', {
+            ---@param ev {data: {client_id: integer, params: lsp.ProgressParams}}
+            callback = function(ev)
+            local client = vim.lsp.get_client_by_id(ev.data.client_id)
+            local value = ev.data.params.value --[[@as {percentage?: number, title?: string, message?: string, kind: "begin" | "report" | "end"}]]
+            if not client or type(value) ~= 'table' then return end
+            local p = progress[client.id]
+
+            for i = 1, #p + 1 do
+                if i == #p + 1 or p[i].token == ev.data.params.token then
+                p[i] = {
+                    token = ev.data.params.token,
+                    msg = ('[%3d%%] %s%s'):format(
+                    value.kind == 'end' and 100 or value.percentage or 100,
+                    value.title or '',
+                    value.message and (' **%s**'):format(value.message) or ''
+                    ),
+                    done = value.kind == 'end',
+                }
+                break
+                end
+            end
+
+            local msg = {} ---@type string[]
+            progress[client.id] = vim.tbl_filter(
+                function(v) return table.insert(msg, v.msg) or not v.done end,
+                p
+            )
+
+            local spinner = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' }
+            vim.notify(table.concat(msg, '\n'), 'info', {
+                id = 'lsp_progress',
+                title = client.name,
+                opts = function(notif)
+                notif.icon = #progress[client.id] == 0 and ' '
+                    or spinner[math.floor(vim.uv.hrtime() / (1e6 * 80)) % #spinner + 1]
+                end,
+            })
+            end,
+        })
+        end,
       ---@type snacks.Config
       opts = {
         -- Picker: unified list/fuzzy UI
         -- All picker capability methods delegate here
         picker = {
+          enabled = true,
           ui_select = true, -- override vim.ui.select globally
           layout = {
             preset = "default",
@@ -52,6 +100,13 @@ env.module.register({
           },
           matcher = {
             frecency = true, -- weight recent/frequent files higher
+            history_bonus = true,
+          },
+          previewers = {
+              diff = {
+              style = 'terminal',
+              cmd = { 'delta' },
+              },
           },
           win = {
             input = {
@@ -61,6 +116,81 @@ env.module.register({
               },
             },
           },
+
+      sources = {
+        -- git_log = git_actions,
+        -- git_log_file = git_actions,
+        -- git_log_line = git_actions,
+        -- rga = rga_source,
+        -- astgrep = astgrep_source,
+        explorer = {
+          auto_close = true,
+          layout = { preset = 'ivy', preview = true },
+          matcher = { fuzzy = true },
+          actions = {
+            yank_relative_cwd = function(_, item)
+              local path = vim.fn.fnamemodify(item.file, ':.')
+              vim.fn.setreg('+', path)
+              vim.fn.setreg('"', path)
+              vim.notify('Yanked: ' .. path)
+            end,
+            yank_relative_home = function(_, item)
+              local path = vim.fn.fnamemodify(item.file, ':~')
+              vim.fn.setreg('+', path)
+              vim.fn.setreg('"', path)
+              vim.notify('Yanked: ' .. path)
+            end,
+            explorer_dwim = function(picker_state)
+              local item = picker_state:current()
+              if item then
+                if item.dir then
+                  -- Navigate into directory
+                  picker_state:cd(item.file)
+                else
+                  -- Open file
+                  vim.cmd('edit ' .. vim.fn.fnameescape(item.file))
+                  picker_state:close()
+                end
+              end
+            end,
+          },
+          win = {
+            input = {
+              keys = {
+                ['<Tab>'] = { 'confirm', mode = { 'n', 'i' } },
+                ['<a-j>'] = { 'list_down', mode = { 'n' } },
+                ['<a-k>'] = { 'list_up', mode = { 'n' } },
+                ['<BS>'] = { 'explorer_up', mode = { 'n' } },
+                ['h'] = { 'explorer_up', mode = { 'n' } },
+                ['c-p'] = { 'toggle_preview', mode = { 'n', 'i' } },
+                ['l'] = { 'explorer_focus', mode = { 'n' } },
+                ['<ESC>'] = { 'focus_list', mode = { 'n', 'i' } },
+              },
+            },
+            list = {
+              keys = {
+                ['.'] = 'explorer_focus',
+                ['<BS>'] = 'explorer_up',
+                ['<space>'] = 'select_and_next',
+                ['<Tab>'] = { 'confirm', mode = { 'n', 'i' } },
+                ['<a-j>'] = { 'list_down', mode = { 'n' } },
+                ['<a-k>'] = { 'list_up', mode = { 'n' } },
+                ['a'] = 'explorer_add',
+                ['c'] = 'explorer_copy',
+                ['d'] = 'explorer_del',
+                ['l'] = 'explorer_focus',
+                ['h'] = { 'explorer_up', mode = { 'n' } },
+                ['i'] = { 'focus_input', mode = { 'n' } },
+                ['m'] = 'explorer_move',
+                ['r'] = 'explorer_rename',
+                ['<c-o>'] = 'explorer_yank',
+                ['y'] = 'yank_relative_cwd',
+                ['Y'] = 'yank_relative_home',
+              },
+            },
+          },
+        },
+      },
         },
 
         -- Notifier: replaces vim.notify
@@ -75,12 +205,47 @@ env.module.register({
 
         -- Input: replaces vim.ui.input
         input = { enabled = true },
+        animate = {
+            enabled = true,
+            fps = 120,
+        },
+        dim = {
+            enabled = true,
+        },
+        explorer = {
+            enabled = true,
+            replace_netrw = true,
+        },
+
+        image = {
+        enabled = true,
+        doc = {
+            inline = false,
+            img_dirs = {
+            'img',
+            'images',
+            'assets',
+            'static',
+            'public',
+            'media',
+            'attachments',
+            'resources',
+            },
+        },
+        math = {
+            enabled = false,
+        },
+        },
 
         -- Indent guides
         indent = {
           enabled = true,
           animate = { enabled = false }, -- disable for performance
           scope   = { enabled = true },
+        },
+
+        quickfile = {
+            enabled = true,
         },
 
         -- Scope: context-aware scope highlighting
@@ -102,18 +267,51 @@ env.module.register({
         -- Dashboard: startup screen
         dashboard = {
           enabled = true,
-          sections = {
-            { section = "header" },
-            { section = "keys",   gap = 1, padding = 1 },
-            { section = "recent_files", gap = 1, padding = 1 },
-            { section = "startup" },
-          },
+            -- NOTE from etiennes config
+            sections = {
+                {
+                enabled = function()
+                    return (vim.fn.executable 'chafa' == 1) and (vim.fn.filereadable(IMG_PATH) == 1)
+                end,
+                {
+                    section = 'terminal',
+                    cmd = 'chafa '
+                    .. IMG_PATH
+                    .. ' --format symbols --symbols vhalf --size 60x17 --stretch',
+                    height = 17,
+                    padding = 1,
+                },
+                {
+                    pane = 2,
+                    { section = 'keys', gap = 1, padding = 1 },
+                    { section = 'startup' },
+                },
+                },
+                {
+                enabled = function()
+                    return not ((vim.fn.executable 'chafa' == 1) and (vim.fn.filereadable(IMG_PATH) == 1))
+                end,
+                { section = 'header' },
+                { section = 'keys', gap = 1, padding = 1 },
+                { section = 'startup' },
+                },
+            },
         },
+        styles = {
+            notification = {
+                wo = { wrap = true }, -- Wrap notifications
+            },
+            snacks_image = {
+                relative = 'editor',
+                col = -1,
+            },
+        },
+        zen      = { enabled = true }, -- not used
 
         -- Explicitly disable snacks modules owned by other modules
         -- so there's no ambiguity about who configured what
+        -- TODO it'd be handy to check for conflicts on collect_plugin_specs
         terminal = { enabled = false }, -- owned by execution module
-        zen      = { enabled = false }, -- not used
         animate  = { enabled = false }, -- prefer no animation globally
       },
 
