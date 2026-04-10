@@ -1,60 +1,92 @@
 -- lua/lib/module.lua
--- Module system: registration, dependency resolution, and lifecycle management.
--- Modules are the primary unit of organization in this config.
--- Each module maps to a feature flag and declares its plugin specs
--- split into display and articulation concerns.
 
 local M = {}
 
 M._registry = {}
 
--- ─── Types ────────────────────────────────────────────────────────────────────
-
 ---@class ModuleSpec
----@field name string          Unique module identifier
----@field feature string       Feature flag this module belongs to
----@field depends_on? string[] Module names that must be present and enabled
----@field optional_deps? string[] Modules that enhance this one if available
----@field display? table[]     Plugin specs whose primary concern is rendering
----@field articulation? table[] Plugin specs whose primary concern is interaction
----@field providers? table[]   Plugin specs that serve both or are infrastructure
+---@field name string
+---@field domain string Organizational label, not a control surface
+---@field depends_on string[]
+---@field optional_deps string[]
+---@field plugins table<string, table> plugin_string -> lazy spec fields
+---@field setup fun() Called after plugins are loaded
 
--- ─── Internal Helpers ─────────────────────────────────────────────────────────
+function M.register(spec)
+  vim.validate({
+    name   = { spec.name,   "string" },
+    domain = { spec.domain, "string" },
+  })
 
----Collect plugin specs from a module, flattening display, articulation,
----and providers into a single list for lazy.
----Preserves the categorical distinction for organizational purposes
----without requiring lazy to know about it.
----@param spec ModuleSpec
----@return table[]
-local function collect_specs(spec)
-  local result = {}
-  for _, group in ipairs({ spec.display, spec.articulation, spec.providers }) do
-    for _, plugin_spec in ipairs(group) do
-      table.insert(result, plugin_spec)
-    end
+  spec.depends_on    = spec.depends_on    or {}
+  spec.optional_deps = spec.optional_deps or {}
+  spec.plugins       = spec.plugins       or {}
+
+  if M._registry[spec.name] then
+    vim.notify(
+      string.format("[module] Duplicate registration: '%s'", spec.name),
+      vim.log.levels.WARN
+    )
+    return
   end
-  return result
+
+  M._registry[spec.name] = spec
+  return spec
 end
 
--- ─── Dependency Resolution ────────────────────────────────────────────────────
+---Check whether a module is registered.
+---@param module_name string
+---@return boolean
+function M.available(module_name)
+  return M._registry[module_name] ~= nil
+end
 
----Resolve module load order via topological sort of the dependency DAG.
----Returns an ordered list of module names or nil and an error on cycle detection.
----All registered modules are considered active by definition of being registered.
+---Check whether any registered module belongs to a domain.
+---@param domain string
+---@return boolean
+function M.domain_active(domain)
+  for _, spec in pairs(M._registry) do
+    if spec.domain == domain then return true end
+  end
+  return false
+end
+
+---Validate the dependency graph.
+---@return boolean
+---@return string[]
+function M.validate()
+  local errors = {}
+
+  for name, spec in pairs(M._registry) do
+    for _, dep in ipairs(spec.depends_on) do
+      if not M._registry[dep] then
+        table.insert(errors, string.format(
+          "[module] '%s' depends on unregistered module '%s'",
+          name, dep
+        ))
+      end
+    end
+  end
+
+  local _, cycle_err = M._resolve_order()
+  if cycle_err then
+    table.insert(errors, cycle_err)
+  end
+
+  return #errors == 0, errors
+end
+
+---Topological sort of registered modules.
 ---@return string[]|nil
----@return string|nil error
-local function resolve_order()
-  local order       = {}
-  local visited     = {}
+---@return string|nil
+function M._resolve_order()
+  local order      = {}
+  local visited    = {}
   local in_progress = {}
 
   local function visit(name)
     if in_progress[name] then
-      return nil, string.format(
-        "[module] Dependency cycle detected at: '%s'",
-        name
-      )
+      return nil, string.format("[module] Cycle at: '%s'", name)
     end
     if visited[name] then return true end
 
@@ -63,9 +95,6 @@ local function resolve_order()
     local spec = M._registry[name]
     if spec then
       for _, dep in ipairs(spec.depends_on) do
-        -- Only traverse dependencies that are registered.
-        -- Unregistered dependencies are caught in validate().
-        -- No feature check needed: registered == active.
         if M._registry[dep] then
           local ok, err = visit(dep)
           if not ok then return nil, err end
@@ -73,14 +102,13 @@ local function resolve_order()
       end
     end
 
-    in_progress[name] = nil
-    visited[name]     = true
+    in_progress[name]  = nil
+    visited[name]      = true
     table.insert(order, name)
     return true
   end
 
-  -- Iterate all registered modules. No feature filter needed.
-  for name, _ in pairs(M._registry) do
+  for name in pairs(M._registry) do
     if not visited[name] then
       local ok, err = visit(name)
       if not ok then return nil, err end
@@ -90,270 +118,119 @@ local function resolve_order()
   return order
 end
 
--- ─── Public API ───────────────────────────────────────────────────────────────
-
----Register a module with the system.
----Called from each module file before lazy loads plugins.
----Registration is unconditional - feature flag checking happens at
----collect time so the registry always reflects the full picture.
----@param spec ModuleSpec
-function M.register(spec)
-  -- Structural validation
-  if type(spec) ~= "table" then
-    vim.notify(
-      "[module] register() expects a table",
-      vim.log.levels.ERROR
-    )
-    return
-  end
-
-  for _, required_field in ipairs({ "name" }) do
-    if not spec[required_field] or spec[required_field] == "" then
-      vim.notify(
-        string.format(
-          "[module] Module spec missing required field: '%s'",
-          required_field
-        ),
-        vim.log.levels.ERROR
-      )
-      return
-    end
-  end
-
-  -- Duplicate registration guard
-  if M._registry[spec.name] then
-    vim.notify(
-      string.format(
-        "[module] Duplicate registration: '%s' - ignoring",
-        spec.name
-      ),
-      vim.log.levels.WARN
-    )
-    return
-  end
-
-  -- Apply defaults so downstream code never needs nil checks
-  -- on these fields
-  spec.depends_on   = spec.depends_on   or {}
-  spec.optional_deps = spec.optional_deps or {}
-  spec.display      = spec.display      or {}
-  spec.articulation = spec.articulation or {}
-  spec.providers    = spec.providers    or {}
-
-  M._registry[spec.name] = spec
-end
-
----Check whether a module is registered and loaded.
----This is the new control surface: if it's in the registry, it's active.
----@param module_name string
----@return boolean
-function M.available(module_name)
-  return M._registry[module_name] ~= nil
-end
-
----Check whether any module belonging to a domain is loaded.
----Domain is the `feature` field on module specs, used for grouping.
----@param domain string e.g. "language", "execution"
----@return boolean
-function M.domain_active(domain)
-  for _, spec in pairs(M._registry) do
-    if spec.name == domain then
-      return true
-    end
-  end
-  return false
-end
-
----Validate the module graph.
----Checks that:
----  1. All hard dependencies of registered modules are themselves registered
----  2. No dependency cycles exist
+---Collect and merge plugin specs from all registered modules.
 ---
----A missing dependency means the module file is either not in the manifest
----in init.lua or failed to call module.register(). Both are explicit gaps.
+---Each module declares plugins as a dict of plugin_string -> spec fields.
+---This function merges contributions to the same plugin across modules,
+---then produces the flat list lazy.setup() expects.
 ---
----Called in init.lua after all module files are required, before lazy.setup().
----@return boolean
----@return string[]
-function M.validate()
-  local errors = {}
-
-  for name, spec in pairs(M._registry) do
-    for _, dep in ipairs(spec.depends_on) do
-      if not M._registry[dep] then
-        -- Clearer error: "not registered" rather than "feature disabled"
-        -- The fix is always: add the module to the manifest in init.lua
-        table.insert(errors, string.format(
-          "[module] '%s' depends on '%s' which is not registered. " ..
-          "Add it to the module manifest in init.lua.",
-          name, dep
-        ))
-      end
-    end
-  end
-
-  -- Cycle detection runs independently so both classes of error
-  -- are reported in a single validate() call
-  local _, cycle_err = resolve_order()
-  if cycle_err then
-    table.insert(errors, cycle_err)
-  end
-
-  -- Optional dependency availability warnings.
-  -- Non-fatal: module loads with reduced functionality.
-  -- Runs after error collection so warnings don't suppress errors.
-  for name, spec in pairs(M._registry) do
-    for _, dep in ipairs(spec.optional_deps) do
-      if not M.available(dep) then
-        vim.notify(
-          string.format(
-            "[module] '%s' optional dep '%s' is not registered " ..
-            "- some functionality will be reduced",
-            name, dep
-          ),
-          vim.log.levels.INFO
-        )
-      end
-    end
-  end
-
-  return #errors == 0, errors
-end
-
----Collect all lazy plugin specs from registered modules in dependency order.
----This is the value passed directly to lazy.setup().
+---Merge strategy:
+---  opts tables are deep merged (later modules extend earlier ones)
+---  all other spec fields (event, cmd, ft, etc.) last writer wins
+---  setup functions are not merged: use the setup() module hook instead
+---
 ---@return table[]
 function M.collect_plugin_specs()
-  local specs = {}
+  local merged = {} -- plugin_string -> merged spec
+  local order, err = M._resolve_order()
 
-  local order, err = resolve_order()
   if not order then
     vim.notify(err, vim.log.levels.ERROR)
-    return specs
+    return {}
   end
 
   for _, name in ipairs(order) do
     local spec = M._registry[name]
-    -- resolve_order() only returns registered modules
-    -- so this guard is defensive rather than meaningful
-    if spec then
-      for _, plugin_spec in ipairs(collect_specs(spec)) do
-        table.insert(specs, plugin_spec)
+    if not spec then goto continue end
+
+    for plugin_string, plugin_spec in pairs(spec.plugins) do
+      if not merged[plugin_string] then
+        -- First module to declare this plugin seeds the entry
+        merged[plugin_string] = vim.deepcopy(plugin_spec)
+        merged[plugin_string][1] = plugin_string
+      else
+        -- Subsequent modules extend the existing entry.
+        -- opts is deep merged so both modules' options survive.
+        if plugin_spec.opts then
+          merged[plugin_string].opts = vim.tbl_deep_extend(
+            "force",
+            merged[plugin_string].opts or {},
+            plugin_spec.opts
+          )
+        end
+        -- Non-opts fields: extend the spec but don't overwrite
+        -- fields already set (first declaration takes precedence
+        -- for things like event, cmd, priority, lazy)
+        for k, v in pairs(plugin_spec) do
+          if k ~= "opts" and merged[plugin_string][k] == nil then
+            merged[plugin_string][k] = v
+          end
+        end
       end
     end
+
+    ::continue::
+  end
+
+  -- Flatten to list for lazy
+  local specs = {}
+  for _, spec in pairs(merged) do
+    table.insert(specs, spec)
   end
 
   return specs
 end
 
--- ─── Introspection ────────────────────────────────────────────────────────────
+---Run each registered module's setup() in dependency order.
+---Called from init.lua after lazy.setup() completes.
+function M.run_setup()
+  local order, err = M._resolve_order()
+  if not order then
+    vim.notify(err, vim.log.levels.ERROR)
+    return
+  end
 
+  for _, name in ipairs(order) do
+    local spec = M._registry[name]
+    if spec and type(spec.setup) == "function" then
+      local ok, setup_err = pcall(spec.setup)
+      if not ok then
+        vim.notify(
+          string.format("[module] Setup failed for '%s': %s", name, setup_err),
+          vim.log.levels.ERROR
+        )
+      end
+    end
+  end
+end
+
+---Introspection
 function M.status()
   local lines = { "# Module Registry", string.rep("─", 50), "" }
 
-  -- Run validation so status reflects current graph health.
-  -- validate() is called here for display only; init.lua calls it
-  -- authoritatively before lazy.setup().
-  local valid, errors = M.validate()
-  if not valid then
-    table.insert(lines, "## ✗ Validation Errors")
-    for _, err in ipairs(errors) do
-      table.insert(lines, string.format("  %s", err))
-    end
-    table.insert(lines, "")
-  else
-    table.insert(lines, "## ✓ Graph valid")
-    table.insert(lines, "")
-  end
-
-  -- Group by domain (previously grouped by feature).
-  -- Domain is the organizational label on the module spec.
-  -- All groups shown here are active - inactive modules are
-  -- not registered and therefore not visible here.
-  -- To see what is *not* loaded, check the manifest in init.lua.
   local by_domain = {}
   for name, spec in pairs(M._registry) do
-    local d = spec.name or "ungrouped"
-    by_domain[d] = by_domain[d] or {}
-    table.insert(by_domain[d], { name = name, spec = spec })
+    by_domain[spec.domain] = by_domain[spec.domain] or {}
+    table.insert(by_domain[spec.domain], { name = name, spec = spec })
   end
 
-  local domain_names = vim.tbl_keys(by_domain)
-  table.sort(domain_names)
+  local domains = vim.tbl_keys(by_domain)
+  table.sort(domains)
 
-  for _, domain in ipairs(domain_names) do
-    local modules = by_domain[domain]
-    table.insert(lines, string.format(
-      "## %s  (%d module%s)",
-      domain,
-      #modules,
-      #modules == 1 and "" or "s"
-    ))
-
-    table.sort(modules, function(a, b) return a.name < b.name end)
-
-    for _, mod in ipairs(modules) do
-      local spec_count = (
-        #mod.spec.display +
-        #mod.spec.articulation +
-        #mod.spec.providers
-      )
-      -- All registered modules are active, so no enabled/disabled icon needed.
-      -- Use the space for something more useful: spec count per category.
-      table.insert(lines, string.format(
-        "  %-30s  %dp %dd %da",
-        mod.name,
-        #mod.spec.providers,
-        #mod.spec.display,
-        #mod.spec.articulation
-      ))
-
-      if #mod.spec.depends_on > 0 then
-        -- Annotate whether each hard dep is satisfied
-        local annotated = {}
-        for _, dep in ipairs(mod.spec.depends_on) do
-          table.insert(annotated, string.format(
-            "%s%s",
-            dep,
-            M._registry[dep] and "" or " ✗ MISSING"
-          ))
-        end
+  for _, domain in ipairs(domains) do
+    table.insert(lines, "## " .. domain)
+    for _, entry in ipairs(by_domain[domain]) do
+      table.insert(lines, string.format("  ✓ %s", entry.name))
+      if #entry.spec.depends_on > 0 then
         table.insert(lines, string.format(
-          "      requires:  %s",
-          table.concat(annotated, ", ")
+          "    depends: %s",
+          table.concat(entry.spec.depends_on, ", ")
         ))
       end
-
-      if #mod.spec.optional_deps > 0 then
-        local annotated = {}
-        for _, dep in ipairs(mod.spec.optional_deps) do
-          table.insert(annotated, string.format(
-            "%s%s",
-            dep,
-            M._registry[dep] and "" or " (absent)"
-          ))
-        end
-        table.insert(lines, string.format(
-          "      optional:  %s",
-          table.concat(annotated, ", ")
-        ))
-      end
+      local plugin_count = vim.tbl_count(entry.spec.plugins)
+      table.insert(lines, string.format("    plugins: %d", plugin_count))
     end
-
     table.insert(lines, "")
-  end
-
-  -- Load order for debugging dependency resolution
-  local order, err = resolve_order()
-  if order then
-    table.insert(lines, "## Load Order")
-    for i, name in ipairs(order) do
-      table.insert(lines, string.format("  %2d. %s", i, name))
-    end
-  else
-    table.insert(lines, string.format(
-      "## Load Order\n  ✗ %s", err
-    ))
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
