@@ -96,14 +96,7 @@ end
 ---@param provider string
 function M.extend(name, extensions, provider)
   if not M._capabilities[name] then
-    vim.notify(
-      string.format(
-        "[capabilities] Cannot extend '%s': not registered yet. " ..
-        "Check module load order or use optional_deps.",
-        name
-      ),
-      vim.log.levels.WARN
-    )
+      M.register(name, extensions, provider)
     return
   end
 
