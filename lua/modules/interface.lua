@@ -107,40 +107,6 @@ return env.module.register({
       },
     },
 
-    -- ["nvim-lualine/lualine.nvim"] = {
-    --   event        = "VeryLazy",
-    --   dependencies = { "nvim-tree/nvim-web-devicons" },
-    --   -- opts intentionally absent: lualine config references env.state
-    --   -- at setup time and must run in setup() where state is available
-    -- },
-
-    -- ["akinsho/bufferline.nvim"] = {
-    --   event        = "VeryLazy",
-    --   dependencies = { "nvim-tree/nvim-web-devicons" },
-    --   opts = {
-    --     options = {
-    --       mode                    = "buffers",
-    --       themable                = true,
-    --       numbers                 = "none",
-    --       diagnostics             = "nvim_lsp",
-    --       diagnostics_indicator   = function(count, level)
-    --         return (level:match("error") and " " or " ") .. count
-    --       end,
-    --       show_buffer_close_icons = false,
-    --       show_close_icon         = false,
-    --       separator_style         = "slant",
-    --       always_show_bufferline  = false,
-    --       offsets = {
-    --         {
-    --           filetype  = "neo-tree",
-    --           text      = "Files",
-    --           highlight = "Directory",
-    --           separator = true,
-    --         },
-    --       },
-    --     },
-    --   },
-    -- },
   },
 
   -- ── Setup ─────────────────────────────────────────────────────────────
@@ -156,30 +122,6 @@ return env.module.register({
       -- calling setup again here is a no-op but makes the apply explicit
     )
     vim.cmd.colorscheme("tokyonight-night")
-
-    -- ── Notifier capability ─────────────────────────────────────────
-    -- env.capabilities.register("notifier", {
-    --   info  = function(msg, o) snacks.notify.info(msg, o)  end,
-    --   warn  = function(msg, o) snacks.notify.warn(msg, o)  end,
-    --   error = function(msg, o) snacks.notify.error(msg, o) end,
-    --   progress = function(token, o)
-    --     snacks.notify.info(token, vim.tbl_extend("force", {
-    --       id      = token,
-    --       timeout = false,
-    --     }, o or {}))
-    --   end,
-    -- }, "interface")
-
-    -- -- Route all vim.notify calls through the notifier capability.
-    -- -- Plugins that call vim.notify directly now go through snacks.
-    -- vim.notify = function(msg, level, o)
-    --   local n = env.capabilities.get("notifier")
-    --   if not n then return end
-    --   if     level == vim.log.levels.ERROR then n.error(msg, o)
-    --   elseif level == vim.log.levels.WARN  then n.warn(msg, o)
-    --   else                                      n.info(msg, o)
-    --   end
-    -- end
 
     -- ── Picker capability ───────────────────────────────────────────
     env.capabilities.register("picker", {
@@ -243,147 +185,28 @@ return env.module.register({
 
     -- No more "hit enter after commands"
     require("vim._core.ui2").enable {
-    enable = true,
-    msg = { -- Options related to the message module.
-        ---@type 'cmd'|'msg' Default message target, either in the
-        ---cmdline or in a separate ephemeral message window.
-        ---@type string|table<string, 'cmd'|'msg'|'pager'> Default message target
-        ---or table mapping |ui-messages| kinds and triggers to a target.
-        targets = "cmd",
-        cmd = { -- Options related to messages in the cmdline window.
-        height = 0.5, -- Maximum height while expanded for messages beyond 'cmdheight'.
+        enable = true,
+        msg = { -- Options related to the message module.
+            ---@type 'cmd'|'msg' Default message target, either in the
+            ---cmdline or in a separate ephemeral message window.
+            ---@type string|table<string, 'cmd'|'msg'|'pager'> Default message target
+            ---or table mapping |ui-messages| kinds and triggers to a target.
+            targets = "cmd",
+            cmd = { -- Options related to messages in the cmdline window.
+                height = 0.5, -- Maximum height while expanded for messages beyond 'cmdheight'.
+            },
+            dialog = { -- Options related to dialog window.
+                height = 0.5, -- Maximum height.
+            },
+            msg = { -- Options related to msg window.
+                height = 0.5, -- Maximum height.
+                timeout = 4000, -- Time a message is visible in the message window.
+            },
+            pager = { -- Options related to message window.
+                height = 0.5, -- Maximum height.
+            },
         },
-        dialog = { -- Options related to dialog window.
-        height = 0.5, -- Maximum height.
-        },
-        msg = { -- Options related to msg window.
-        height = 0.5, -- Maximum height.
-        timeout = 4000, -- Time a message is visible in the message window.
-        },
-        pager = { -- Options related to message window.
-        height = 0.5, -- Maximum height.
-        },
-    },
     }
-
-    env.display.register({
-      id       = "interface.statusline",
-      module   = "interface",
-      region   = "statusline",
-      priority = 100,
-      desc     = "Lualine statusline reading from env.state",
-    })
-
-    -- ── Lualine setup ───────────────────────────────────────────────
-    -- Configured here rather than via opts because component functions
-    -- read from env.state, which is only available after setup() runs.
-
-    -- Helper: read a state key with optional fallback
-    local function s(key, fallback)
-      local v = env.state.get(key)
-      return (v ~= nil) and v or (fallback or "")
-    end
-
-    local function lsp_clients()
-      local servers = env.state.get("lsp.attached_servers")
-      if not servers or #servers == 0 then return "" end
-      return "  " .. table.concat(
-        vim.tbl_map(function(c) return c.name end, servers), " "
-      )
-    end
-
-    local function active_tasks()
-      if not env.module_active("execution") then return "" end
-      local tasks = env.state.get("execution.active_tasks")
-      if not tasks or #tasks == 0 then return "" end
-      return string.format(" %d", #tasks)
-    end
-
-    local function git_branch()
-      local branch = env.state.get("vcs.branch")
-      if not branch or branch == "" then return "" end
-      return "  " .. branch
-    end
-
-    local function diagnostics_summary()
-      local diags = env.state.get("lsp.diagnostics")
-      if not diags then return "" end
-      local e, w = 0, 0
-      for _, d in ipairs(diags) do
-        if     d.severity == vim.diagnostic.severity.ERROR then e = e + 1
-        elseif d.severity == vim.diagnostic.severity.WARN  then w = w + 1
-        end
-      end
-      local parts = {}
-      if e > 0 then table.insert(parts, string.format(" %d", e)) end
-      if w > 0 then table.insert(parts, string.format(" %d", w)) end
-      return table.concat(parts, " ")
-    end
-
-    local function last_task_result()
-      local r = env.state.get("execution.last_result")
-      if not r then return "" end
-      return (r.status == "SUCCESS" and "  " or "  ") .. r.name
-    end
-
-    local function notification_count()
-      local n = env.state.get("interface.notification_count")
-      if not n or n == 0 then return "" end
-      return string.format(" %d", n)
-    end
-
-    -- require("lualine").setup({
-    --   options = {
-    --     theme            = "tokyonight",
-    --     globalstatus     = true,
-    --     section_separators   = { left = "", right = "" },
-    --     component_separators = { left = "", right = "" },
-    --     disabled_filetypes   = {
-    --       statusline = { "dashboard", "alpha", "starter" },
-    --     },
-    --   },
-    --   sections = {
-    --     lualine_a = { "mode" },
-    --     lualine_b = {
-    --       { git_branch,          color = { fg = "#7aa2f7" } },
-    --     },
-    --     lualine_c = {
-    --       { "filename", path = 1, symbols = {
-    --         modified = " ●", readonly = " ", unnamed = "[No Name]",
-    --       }},
-    --     },
-    --     lualine_x = {
-    --       { diagnostics_summary, color = { fg = "#f7768e" } },
-    --       { lsp_clients,         color = { fg = "#9ece6a" } },
-    --       { active_tasks,        color = { fg = "#e0af68" } },
-    --       { last_task_result,    color = { fg = "#e0af68" } },
-    --     },
-    --     lualine_y = { "filetype" },
-    --     lualine_z = {
-    --       { "location" },
-    --       { notification_count,  color = { fg = "#bb9af7" } },
-    --     },
-    --   },
-    --   inactive_sections = {
-    --     lualine_c = { "filename" },
-    --     lualine_x = { "location" },
-    --   },
-    --   winbar = {
-    --     lualine_c = {
-    --       {
-    --         function()
-    --           local sym = env.state.get("lsp.current_symbol")
-    --           if sym and sym ~= "" then return sym end
-    --           return s("buffer.path"):gsub(vim.fn.getcwd() .. "/", "")
-    --         end,
-    --         color = { fg = "#737aa2" },
-    --       },
-    --     },
-    --   },
-    --   inactive_winbar = {
-    --     lualine_c = { { "filename", color = { fg = "#737aa2" } } },
-    --   },
-    -- })
 
     -- ── Articulation ────────────────────────────────────────────────
     env.articulation.register_group("interface", {
