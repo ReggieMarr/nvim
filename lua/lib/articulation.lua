@@ -18,6 +18,20 @@ M._actions   = {}
 ---@type table<string, string> maps "mode:lhs[@bufnr]" -> action_id for conflict detection
 M._bindings  = {}
 
+---Convert a fully qualified action id to a valid user command name.
+---"interface.find_buffers" -> "InterfaceFindBuffers"
+---"filesystem.toggle_tree" -> "FilesystemToggleTree"
+---@param id string
+---@return string
+local function id_to_cmd_name(id)
+  local result = id
+    -- Replace dots and underscores with a marker, capitalize next char
+    :gsub("[%._](%a)", function(c) return c:upper() end)
+    -- Capitalize the very first character
+    :gsub("^%a", string.upper)
+  return result
+end
+
 ---@class Action
 ---@field id string Stable dot-namespaced identifier e.g. "navigation.find_files"
 ---@field handler fun(params?: table) The operation to perform
@@ -36,7 +50,7 @@ M._bindings  = {}
 ---@param spec Action
 function M.register(spec)
   vim.validate({
-    id      = { spec.id, "string" },
+    id      = { spec.module .. "." .. spec.id, "string" },
     handler = { spec.handler, "function" },
     desc    = { spec.desc, "string" },
     module  = { spec.module, "string" },
@@ -68,13 +82,8 @@ function M.register(spec)
     end
   end
 
-  -- Also expose as a user command using the id with dots replaced
-  -- "navigation.find_files" -> :NavFindFiles (PascalCase from dot-path)
-  local cmd_name = spec.id
-    :gsub("(%a)([%w_']*)", function(first, rest)
-      return first:upper() .. rest
-    end)
-    :gsub("%.", "")
+  -- Derive command name from fully qualified id
+  local cmd_name = id_to_cmd_name(spec.id)
 
   local ok = pcall(vim.api.nvim_create_user_command, cmd_name, function()
     M.execute(spec.id)

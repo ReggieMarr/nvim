@@ -39,7 +39,7 @@ return env.module.register({
           },
         },
         notifier = {
-          enabled  = true,
+          enabled  = false,
           timeout  = 3000,
           sort     = { "level", "added" },
           level    = vim.log.levels.TRACE,
@@ -48,7 +48,7 @@ return env.module.register({
         },
         input    = { enabled = true },
         indent   = {
-          enabled = true,
+          enabled = false,
           animate = { enabled = false },
           scope   = { enabled = true },
         },
@@ -56,20 +56,16 @@ return env.module.register({
         words     = { enabled = true },
         bigfile   = { enabled = true, size = 1.5 * 1024 * 1024 },
         scratch   = { enabled = true },
-        dashboard = {
-          enabled  = true,
-          sections = {
-            { section = "header" },
-            { section = "keys",         gap = 1, padding = 1 },
-            { section = "recent_files", gap = 1, padding = 1 },
-            { section = "startup" },
-          },
-        },
+        dashboard = { enabled  = false },
         -- Explicitly disable snacks modules owned by other modules
         terminal = { enabled = false }, -- execution module
         zen      = { enabled = false },
         animate  = { enabled = false },
       },
+    },
+
+    ["nvim-mini/mini.sessions"] = {
+        version = false,
     },
 
     ["folke/tokyonight.nvim"] = {
@@ -126,39 +122,39 @@ return env.module.register({
     -- ── Picker capability ───────────────────────────────────────────
     env.capabilities.register("picker", {
       files    = function(o) snacks.picker.files(o)    end,
-      grep     = function(o) snacks.picker.grep(o)     end,
+      -- grep     = function(o) snacks.picker.grep(o)     end,
       buffers  = function(o) snacks.picker.buffers(o)  end,
-      keymaps  = function(o) snacks.picker.keymaps(o)  end,
-      commands = function(o) snacks.picker.commands(o) end,
+      -- keymaps  = function(o) snacks.picker.keymaps(o)  end,
+      -- commands = function(o) snacks.picker.commands(o) end,
     }, "interface")
 
-    -- Extend picker with interface-level finders
-    env.capabilities.extend("picker", {
-      help          = function(o) snacks.picker.help(o)          end,
-      notifications = function(o) snacks.picker.notifications(o) end,
-      recent        = function(o) snacks.picker.recent(o)        end,
-      colorschemes  = function(o) snacks.picker.colorschemes(o)  end,
-    }, "interface")
+    -- -- Extend picker with interface-level finders
+    -- env.capabilities.extend("picker", {
+    --   help          = function(o) snacks.picker.help(o)          end,
+    --   notifications = function(o) snacks.picker.notifications(o) end,
+    --   recent        = function(o) snacks.picker.recent(o)        end,
+    --   colorschemes  = function(o) snacks.picker.colorschemes(o)  end,
+    -- }, "interface")
 
     -- ── State providers ─────────────────────────────────────────────
-    env.state.register_provider({
-      id      = "interface.notification_count",
-      events  = { "User" },
-      pattern = "SnacksNotifierUpdated",
-      collect = function()
-        return #snacks.notifier.get_history()
-      end,
-      desc = "Number of notifications in snacks history",
-    })
+    -- env.state.register_provider({
+    --   id      = "interface.notification_count",
+    --   events  = { "User" },
+    --   pattern = "SnacksNotifierUpdated",
+    --   collect = function()
+    --     return #snacks.notifier.get_history()
+    --   end,
+    --   desc = "Number of notifications in snacks history",
+    -- })
 
-    -- ── Display contributions ───────────────────────────────────────
-    env.display.register({
-      id       = "interface.notifications",
-      module   = "interface",
-      region   = "notification",
-      priority = 100,
-      desc     = "Snacks notification overlay",
-    })
+    -- -- ── Display contributions ───────────────────────────────────────
+    -- env.display.register({
+    --   id       = "interface.notifications",
+    --   module   = "interface",
+    --   region   = "notification",
+    --   priority = 100,
+    --   desc     = "Snacks notification overlay",
+    -- })
 
     env.display.register({
       id       = "interface.indent_guides",
@@ -183,114 +179,159 @@ return env.module.register({
       end,
     })
 
+    -- Experimental UI2: floating cmdline and messages
     -- No more "hit enter after commands"
-    require("vim._core.ui2").enable {
+    vim.o.cmdheight = 1
+    require("vim._core.ui2").enable({
         enable = true,
-        msg = { -- Options related to the message module.
-            ---@type 'cmd'|'msg' Default message target, either in the
-            ---cmdline or in a separate ephemeral message window.
-            ---@type string|table<string, 'cmd'|'msg'|'pager'> Default message target
-            ---or table mapping |ui-messages| kinds and triggers to a target.
-            targets = "cmd",
-            cmd = { -- Options related to messages in the cmdline window.
-                height = 0.5, -- Maximum height while expanded for messages beyond 'cmdheight'.
+        msg = {
+            targets = {
+                [""] = "msg",
+                empty = "cmd",
+                bufwrite = "msg",
+                confirm = "cmd",
+                emsg = "pager",
+                echo = "msg",
+                echomsg = "msg",
+                echoerr = "pager",
+                completion = "cmd",
+                list_cmd = "pager",
+                lua_error = "pager",
+                lua_print = "msg",
+                progress = "pager",
+                rpc_error = "pager",
+                quickfix = "msg",
+                search_cmd = "cmd",
+                search_count = "cmd",
+                shell_cmd = "pager",
+                shell_err = "pager",
+                shell_out = "pager",
+                shell_ret = "msg",
+                undo = "msg",
+                verbose = "pager",
+                wildlist = "cmd",
+                wmsg = "msg",
+                typed_cmd = "cmd",
             },
-            dialog = { -- Options related to dialog window.
-                height = 0.5, -- Maximum height.
+            cmd = {
+                height = 0.5,
             },
-            msg = { -- Options related to msg window.
-                height = 0.5, -- Maximum height.
-                timeout = 4000, -- Time a message is visible in the message window.
+            dialog = {
+                height = 0.5,
             },
-            pager = { -- Options related to message window.
-                height = 0.5, -- Maximum height.
+            msg = {
+                height = 0.3,
+                timeout = 5000,
+            },
+            pager = {
+                height = 0.5,
             },
         },
-    }
+    })
 
+    -- Customize the style of the notification window
+    vim.api.nvim_create_autocmd("FileType", {
+        pattern = "msg",
+        callback = function()
+            local ui2 = require("vim._core.ui2")
+            local win = ui2.wins and ui2.wins.msg
+            if win and vim.api.nvim_win_is_valid(win) then
+                vim.api.nvim_set_option_value(
+                    "winhighlight",
+                    "Normal:NormalFloat,FloatBorder:FloatBorder",
+                    { scope = "local", win = win }
+                )
+            end
+        end,
+    })
+
+    local ui2 = require("vim._core.ui2")
+    local msgs = require("vim._core.ui2.messages")
+    local orig_set_pos = msgs.set_pos
+    -- Set position to top right corner
+    msgs.set_pos = function(tgt)
+        orig_set_pos(tgt)
+        if (tgt == "msg" or tgt == nil) and vim.api.nvim_win_is_valid(ui2.wins.msg) then
+            pcall(vim.api.nvim_win_set_config, ui2.wins.msg, {
+                relative = "editor",
+                anchor = "NE",
+                row = 1,
+                col = vim.o.columns - 1,
+                border = "rounded",
+            })
+        end
+    end
+
+    require("mini.sessions").setup()
     -- ── Articulation ────────────────────────────────────────────────
     env.articulation.register_group("interface", {
+      {
+        id       = "restart", -- TODO this shouldn't go here
+        handler  = function() MiniSessions.restart() end,
+        desc     = "restart the current session",
+        bindings = { { lhs = "<leader>R" } },
+      },
 
       -- Buffer management
       {
-        id       = "interface.find_buffers",
+        id       = "find_buffers",
         handler  = function() env.use("picker").buffers() end,
         desc     = "Find open buffers",
         bindings = { { lhs = "<leader>bb" } },
       },
       {
-        id       = "interface.close_buffer",
+        id       = "close_buffer",
         handler  = function() snacks.bufdelete() end,
         desc     = "Close current buffer",
         bindings = { { lhs = "<leader>bd" } },
         when     = function(state) return state["buffer.is_real"] == true end,
       },
       {
-        id       = "interface.close_other_buffers",
+        id       = "close_other_buffers",
         handler  = function() snacks.bufdelete.other() end,
         desc     = "Close all other buffers",
         bindings = { { lhs = "<leader>bo" } },
       },
       {
-        id       = "interface.next_buffer",
+        id       = "next_buffer",
         handler  = function() vim.cmd("bnext") end,
         desc     = "Next buffer",
         bindings = { { lhs = "]b" } },
       },
       {
-        id       = "interface.prev_buffer",
+        id       = "prev_buffer",
         handler  = function() vim.cmd("bprevious") end,
         desc     = "Previous buffer",
         bindings = { { lhs = "[b" } },
       },
       {
-        id       = "interface.scratch_buffer",
+        id       = "scratch_buffer",
         handler  = function() snacks.scratch() end,
         desc     = "Open scratch buffer",
         bindings = { { lhs = "<leader>bs" } },
       },
 
-      -- Find / picker
+      -- Basic introspection
       {
-        id       = "interface.find_files",
-        handler  = function() env.use("picker").files() end,
-        desc     = "Find files",
-        bindings = { { lhs = "<leader>ff" } },
-        when     = function(state) return state["workspace.cwd"] ~= nil end,
-      },
-      {
-        id       = "interface.grep",
-        handler  = function() env.use("picker").grep() end,
-        desc     = "Grep project",
-        bindings = { { lhs = "<leader>fg" } },
-        when     = function(state) return state["workspace.cwd"] ~= nil end,
-      },
-      {
-        id       = "interface.find_recent",
-        handler  = function() env.use("picker").recent() end,
-        desc     = "Recent files",
-        bindings = { { lhs = "<leader>fr" } },
-      },
-      {
-        id       = "interface.find_keymaps",
+        id       = "find_keymaps",
         handler  = function() env.use("picker").keymaps() end,
         desc     = "Find keymaps",
         bindings = { { lhs = "<leader>fk" } },
       },
       {
-        id       = "interface.find_commands",
+        id       = "find_commands",
         handler  = function() env.use("picker").commands() end,
         desc     = "Find commands",
         bindings = { { lhs = "<leader>fC" } },
       },
       {
-        id       = "interface.find_help",
+        id       = "find_help",
         handler  = function() env.use("picker").help() end,
         desc     = "Find help tags",
         bindings = { { lhs = "<leader>fh" } },
       },
       {
-        id       = "interface.find_notifications",
+        id       = "find_notifications",
         handler  = function() env.use("picker").notifications() end,
         desc     = "Find notification history",
         bindings = { { lhs = "<leader>fn" } },
@@ -298,7 +339,7 @@ return env.module.register({
 
       -- UI toggles
       {
-        id       = "interface.toggle_diagnostics",
+        id       = "toggle_diagnostics",
         handler  = function()
           vim.diagnostic.enable(not vim.diagnostic.is_enabled())
         end,
@@ -306,7 +347,7 @@ return env.module.register({
         bindings = { { lhs = "<leader>ud" } },
       },
       {
-        id       = "interface.toggle_line_numbers",
+        id       = "toggle_line_numbers",
         handler  = function()
           vim.opt.number         = not vim.opt.number:get()
           vim.opt.relativenumber = not vim.opt.relativenumber:get()
@@ -315,19 +356,19 @@ return env.module.register({
         bindings = { { lhs = "<leader>ul" } },
       },
       {
-        id       = "interface.toggle_word_highlights",
+        id       = "toggle_word_highlights",
         handler  = function() snacks.words.toggle() end,
         desc     = "Toggle word highlights",
         bindings = { { lhs = "<leader>uw" } },
       },
       {
-        id       = "interface.toggle_indent_guides",
+        id       = "toggle_indent_guides",
         handler  = function() snacks.indent.toggle() end,
         desc     = "Toggle indent guides",
         bindings = { { lhs = "<leader>ui" } },
       },
       {
-        id       = "interface.zoom_window",
+        id       = "zoom_window",
         handler  = function() snacks.zen.zoom() end,
         desc     = "Zoom current window",
         bindings = { { lhs = "<leader>uz" } },
@@ -335,7 +376,7 @@ return env.module.register({
 
       -- Config inspection
       {
-        id       = "interface.find_in_config",
+        id       = "find_in_config",
         handler  = function()
           env.use("picker").files({
             cwd   = vim.fn.stdpath("config"),
@@ -346,7 +387,7 @@ return env.module.register({
         bindings = { { lhs = "<leader>cc" } },
       },
       {
-        id       = "interface.grep_config",
+        id       = "grep_config",
         handler  = function()
           env.use("picker").grep({
             cwd   = vim.fn.stdpath("config"),
@@ -357,19 +398,19 @@ return env.module.register({
         bindings = { { lhs = "<leader>cg" } },
       },
       {
-        id       = "interface.config_status",
+        id       = "config_status",
         handler  = function() vim.cmd("ConfigStatus") end,
         desc     = "Open config status",
         bindings = { { lhs = "<leader>cs" } },
       },
       {
-        id       = "interface.config_status_state",
+        id       = "config_status_state",
         handler  = function() vim.cmd("ConfigStatus state") end,
         desc     = "Inspect environment state",
         bindings = { { lhs = "<leader>cS" } },
       },
       {
-        id       = "interface.lazy",
+        id       = "lazy",
         handler  = function() require("lazy").home() end,
         desc     = "Open lazy plugin manager",
         bindings = { { lhs = "<leader>cl" } },

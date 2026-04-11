@@ -238,24 +238,34 @@ keys.register_group("<leader>w", "write",   "n")
 keys.map_group("base", {
   -- ── Window navigation ───────────────────────────────────────────────
   {
-    lhs  = "<C-h>",
+    lhs  = "<leader>wh",
     rhs  = "<C-w>h",
     desc = "Move to left window",
   },
   {
-    lhs  = "<C-j>",
+    lhs  = "<leader>wj",
     rhs  = "<C-w>j",
     desc = "Move to lower window",
   },
   {
-    lhs  = "<C-k>",
+    lhs  = "<leader>wk",
     rhs  = "<C-w>k",
     desc = "Move to upper window",
   },
   {
-    lhs  = "<C-l>",
+    lhs  = "<leader>wl",
     rhs  = "<C-w>l",
     desc = "Move to right window",
+  },
+  {
+    lhs  = "<leader>wv",
+    rhs  = "<cmd>vsplit<cr>",
+    desc = "Vertical Split Window",
+  },
+  {
+    lhs  = "<leader>ws",
+    rhs  = "<cmd>split<cr>",
+    desc = "Horizontal Split Window",
   },
 
   -- ── Window repositioning ──────────────────────────────────────────────
@@ -278,6 +288,16 @@ keys.map_group("base", {
     lhs  = "<leader>L",
     rhs  = "<C-w>L",
     desc = "Move window right",
+  },
+  {
+    lhs  = "<leader>wd",
+    rhs  = "<C-w>c",
+    desc = "Delete window",
+  },
+  {
+    lhs  = "<leader>wo",
+    rhs  = "<C-w>o",
+    desc = "Delete other window",
   },
 
   -- ── Buffer management ───────────────────────────────────────────────
