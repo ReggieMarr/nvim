@@ -281,9 +281,11 @@ return env.module.register({
       -- File finding: extend the find group with filesystem-specific pickers
       {
         id       = "find_files",
-        handler  = function()
-            vim.cmd("Pick files")
-        end,
+        -- handler  = function()
+        --     vim.cmd("Pick files")
+        -- end,
+
+        handler  = function() env.use("picker").files() end,
         desc     = "Find files",
         bindings = { { lhs = "<leader>ff" } },
         when     = function(state) return state["workspace.cwd"] ~= nil end,

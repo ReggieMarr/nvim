@@ -6,48 +6,207 @@
 --   picker    — unified fuzzy finding via snacks.picker
 --
 -- Domain: interface
-local function make_finder(cwd)
-  ---@param opts snacks.picker.files.Config
-  ---@param ctx snacks.picker.Context
-  return function(opts, ctx)
-    opts = Snacks.picker.util.shallow_copy(opts)
-    opts.cmd = 'fd'
-    opts.cwd = cwd
-    opts.dirs = { cwd }
-    opts.notify = false
-    opts.hidden = true
-    opts.args = {
-      '--max-depth',
-      '1',
-      '--type',
-      'd',
-      '--path-separator',
-      '/',
-    }
-    local fd_stream = require('snacks.picker.source.files').files(opts, ctx)
-    return function(cb)
-      -- inject the current directory as the first item
-      cb {
-        file = cwd,
-        text = './',
-        dir = true,
-        is_cwd = true, -- flag so confirm can identify it
-        sort = ' ', -- space sorts before '!' so it appears first
-      }
-      fd_stream(function(item)
-        local is_dir = item.file:sub(-1) == '/'
-        if is_dir then
-          item.file = item.file:sub(1, -2)
-          item.dir = true
-        end
-        local basename = item.file:match '[^/]+$' or item.file
-        item.text = is_dir and (basename .. '/') or basename
-        item.hidden = basename:sub(1, 1) == '.'
-        item.sort = is_dir and ('!' .. basename) or ('#' .. basename)
-        cb(item)
-      end)
+
+-- Format bytes into human readable string
+local function format_size(bytes)
+  if bytes < 1024 then return string.format('%dB', bytes) end
+  if bytes < 1024 * 1024 then return string.format('%.1fK', bytes / 1024) end
+  if bytes < 1024 * 1024 * 1024 then return string.format('%.1fM', bytes / (1024 * 1024)) end
+  return string.format('%.1fG', bytes / (1024 * 1024 * 1024))
+end
+
+-- Format unix timestamp → "MMM DD HH:MM" like ls -l
+local function format_time(ts)
+  return os.date('%b %d %H:%M', ts)
+end
+
+-- Format permissions bits like rwxr-xr-x
+local function format_permissions(mode)
+  -- mode is the st_mode from uv.fs_stat, extract lower 12 bits
+  local m = mode % 4096
+  local chars = {}
+  local bits = { 256, 128, 64, 32, 16, 8, 4, 2, 1 }
+  local labels = { 'r', 'w', 'x', 'r', 'w', 'x', 'r', 'w', 'x' }
+  for i, bit in ipairs(bits) do
+    table.insert(chars, (m % (bit * 2) >= bit) and labels[i] or '-')
+  end
+  return table.concat(chars)
+end
+
+-- Get icon + highlight group for an item
+local function get_icon(item)
+  local devicons = require('nvim-web-devicons')
+  if item.is_cwd then
+    return '', 'MiniPickNormal'
+  end
+  if item.is_dir then
+    return '', 'Directory' -- nerd font folder icon
+  end
+  local ext = item.path:match('%.([^.]+)$') or ''
+  local icon, hl = devicons.get_icon(vim.fn.fnamemodify(item.path, ':t'), ext, { default = true })
+  return icon or '', hl or 'MiniPickNormal'
+end
+
+-- Enrich an item with stat metadata
+local function enrich_item(item)
+  if item.is_cwd then
+    item.icon, item.icon_hl = '', 'MiniPickNormal'
+    item.permissions = '---------'
+    item.size_str = '-'
+    item.time_str = '-'
+    return item
+  end
+
+  local stat = vim.uv.fs_stat(item.path)
+  item.icon, item.icon_hl = get_icon(item)
+
+  if stat then
+    item.permissions = format_permissions(stat.mode)
+    item.size_str = item.is_dir and '-' or format_size(stat.size)
+    item.time_str = format_time(stat.mtime.sec)
+  else
+    item.permissions = '---------'
+    item.size_str = '?'
+    item.time_str = '?'
+  end
+
+  return item
+end
+
+-- Build the display columns, returning line string + highlight regions
+-- Format: <icon> <perms> <size> <time>  <name>
+local function format_item_line(item, name_col_start)
+  local icon = item.icon or ''
+  local perms = item.permissions or '---------'
+  local size = item.size_str or '-'
+  local time = item.time_str or '-'
+  local name = item.text or ''
+
+  -- Fixed width columns
+  -- icon(2) + perms(9) + size(7) + time(12) + name
+  local line = string.format(
+    '%s %-9s %6s  %-12s  %s',
+    icon,
+    perms,
+    size,
+    time,
+    name
+  )
+  return line
+end
+
+-- Calculate where the name column starts (constant, based on format)
+-- icon(1+1space) + perms(9+1space) + size(6+2space) + time(12+2space) = 34
+local NAME_COL = 2 + 1 + 9 + 1 + 6 + 2 + 12 + 2  -- = 35
+
+local function custom_show(buf_id, items_to_show, query)
+  local ns = vim.api.nvim_create_namespace('mini_pick_filebrowser')
+  vim.api.nvim_buf_clear_namespace(buf_id, ns, 0, -1)
+
+  local lines = {}
+  for _, item in ipairs(items_to_show) do
+    table.insert(lines, format_item_line(item))
+  end
+
+  vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
+
+  -- Now apply highlights per line
+  for i, item in ipairs(items_to_show) do
+    local row = i - 1
+
+    -- Icon highlight
+    if item.icon_hl then
+      vim.api.nvim_buf_add_highlight(buf_id, ns, item.icon_hl, row, 0, 3)
+    end
+
+    -- Permissions highlight
+    vim.api.nvim_buf_add_highlight(
+      buf_id, ns, 'Comment', row, 3, 3 + 9
+    )
+
+    -- Size highlight
+    vim.api.nvim_buf_add_highlight(
+      buf_id, ns, 'Number', row, 13, 13 + 6
+    )
+
+    -- Time highlight
+    vim.api.nvim_buf_add_highlight(
+      buf_id, ns, 'Special', row, 21, 21 + 12
+    )
+
+    -- Name highlight: dirs blue, files normal
+    local name_hl = item.is_dir and 'Directory' or 'MiniPickNormal'
+    vim.api.nvim_buf_add_highlight(
+      buf_id, ns, name_hl, row, NAME_COL, -1
+    )
+
+    -- Also highlight matching chars in the name portion only
+    -- Re-run mini.pick's default match highlight but offset to name column
+    local stritem = item.text or ''
+    for _, query_char in ipairs(query) do
+      local s, e = stritem:find(vim.pesc(query_char), 1, true)
+      if s then
+        vim.api.nvim_buf_add_highlight(
+          buf_id, ns, 'MiniPickMatchCurrent',
+          row,
+          NAME_COL + s - 1,
+          NAME_COL + e
+        )
+      end
     end
   end
+end
+
+-- Get directory entries, injecting './' as first item
+local function get_entries(cwd, show_hidden)
+  local items = {}
+
+  table.insert(items, enrich_item({
+    text = './',
+    path = cwd,
+    is_cwd = true,
+    is_dir = true,
+  }))
+
+  local entries = vim.fn.readdir(cwd)
+  local dirs = {}
+  local files = {}
+
+  for _, name in ipairs(entries) do
+    if show_hidden or name:sub(1, 1) ~= '.' then
+      local full_path = cwd .. '/' .. name
+      local is_dir = vim.fn.isdirectory(full_path) == 1
+      local item = enrich_item({
+        text = is_dir and (name .. '/') or name,
+        path = full_path,
+        is_dir = is_dir,
+        is_cwd = false,
+      })
+      if is_dir then
+        table.insert(dirs, item)
+      else
+        table.insert(files, item)
+      end
+    end
+  end
+
+  local alpha = function(a, b)
+    return a.text:lower() < b.text:lower()
+  end
+  table.sort(dirs, alpha)
+  table.sort(files, alpha)
+
+  for _, item in ipairs(dirs) do table.insert(items, item) end
+  for _, item in ipairs(files) do table.insert(items, item) end
+
+  return items
+end
+
+
+local function open_neotree(path)
+  vim.schedule(function()
+    vim.cmd(('Neotree dir=%s reveal position=current'):format(vim.fn.fnameescape(path)))
+  end)
 end
 
 local function create_file(path)
@@ -70,161 +229,186 @@ local function create_directory(path)
   return true
 end
 
-local function find_file_at(cwd)
-  -- navigate into dir, re-using the picker instance
-  local function navigate_to(picker, dir)
-    cwd = vim.fn.resolve(dir)
-    picker.opts.title = 'Find: ' .. vim.fn.fnamemodify(cwd, ':~')
-    picker.opts.finder = make_finder(cwd)
-    picker.opts.cwd = cwd
-    picker.input:set ''
-    picker:find()
+local function find_file_at(cwd, show_hidden)
+  cwd = vim.fn.resolve(vim.fn.expand(cwd or vim.fn.getcwd()))
+  show_hidden = show_hidden or false
+  local MiniPick = require('mini.pick')
+
+  -- Restart picker at a new directory
+  local function navigate_to(dir)
+    MiniPick.stop()
+    vim.schedule(function()
+      find_file_at(dir, show_hidden)
+    end)
   end
 
-  -- navigate to parent of current cwd
-  local function navigate_up(picker)
+  local function navigate_up()
     local parent = vim.fn.fnamemodify(cwd, ':h')
-    if parent ~= cwd then -- guard against filesystem root
-      navigate_to(picker, parent)
+    if parent ~= cwd then
+      navigate_to(parent)
     end
   end
-  -- open neo-tree at cwd
-  local function open_neotree(picker)
-    picker:close()
-    vim.schedule(
-      function() vim.cmd(('Neotree dir=%s reveal position=current'):format(vim.fn.fnameescape(cwd))) end
-    )
-  end
 
-  -- TODO make this it's own picker module
-  Snacks.picker.pick {
-    title = 'Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
-    finder = make_finder(cwd),
+  MiniPick.start({
+    source = {
+      name = 'Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
+      cwd = cwd,
+      items = get_entries(cwd, show_hidden),
+      show = custom_show,
 
-    -- text is now basename only → fuzzy match is scoped to current level
-    -- this is exactly the vertico find-file behaviour
-    format = 'file',
-    formatters = { file = { filename_only = true } },
-    actions = {
-      yank_relative_cwd = function(_, item)
-        local path = vim.fn.fnamemodify(item.file, ':.')
-        vim.fn.setreg('+', path)
-        vim.fn.setreg('"', path)
-        vim.notify('Yanked: ' .. path)
+      choose = function(item)
+        if not item then return end
+
+        -- Current dir item → open neotree
+        if item.is_cwd then
+          open_neotree(cwd)
+          return
+        end
+
+        -- Directory → navigate into it
+        if item.is_dir then
+          navigate_to(item.path)
+          return
+        end
+
+        -- File → open it in target window
+        local target_win = MiniPick.get_picker_state().windows.target
+        vim.api.nvim_win_call(target_win, function()
+          vim.cmd.edit(item.path)
+        end)
       end,
-      yank_relative_home = function(_, item)
-        local path = vim.fn.fnamemodify(item.file, ':~')
-        vim.fn.setreg('+', path)
-        vim.fn.setreg('"', path)
-        vim.notify('Yanked: ' .. path)
-      end,
-      -- DWIM backspace: no input → navigate up, else delete char
-      dwim_backspace = function(picker)
-        local search = picker.input:get() or ''
-        print('backspace with ' .. search)
-        if search == '' then
-          local cwd = vim.fn.resolve(vim.fn.expand(cwd))
-          print('find file at ' .. cwd .. ' parent ' .. vim.fs.dirname(cwd))
-          find_file_at(vim.fs.dirname(cwd))
+
+      preview = function(buf_id, item)
+        if not item then return end
+        if item.is_dir then
+          -- Show directory listing as preview
+          local entries = vim.fn.readdir(item.path)
+          local lines = {}
+          for _, name in ipairs(entries) do
+            local full = item.path .. '/' .. name
+            local suffix = vim.fn.isdirectory(full) == 1 and '/' or ''
+            table.insert(lines, name .. suffix)
+          end
+          table.sort(lines)
+          vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
         else
-          -- delegate to the built-in backspace behaviour
-          vim.api.nvim_feedkeys(
-            vim.api.nvim_replace_termcodes('<BS>', true, false, true),
-            'n',
-            false
-          )
+          -- Default file preview
+          MiniPick.default_preview(buf_id, item)
         end
       end,
     },
 
-    confirm = function(picker, item)
-        local search = picker.input:get() or ''
-
-        print(vim.inspect(item))
-        -- no input at all → open neotree
-        if search == '' and not item then
-            open_neotree(picker)
-            return
-        end
-
-        -- ↓ new: selected the "./" current directory item → open neotree
-        if item and item.is_cwd then
-            open_neotree(picker)
-            return
-        end
-
-        -- item exists and is a directory → navigate into it
-        if item and item.dir then
-            cwd = item.file
-            find_file_at(cwd)
-            return
-        end
-
-        -- item exists and is a file → open it
-        if item and not item.dir then
-            picker:close()
-            vim.schedule(function() vim.cmd.edit(item.file) end)
-            return
-        end
-
-        -- no matching item but there is input → vertico-style create
-        if search ~= '' and not item then
-            local target = cwd .. '/' .. search
-            picker:close()
-            vim.schedule(function()
-            if search:match '%.[^./]+$' ~= nil then
-                if create_file(target) then vim.cmd.edit(target) end
-            else
-                if create_directory(target) then find_file_at(target) end
-            end
-            end)
-            return
-        end
-    end,
-    win = {
-      input = {
-        keys = {
-          ['<Tab>'] = { 'confirm', mode = { 'n', 'i' } },
-          ['<a-j>'] = { 'list_down', mode = { 'n' } },
-          ['<a-k>'] = { 'list_up', mode = { 'n' } },
-          ['<BS>'] = { 'dwim_backspace', mode = { 'n', 'i' } },
-          ['h'] = { 'dwim_backspace', mode = { 'n' } },
-          ['<c-p>'] = { 'toggle_preview', mode = { 'n', 'i' } },
-          ['<c-h>'] = { 'toggle_hidden', mode = { 'n', 'i' } },
-          ['l'] = { 'confirm', mode = { 'n' } },
-          ['<c-ESC>'] = { 'focus_list', mode = { 'n', 'i' } },
-          ['<ESC>'] = { 'close', mode = { 'n' } },
-        },
+    mappings = {
+      -- NOTE we need to disable the built-in first otherwise we'll get a warning
+      delete_char = '',
+      -- Backspace: go up if query empty, else delete char
+      dwim_backspace = {
+        char = '<BS>',
+        func = function()
+          local query = MiniPick.get_picker_query()
+          if #query == 0 then
+            navigate_up()
+          else
+            -- Remove last character from query
+            local new_query = vim.list_slice(query, 1, #query - 1)
+            MiniPick.set_picker_query(new_query)
+          end
+        end,
       },
-      list = {
-        keys = {
-          ['.'] = 'explorer_focus',
-          ['<BS>'] = 'explorer_up',
-          ['<space>'] = 'select_and_next',
-          ['<Tab>'] = { 'confirm', mode = { 'n', 'i' } },
-          ['<a-j>'] = { 'list_down', mode = { 'n' } },
-          ['<a-k>'] = { 'list_up', mode = { 'n' } },
-          ['a'] = 'explorer_add',
-          ['<c-h>'] = { 'toggle_hidden', mode = { 'n', 'i' } },
-          ['c'] = 'explorer_copy',
-          ['d'] = 'explorer_del',
-          ['l'] = 'explorer_focus',
-          ['h'] = { 'explorer_up', mode = { 'n' } },
-          ['i'] = { 'focus_input', mode = { 'n' } },
-          ['m'] = 'explorer_move',
-          ['r'] = 'explorer_rename',
-          ['<c-o>'] = 'explorer_yank',
-          ['y'] = 'yank_relative_cwd',
-          ['Y'] = 'yank_relative_home',
-        },
+
+      move_down = '',
+      -- Tab: navigate into selected dir (or open file)
+      navigate_in = {
+        char = '<Tab>',
+        func = function()
+          local item = MiniPick.get_picker_matches().current
+          if not item then return end
+
+          if item.is_cwd then
+            MiniPick.stop()
+            open_neotree(cwd)
+            return true
+          end
+
+          if item.is_dir then
+            navigate_to(item.path)
+            return true
+          end
+
+          -- File: just choose it (same as <CR>)
+          local target_win = MiniPick.get_picker_state().windows.target
+          MiniPick.stop()
+          vim.api.nvim_win_call(target_win, function()
+            vim.cmd.edit(item.path)
+          end)
+          return true
+        end,
+      },
+
+      -- Toggle hidden files
+      scroll_left = '',
+      toggle_hidden = {
+        char = '<C-h>',
+        func = function()
+          show_hidden = not show_hidden
+          MiniPick.set_picker_items(get_entries(cwd, show_hidden))
+        end,
+      },
+
+      -- Create file/directory from current query (vertico-style)
+      create = {
+        char = '<C-n>',
+        func = function()
+          local query = table.concat(MiniPick.get_picker_query())
+          if query == '' then return end
+
+          local target = cwd .. '/' .. query
+          MiniPick.stop()
+          vim.schedule(function()
+            if query:match('%.[^./]+$') ~= nil then
+              -- Has extension → create file and open
+              if create_file(target) then
+                vim.cmd.edit(target)
+              end
+            else
+              -- No extension → create directory and navigate into it
+              if create_directory(target) then
+                find_file_at(target, show_hidden)
+              end
+            end
+          end)
+          return true
+        end,
+      },
+
+      -- Disable built-in that typically uses C-t
+      choose_in_tabpage = '',
+      -- Open neotree at cwd
+      open_neotree = {
+        char = '<C-t>',
+        func = function()
+          MiniPick.stop()
+          open_neotree(cwd)
+          return true
+        end,
       },
     },
 
-    layout = { preset = 'default', preview = false },
-    focus = 'input',
-  }
+    window = {
+      config = function()
+        local height = math.floor(0.618 * vim.o.lines)
+        local width = math.floor(0.618 * vim.o.columns)
+        return {
+          anchor = 'NW',
+          height = height,
+          width = width,
+          row = math.floor(0.5 * (vim.o.lines - height)),
+          col = math.floor(0.5 * (vim.o.columns - width)),
+        }
+      end,
+    },
+  })
 end
-
 
 local env = require("env")
 
