@@ -1,5 +1,6 @@
 -- lua/lib/module.lua
 
+---@class ModuleLib
 local M = {}
 
 M._registry = {}
@@ -13,20 +14,17 @@ M._registry = {}
 ---@field setup fun() Called after plugins are loaded
 
 function M.register(spec)
-  vim.validate({
-    name   = { spec.name,   "string" },
-    domain = { spec.domain, "string" },
-  })
+  vim.validate {
+    name = { spec.name, 'string' },
+    domain = { spec.domain, 'string' },
+  }
 
-  spec.depends_on    = spec.depends_on    or {}
+  spec.depends_on = spec.depends_on or {}
   spec.optional_deps = spec.optional_deps or {}
-  spec.plugins       = spec.plugins       or {}
+  spec.plugins = spec.plugins or {}
 
   if M._registry[spec.name] then
-    vim.notify(
-      string.format("[module] Duplicate registration: '%s'", spec.name),
-      vim.log.levels.WARN
-    )
+    vim.notify(string.format("[module] Duplicate registration: '%s'", spec.name), vim.log.levels.WARN)
     return
   end
 
@@ -37,9 +35,7 @@ end
 ---Check whether a module is registered.
 ---@param module_name string
 ---@return boolean
-function M.available(module_name)
-  return M._registry[module_name] ~= nil
-end
+function M.available(module_name) return M._registry[module_name] ~= nil end
 
 ---Check whether any registered module belongs to a domain.
 ---@param domain string
@@ -59,19 +55,12 @@ function M.validate()
 
   for name, spec in pairs(M._registry) do
     for _, dep in ipairs(spec.depends_on) do
-      if not M._registry[dep] then
-        table.insert(errors, string.format(
-          "[module] '%s' depends on unregistered module '%s'",
-          name, dep
-        ))
-      end
+      if not M._registry[dep] then table.insert(errors, string.format("[module] '%s' depends on unregistered module '%s'", name, dep)) end
     end
   end
 
   local _, cycle_err = M._resolve_order()
-  if cycle_err then
-    table.insert(errors, cycle_err)
-  end
+  if cycle_err then table.insert(errors, cycle_err) end
 
   return #errors == 0, errors
 end
@@ -80,14 +69,12 @@ end
 ---@return string[]|nil
 ---@return string|nil
 function M._resolve_order()
-  local order      = {}
-  local visited    = {}
+  local order = {}
+  local visited = {}
   local in_progress = {}
 
   local function visit(name)
-    if in_progress[name] then
-      return nil, string.format("[module] Cycle at: '%s'", name)
-    end
+    if in_progress[name] then return nil, string.format("[module] Cycle at: '%s'", name) end
     if visited[name] then return true end
 
     in_progress[name] = true
@@ -102,8 +89,8 @@ function M._resolve_order()
       end
     end
 
-    in_progress[name]  = nil
-    visited[name]      = true
+    in_progress[name] = nil
+    visited[name] = true
     table.insert(order, name)
     return true
   end
@@ -151,20 +138,12 @@ function M.collect_plugin_specs()
       else
         -- Subsequent modules extend the existing entry.
         -- opts is deep merged so both modules' options survive.
-        if plugin_spec.opts then
-          merged[plugin_string].opts = vim.tbl_deep_extend(
-            "force",
-            merged[plugin_string].opts or {},
-            plugin_spec.opts
-          )
-        end
+        if plugin_spec.opts then merged[plugin_string].opts = vim.tbl_deep_extend('force', merged[plugin_string].opts or {}, plugin_spec.opts) end
         -- Non-opts fields: extend the spec but don't overwrite
         -- fields already set (first declaration takes precedence
         -- for things like event, cmd, priority, lazy)
         for k, v in pairs(plugin_spec) do
-          if k ~= "opts" and merged[plugin_string][k] == nil then
-            merged[plugin_string][k] = v
-          end
+          if k ~= 'opts' and merged[plugin_string][k] == nil then merged[plugin_string][k] = v end
         end
       end
     end
@@ -192,21 +171,16 @@ function M.run_setup()
 
   for _, name in ipairs(order) do
     local spec = M._registry[name]
-    if spec and type(spec.setup) == "function" then
+    if spec and type(spec.setup) == 'function' then
       local ok, setup_err = pcall(spec.setup)
-      if not ok then
-        vim.notify(
-          string.format("[module] Setup failed for '%s': %s", name, setup_err),
-          vim.log.levels.ERROR
-        )
-      end
+      if not ok then vim.notify(string.format("[module] Setup failed for '%s': %s", name, setup_err), vim.log.levels.ERROR) end
     end
   end
 end
 
 ---Introspection
 function M.status()
-  local lines = { "# Module Registry", string.rep("─", 50), "" }
+  local lines = { '# Module Registry', string.rep('─', 50), '' }
 
   local by_domain = {}
   for name, spec in pairs(M._registry) do
@@ -218,27 +192,23 @@ function M.status()
   table.sort(domains)
 
   for _, domain in ipairs(domains) do
-    table.insert(lines, "## " .. domain)
+    table.insert(lines, '## ' .. domain)
     for _, entry in ipairs(by_domain[domain]) do
-      table.insert(lines, string.format("  ✓ %s", entry.name))
-      if #entry.spec.depends_on > 0 then
-        table.insert(lines, string.format(
-          "    depends: %s",
-          table.concat(entry.spec.depends_on, ", ")
-        ))
-      end
+      table.insert(lines, string.format('  ✓ %s', entry.name))
+      if #entry.spec.depends_on > 0 then table.insert(lines, string.format('    depends: %s', table.concat(entry.spec.depends_on, ', '))) end
       local plugin_count = vim.tbl_count(entry.spec.plugins)
-      table.insert(lines, string.format("    plugins: %d", plugin_count))
+      table.insert(lines, string.format('    plugins: %d', plugin_count))
     end
-    table.insert(lines, "")
+    table.insert(lines, '')
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  vim.bo[buf].filetype   = "markdown"
+  vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].modifiable = false
-  vim.cmd("vsplit")
+  vim.cmd 'vsplit'
   vim.api.nvim_win_set_buf(0, buf)
 end
 
+---@return ModuleLib
 return M

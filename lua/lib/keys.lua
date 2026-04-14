@@ -17,14 +17,15 @@ M._action_registry = {}
 ---@field expr? boolean
 ---@field when? function Returns true if action is currently valid
 ---@field category? string For agent action grouping, defaults to module
+---@field allow_override? boolean
 
 -- ─── Internal Helpers ─────────────────────────────────────────────────────────
 
 ---@param mode string|string[]|nil
 ---@return string[]
 local function normalize_mode(mode)
-  if mode == nil then return { "n" } end
-  if type(mode) == "string" then return { mode } end
+  if mode == nil then return { 'n' } end
+  if type(mode) == 'string' then return { mode } end
   return mode
 end
 
@@ -33,9 +34,9 @@ end
 ---@param buffer number|nil
 ---@return string
 local function registry_key(mode, lhs, buffer)
-  local buf_suffix = buffer and ("@" .. buffer) or "@global"
-  local normalized = lhs:lower():gsub("%s+", "")
-  return string.format("%s:%s%s", mode, normalized, buf_suffix)
+  local buf_suffix = buffer and ('@' .. buffer) or '@global'
+  local normalized = lhs:lower():gsub('%s+', '')
+  return string.format('%s:%s%s', mode, normalized, buf_suffix)
 end
 
 ---Generate a stable action ID from module and description
@@ -46,42 +47,26 @@ end
 ---@param desc string
 ---@return string
 local function compose_id(module, desc)
-  local normalized = desc:lower()
-    :gsub("%s+", "_")   -- spaces to underscores
-    :gsub("[^%w_]", "") -- strip anything not alphanumeric or underscore
-  return string.format("%s.%s", module, normalized)
+  local normalized = desc
+    :lower()
+    :gsub('%s+', '_') -- spaces to underscores
+    :gsub('[^%w_]', '') -- strip anything not alphanumeric or underscore
+  return string.format('%s.%s', module, normalized)
 end
 
 ---@param spec KeymapSpec
 ---@return boolean
 ---@return string? error
 local function validate_spec(spec)
-  if type(spec) ~= "table" then
-    return false, "spec must be a table"
-  end
+  if type(spec) ~= 'table' then return false, 'spec must be a table' end
 
-  if not spec.lhs or spec.lhs == "" then
-    return false, "lhs is required"
-  end
+  if not spec.lhs or spec.lhs == '' then return false, 'lhs is required' end
 
-  if not spec.rhs then
-    return false, "rhs is required"
-  end
+  if not spec.rhs then return false, 'rhs is required' end
 
-  if not spec.desc or spec.desc == "" then
-    return false, string.format(
-      "desc is required (lhs: '%s', module: '%s')",
-      spec.lhs,
-      spec.module or "unknown"
-    )
-  end
+  if not spec.desc or spec.desc == '' then return false, string.format("desc is required (lhs: '%s', module: '%s')", spec.lhs, spec.module or 'unknown') end
 
-  if spec.when and type(spec.when) ~= "function" then
-    return false, string.format(
-      "when must be a function (lhs: '%s')",
-      spec.lhs
-    )
-  end
+  if spec.when and type(spec.when) ~= 'function' then return false, string.format("when must be a function (lhs: '%s')", spec.lhs) end
 
   return true
 end
@@ -93,10 +78,7 @@ end
 function M.map(spec)
   local valid, err = validate_spec(spec)
   if not valid then
-    vim.notify(
-      string.format("[keys] Invalid keymap spec: %s", err),
-      vim.log.levels.ERROR
-    )
+    vim.notify(string.format('[keys] Invalid keymap spec: %s', err), vim.log.levels.ERROR)
     return
   end
 
@@ -106,7 +88,7 @@ function M.map(spec)
     local key = registry_key(mode, spec.lhs, spec.buffer)
 
     -- Conflict detection
-    if M._registry[key] then
+    if not spec.allow_override and M._registry[key] then
       local existing = M._registry[key]
       vim.notify(
         string.format(
@@ -114,28 +96,28 @@ function M.map(spec)
           spec.lhs,
           mode,
           spec.desc,
-          existing.module or "unknown",
+          existing.module or 'unknown',
           existing.desc,
-          spec.module or "unknown"
+          spec.module or 'unknown'
         ),
         vim.log.levels.WARN
       )
     end
 
     M._registry[key] = {
-      lhs    = spec.lhs,
-      mode   = mode,
-      desc   = spec.desc,
+      lhs = spec.lhs,
+      mode = mode,
+      desc = spec.desc,
       module = spec.module,
       buffer = spec.buffer,
     }
 
     vim.keymap.set(mode, spec.lhs, spec.rhs, {
-      desc    = spec.desc,
-      buffer  = spec.buffer,
-      silent  = spec.silent ~= false,
-      nowait  = spec.nowait,
-      expr    = spec.expr,
+      desc = spec.desc,
+      buffer = spec.buffer,
+      silent = spec.silent ~= false,
+      nowait = spec.nowait,
+      expr = spec.expr,
     })
   end
 
@@ -149,24 +131,19 @@ function M.map(spec)
 
     if M._action_registry[id] then
       vim.notify(
-        string.format(
-          "[keys] Action ID collision: '%s' already registered, skipping (desc: '%s', module: '%s')",
-          id,
-          spec.desc,
-          spec.module
-        ),
+        string.format("[keys] Action ID collision: '%s' already registered, skipping (desc: '%s', module: '%s')", id, spec.desc, spec.module),
         vim.log.levels.WARN
       )
     else
       M._action_registry[id] = {
-        id       = id,
-        lhs      = spec.lhs,
-        rhs      = spec.rhs,
-        modes    = normalize_mode(spec.mode),
-        desc     = spec.desc,
-        module   = spec.module,
+        id = id,
+        lhs = spec.lhs,
+        rhs = spec.rhs,
+        modes = normalize_mode(spec.mode),
+        desc = spec.desc,
+        module = spec.module,
         category = spec.category or spec.module,
-        when     = spec.when,
+        when = spec.when,
       }
     end
   end
@@ -179,7 +156,7 @@ end
 function M.map_group(module, mappings, defaults)
   defaults = defaults or {}
   for _, spec in ipairs(mappings) do
-    local merged = vim.tbl_extend("force", defaults, spec)
+    local merged = vim.tbl_extend('force', defaults, spec)
     merged.module = module
     M.map(merged)
   end
@@ -192,9 +169,9 @@ end
 ---@param mode? string
 function M.register_group(prefix, label, mode)
   vim.schedule(function()
-    local ok, wk = pcall(require, "which-key")
+    local ok, wk = pcall(require, 'which-key')
     if not ok then return end
-    wk.add({ { prefix, group = label, mode = mode or "n" } })
+    wk.add { { prefix, group = label, mode = mode or 'n' } }
   end)
 end
 
@@ -219,32 +196,21 @@ end
 function M.execute(id, context)
   local action = M._action_registry[id]
 
-  if not action then
-    return false, string.format("[keys] Unknown action: '%s'", id)
-  end
+  if not action then return false, string.format("[keys] Unknown action: '%s'", id) end
 
-  if action.when and not action.when() then
-    return false, string.format(
-      "[keys] Action '%s' precondition not met",
-      id
-    )
-  end
+  if action.when and not action.when() then return false, string.format("[keys] Action '%s' precondition not met", id) end
 
-  if type(action.rhs) == "function" then
+  if type(action.rhs) == 'function' then
     local ok, err = pcall(action.rhs, context)
     return ok, err
   end
 
-  if type(action.rhs) == "string" then
+  if type(action.rhs) == 'string' then
     local ok, err = pcall(vim.cmd, action.rhs)
     return ok, err
   end
 
-  return false, string.format(
-    "[keys] Action '%s' has invalid rhs type: %s",
-    id,
-    type(action.rhs)
-  )
+  return false, string.format("[keys] Action '%s' has invalid rhs type: %s", id, type(action.rhs))
 end
 
 ---Query available actions with optional filtering
@@ -257,26 +223,20 @@ function M.available_actions(opts)
   for _, action in pairs(M._action_registry) do
     local include = true
 
-    if opts.category and action.category ~= opts.category then
-      include = false
-    end
+    if opts.category and action.category ~= opts.category then include = false end
 
-    if opts.module and action.module ~= opts.module then
-      include = false
-    end
+    if opts.module and action.module ~= opts.module then include = false end
 
     -- when=true means only return actions whose preconditions are met
-    if opts.when and action.when and not action.when() then
-      include = false
-    end
+    if opts.when and action.when and not action.when() then include = false end
 
     if include then
       table.insert(results, {
-        id       = action.id,
-        lhs      = action.lhs,
-        modes    = action.modes,
-        desc     = action.desc,
-        module   = action.module,
+        id = action.id,
+        lhs = action.lhs,
+        modes = action.modes,
+        desc = action.desc,
+        module = action.module,
         category = action.category,
       })
     end
@@ -291,9 +251,7 @@ end
 function M.get_by_module(module)
   local results = {}
   for _, reg in pairs(M._registry) do
-    if reg.module == module then
-      table.insert(results, reg)
-    end
+    if reg.module == module then table.insert(results, reg) end
   end
   return results
 end
@@ -304,45 +262,36 @@ function M.status()
   local by_module = {}
 
   for _, reg in pairs(M._registry) do
-    local mod = reg.module or "unknown"
+    local mod = reg.module or 'unknown'
     by_module[mod] = by_module[mod] or {}
     table.insert(by_module[mod], reg)
   end
 
-  local lines = { "# Keymap Registry", string.rep("─", 50), "" }
+  local lines = { '# Keymap Registry', string.rep('─', 50), '' }
 
   local module_names = vim.tbl_keys(by_module)
   table.sort(module_names)
 
   for _, mod in ipairs(module_names) do
-    table.insert(lines, string.format("## %s", mod))
+    table.insert(lines, string.format('## %s', mod))
 
     local maps = by_module[mod]
     table.sort(maps, function(a, b) return a.lhs < b.lhs end)
 
     for _, reg in ipairs(maps) do
-      local buf_label = reg.buffer
-        and string.format(" [buf:%s]", reg.buffer)
-        or ""
+      local buf_label = reg.buffer and string.format(' [buf:%s]', reg.buffer) or ''
 
-      table.insert(lines, string.format(
-        "  [%s]%-4s %-20s %s%s",
-        reg.mode,
-        "",
-        reg.lhs,
-        reg.desc or "(no description)",
-        buf_label
-      ))
+      table.insert(lines, string.format('  [%s]%-4s %-20s %s%s', reg.mode, '', reg.lhs, reg.desc or '(no description)', buf_label))
     end
 
-    table.insert(lines, "")
+    table.insert(lines, '')
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  vim.bo[buf].filetype = "markdown"
+  vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].modifiable = false
-  vim.cmd("vsplit")
+  vim.cmd 'vsplit'
   vim.api.nvim_win_set_buf(0, buf)
 end
 

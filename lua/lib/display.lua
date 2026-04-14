@@ -15,6 +15,7 @@
 -- declare "this display element should only be active when X" without
 -- each plugin implementing its own condition logic.
 
+---@class DisplayLib
 local M = {}
 
 ---@type table<string, DisplayContribution>
@@ -46,31 +47,24 @@ M._namespaces = {}
 ---Register a display contribution.
 ---@param spec DisplayContribution
 function M.register(spec)
-  vim.validate({
-    id     = { spec.id, "string" },
-    module = { spec.module, "string" },
-    region = { spec.region, "string" },
-  })
+  vim.validate {
+    id = { spec.id, 'string' },
+    module = { spec.module, 'string' },
+    region = { spec.region, 'string' },
+  }
 
-  if M._contributions[spec.id] then
-    vim.notify(
-      string.format("[display] Duplicate contribution: '%s'", spec.id),
-      vim.log.levels.WARN
-    )
-  end
+  if M._contributions[spec.id] then vim.notify(string.format("[display] Duplicate contribution: '%s'", spec.id), vim.log.levels.WARN) end
 
   -- Allocate a private namespace for this contributor's extmarks
   -- Converts dots to underscores for valid namespace naming
-  local ns_name = "env_display_" .. spec.id:gsub("%.", "_")
+  local ns_name = 'env_display_' .. spec.id:gsub('%.', '_')
   M._namespaces[spec.id] = vim.api.nvim_create_namespace(ns_name)
 
   spec.priority = spec.priority or 100
   M._contributions[spec.id] = spec
 
   -- If a when condition is provided, set up evaluation on state changes
-  if spec.when then
-    M._watch_condition(spec)
-  end
+  if spec.when then M._watch_condition(spec) end
 end
 
 ---Watch a contribution's condition and call on_enable/on_disable on transitions.
@@ -78,18 +72,22 @@ end
 function M._watch_condition(spec)
   local last_state = nil
 
-  local augroup_name = "env_display_" .. spec.id:gsub("%.", "_")
-  local augroup      = vim.api.nvim_create_augroup(augroup_name, { clear = true })
+  local augroup_name = 'env_display_' .. spec.id:gsub('%.', '_')
+  local augroup = vim.api.nvim_create_augroup(augroup_name, { clear = true })
 
   -- Re-evaluate on any event that might change state
   -- Using a broad set here; can be narrowed per contribution if needed
   vim.api.nvim_create_autocmd({
-    "BufEnter", "WinEnter", "FileType",
-    "LspAttach", "LspDetach", "DiagnosticChanged",
+    'BufEnter',
+    'WinEnter',
+    'FileType',
+    'LspAttach',
+    'LspDetach',
+    'DiagnosticChanged',
   }, {
-    group    = augroup,
+    group = augroup,
     callback = function()
-      local state  = require("lib.state").snapshot()
+      local state = require('lib.state').snapshot()
       local ok, result = pcall(spec.when, state)
       if not ok then return end
 
@@ -111,9 +109,7 @@ end
 ---Plugin configs use this to write to the correct namespace.
 ---@param contribution_id string
 ---@return integer|nil
-function M.get_namespace(contribution_id)
-  return M._namespaces[contribution_id]
-end
+function M.get_namespace(contribution_id) return M._namespaces[contribution_id] end
 
 ---Clear all extmarks for a contribution in a given buffer.
 ---@param contribution_id string
@@ -126,7 +122,7 @@ end
 
 ---Introspection
 function M.status()
-  local lines = { "# Display Registry", string.rep("─", 50), "" }
+  local lines = { '# Display Registry', string.rep('─', 50), '' }
 
   -- Group by region
   local by_region = {}
@@ -139,35 +135,34 @@ function M.status()
   table.sort(regions)
 
   for _, region in ipairs(regions) do
-    table.insert(lines, "## " .. region)
+    table.insert(lines, '## ' .. region)
     local contribs = by_region[region]
     table.sort(contribs, function(a, b) return (a.priority or 100) > (b.priority or 100) end)
 
     for _, contrib in ipairs(contribs) do
-      table.insert(lines, string.format("  [%3d] %s", contrib.priority or 100, contrib.id))
-      if contrib.desc then
-        table.insert(lines, string.format("        %s", contrib.desc))
-      end
+      table.insert(lines, string.format('  [%3d] %s', contrib.priority or 100, contrib.id))
+      if contrib.desc then table.insert(lines, string.format('        %s', contrib.desc)) end
 
       -- Evaluate current condition state
       if contrib.when then
-        local state  = require("lib.state").snapshot()
+        local state = require('lib.state').snapshot()
         local ok, result = pcall(contrib.when, state)
-        local status = ok and (result and "✓ active" or "○ inactive") or "! error"
-        table.insert(lines, string.format("        condition: %s", status))
+        local status = ok and (result and '✓ active' or '○ inactive') or '! error'
+        table.insert(lines, string.format('        condition: %s', status))
       else
-        table.insert(lines, "        condition: always active")
+        table.insert(lines, '        condition: always active')
       end
     end
-    table.insert(lines, "")
+    table.insert(lines, '')
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  vim.bo[buf].filetype   = "markdown"
+  vim.bo[buf].filetype = 'markdown'
   vim.bo[buf].modifiable = false
-  vim.cmd("vsplit")
+  vim.cmd 'vsplit'
   vim.api.nvim_win_set_buf(0, buf)
 end
 
+---@return DisplayLib
 return M
