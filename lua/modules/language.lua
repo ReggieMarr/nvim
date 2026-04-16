@@ -253,6 +253,8 @@ return env.module.register {
     },
     -- Treesitter: syntax parsing for highlighting, textobjects, context
     ['nvim-treesitter/nvim-treesitter'] = {
+      branch = 'main',
+      lazy = false,
       build = ':TSUpdate',
       dependencies = {
         'nvim-treesitter/nvim-treesitter-textobjects',
@@ -325,7 +327,40 @@ return env.module.register {
           },
         },
       },
-      config = function(_, opts) require('nvim-treesitter.configs').setup(opts) end,
+      config = function()
+        require('nvim-treesitter').setup {
+          install_dir = vim.fn.stdpath 'data' .. '/site',
+        }
+
+        -- Install parsers (async, idempotent)
+        require('nvim-treesitter').install {
+          'lua',
+          'bash',
+          'json',
+          'yaml',
+          'markdown',
+          'vim',
+          'python',
+          'go',
+          'rust',
+          'zig',
+          'toml',
+          'html',
+          'css',
+          'javascript',
+          'typescript',
+        }
+
+        -- Enable treesitter highlighting
+        vim.api.nvim_create_autocmd('FileType', {
+          callback = function() pcall(vim.treesitter.start) end,
+        })
+
+        -- Enable treesitter indentation
+        vim.api.nvim_create_autocmd('FileType', {
+          callback = function() vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end,
+        })
+      end,
     },
 
     -- Treesitter context: sticky function/class header at top of window
@@ -437,7 +472,7 @@ return env.module.register {
           id = 'find_references',
           handler = function()
             -- Route through picker capability so references appear
-            -- in snacks picker, not the quickfix list
+            -- in lsp picker, not the quickfix list
             if env.capabilities.has 'picker' and env.use('picker').lsp_references then
               env.use('picker').lsp_references()
             else
@@ -737,7 +772,6 @@ return env.module.register {
 
     -- ── Picker capability extensions ───────────────────────────────
     -- Extend the picker with LSP-specific finders.
-    -- Only called after snacks is loaded (interface is a dependency)
     -- so env.use("picker") is safe here.
     env.capabilities.extend('picker', {
       lsp_references = function(o) require('snacks').picker.lsp_references(o) end,

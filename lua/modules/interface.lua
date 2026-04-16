@@ -33,14 +33,10 @@ end
 
 -- Get icon + highlight group for an item
 local function get_icon(item)
-  local devicons = require 'nvim-web-devicons'
-  if item.is_cwd then return '', 'MiniPickNormal' end
-  if item.is_dir then
-    return '', 'Directory' -- nerd font folder icon
-  end
-  local ext = item.path:match '%.([^.]+)$' or ''
-  local icon, hl = devicons.get_icon(vim.fn.fnamemodify(item.path, ':t'), ext, { default = true })
-  return icon or '', hl or 'MiniPickNormal'
+  local icons = require 'mini.icons'
+  if item.is_cwd then return icons.get('default', 'default') end
+  if item.is_dir then return icons.get('default', 'directory') end
+  return icons.get('file', vim.fn.fnamemodify(item.path, ':t'))
 end
 
 -- Enrich an item with stat metadata
@@ -54,7 +50,7 @@ local function enrich_item(item)
   end
 
   local stat = vim.uv.fs_stat(item.path)
-  item.icon, item.icon_hl = get_icon(item)
+  item.icon, item.icon_hl, _ = get_icon(item)
 
   if stat then
     item.permissions = format_permissions(stat.mode)
@@ -71,60 +67,86 @@ end
 
 -- Build the display columns, returning line string + highlight regions
 -- Format: <icon> <perms> <size> <time>  <name>
-local function format_item_line(item, name_col_start)
+-- Describes one rendered column segment: its highlight group and the
+-- string value that was written into that column (used to measure width).
+---@class ColumnSpec
+---@field hl      string   highlight group name
+---@field value   string   the exact substring written to the buffer
+---@field gap     integer  number of space chars appended AFTER this segment
+
+-- Returns both the formatted line and an ordered list of ColumnSpecs so
+-- that highlight ranges can be derived purely from segment lengths, with
+-- no hardcoded magic offsets.
+local function format_item_line(item)
   local icon = item.icon or ''
   local perms = item.permissions or '---------'
   local size = item.size_str or '-'
   local time = item.time_str or '-'
-  local name = item.text or ''
+  local name = item.display or item.text or ''
 
-  -- Fixed width columns
-  -- icon(2) + perms(9) + size(7) + time(12) + name
-  local line = string.format('%s %-9s %6s  %-12s  %s', icon, perms, size, time, name)
-  return line
+  -- Each segment is formatted to a fixed visual width via format directives,
+  -- then stored verbatim so we can measure its byte length below.
+  local icon_col = string.format('%-2s', icon) -- 2 cols: glyph + space
+  local perms_col = string.format('%-9s', perms) -- 9 cols
+  local size_col = string.format('%6s', size) -- 6 cols, right-aligned
+  local time_col = string.format('%-12s', time) -- 12 cols
+
+  local line = icon_col .. ' ' .. perms_col .. ' ' .. size_col .. '  ' .. time_col .. '  ' .. name
+
+  ---@type ColumnSpec[]
+  local cols = {
+    { hl = item.icon_hl or 'MiniPickNormal', value = icon_col, gap = 1 },
+    { hl = 'Comment', value = perms_col, gap = 1 },
+    { hl = 'Number', value = size_col, gap = 2 },
+    { hl = 'Special', value = time_col, gap = 2 },
+    -- name segment has no gap (goes to end of line); hl resolved at call site
+    { hl = item.is_dir and 'Directory' or 'MiniPickNormal', value = name, gap = 0 },
+  }
+
+  return line, cols
 end
-
--- Calculate where the name column starts (constant, based on format)
--- icon(1+1space) + perms(9+1space) + size(6+2space) + time(12+2space) = 34
-local NAME_COL = 2 + 1 + 9 + 1 + 6 + 2 + 12 + 2 -- = 35
 
 local function custom_show(buf_id, items_to_show, query)
   local ns = vim.api.nvim_create_namespace 'mini_pick_filebrowser'
   vim.api.nvim_buf_clear_namespace(buf_id, ns, 0, -1)
 
+  -- First pass: build lines
   local lines = {}
+  local all_cols = {} -- parallel array of ColumnSpec[] per item
+
   for _, item in ipairs(items_to_show) do
-    table.insert(lines, format_item_line(item))
+    local line, cols = format_item_line(item)
+    table.insert(lines, line)
+    table.insert(all_cols, cols)
   end
 
   vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
 
-  -- Now apply highlights per line
+  -- Second pass: highlights derived entirely from segment byte lengths
   for i, item in ipairs(items_to_show) do
     local row = i - 1
+    local cursor = 0 -- byte offset into the line, advances as we consume segments
 
-    -- Icon highlight
-    if item.icon_hl then vim.hl.range(buf_id, ns, item.icon_hl, { row, 0 }, { row, 3 }) end
+    for col_idx, seg in ipairs(all_cols[i]) do
+      local seg_len = #seg.value -- byte length of this segment's content
+      local seg_end = cursor + seg_len
 
-    -- Permissions highlight
-    vim.hl.range(buf_id, ns, 'Comment', { row, 3 }, { row, 3 + 9 })
+      vim.hl.range(buf_id, ns, seg.hl, { row, cursor }, { row, seg_end })
 
-    -- Size highlight
-    vim.hl.range(buf_id, ns, 'Number', { row, 13 }, { row, 13 + 6 })
+      -- The last column is the name; apply match highlights within it
+      local is_name_col = col_idx == #all_cols[i]
+      if is_name_col then
+        local name_start = cursor
+        local display = item.display or item.text or ''
 
-    -- Time highlight
-    vim.hl.range(buf_id, ns, 'Special', { row, 21 }, { row, 21 + 12 })
+        for _, query_char in ipairs(query) do
+          local s, e = display:find(vim.pesc(query_char), 1, true)
+          if s then vim.hl.range(buf_id, ns, 'MiniPickMatchCurrent', { row, name_start + s - 1 }, { row, name_start + e }) end
+        end
+      end
 
-    -- Name highlight: dirs blue, files normal
-    local name_hl = item.is_dir and 'Directory' or 'MiniPickNormal'
-    vim.hl.range(buf_id, ns, name_hl, { row, NAME_COL }, { row, -1 })
-
-    -- Also highlight matching chars in the name portion only
-    -- Re-run mini.pick's default match highlight but offset to name column
-    local stritem = item.text or ''
-    for _, query_char in ipairs(query) do
-      local s, e = stritem:find(vim.pesc(query_char), 1, true)
-      if s then vim.hl.range(buf_id, ns, 'MiniPickMatchCurrent', { row, NAME_COL + s - 1 }, { row, NAME_COL + e }) end
+      -- Advance past the segment content AND its trailing gap spaces
+      cursor = seg_end + seg.gap
     end
   end
 end
@@ -179,10 +201,6 @@ local function get_entries(cwd, show_hidden)
   return items
 end
 
-local function open_neotree(path)
-  vim.schedule(function() vim.cmd(('Neotree dir=%s reveal position=current'):format(vim.fn.fnameescape(path))) end)
-end
-
 local function create_file(path)
   local dir = vim.fn.fnamemodify(path, ':h')
   vim.fn.mkdir(dir, 'p')
@@ -219,32 +237,35 @@ local function find_file_at(cwd, show_hidden)
     if parent ~= cwd then navigate_to(parent) end
   end
 
+  local function choose_custom(item)
+    if not item then return end
+
+    -- Current dir item → open neotree
+    if item.is_cwd then
+      MiniPick.stop()
+      vim.schedule(function() vim.cmd(('Neotree dir=%s reveal position=current'):format(vim.fn.fnameescape(item.path))) end)
+      return
+    end
+
+    -- Directory → navigate into it
+    if item.is_dir then
+      navigate_to(item.path)
+      return
+    end
+
+    -- File → open it in target window
+    local target_win = MiniPick.get_picker_state().windows.target
+    vim.api.nvim_win_call(target_win, function() vim.cmd.edit(item.path) end)
+    MiniPick.stop()
+  end
+
   MiniPick.start {
     source = {
       name = 'Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
       cwd = cwd,
       items = get_entries(cwd, show_hidden),
       show = custom_show,
-
-      choose = function(item)
-        if not item then return end
-
-        -- Current dir item → open neotree
-        if item.is_cwd then
-          open_neotree(cwd)
-          return
-        end
-
-        -- Directory → navigate into it
-        if item.is_dir then
-          navigate_to(item.path)
-          return
-        end
-
-        -- File → open it in target window
-        local target_win = MiniPick.get_picker_state().windows.target
-        vim.api.nvim_win_call(target_win, function() vim.cmd.edit(item.path) end)
-      end,
+      choose = choose_custom,
 
       preview = function(buf_id, item)
         if not item then return end
@@ -283,30 +304,43 @@ local function find_file_at(cwd, show_hidden)
           end
         end,
       },
+      choose = '',
 
+      dwim_choose = {
+        char = '<CR>',
+        func = function()
+          local matches = MiniPick.get_picker_matches()
+          local item = matches and matches.current
+
+          if item then
+            -- Delegate to your normal choose logic (extracted to a function)
+            return choose_custom(item)
+          end
+
+          -- No item matched → create from query
+          local query_str = table.concat(MiniPick.get_picker_query())
+          print(query_str)
+          local name = query_str
+          if name == '' then return end
+
+          MiniPick.stop()
+          vim.schedule(function()
+            if query_str:match '%.[^./]+$' then
+              if create_file(query_str) then vim.cmd.edit(query_str) end
+            else
+              if create_directory(query_str) then find_file_at(query_str, show_hidden) end
+            end
+          end)
+          return true
+        end,
+      },
       move_down = '',
       -- Tab: navigate into selected dir (or open file)
       navigate_in = {
         char = '<Tab>',
         func = function()
           local item = MiniPick.get_picker_matches().current
-          if not item then return end
-
-          if item.is_cwd then
-            MiniPick.stop()
-            open_neotree(cwd)
-            return true
-          end
-
-          if item.is_dir then
-            navigate_to(item.path)
-            return true
-          end
-
-          -- File: just choose it (same as <CR>)
-          local target_win = MiniPick.get_picker_state().windows.target
-          MiniPick.stop()
-          vim.api.nvim_win_call(target_win, function() vim.cmd.edit(item.path) end)
+          choose_custom(item)
           return true
         end,
       },
@@ -345,15 +379,6 @@ local function find_file_at(cwd, show_hidden)
 
       -- Disable built-in that typically uses C-t
       choose_in_tabpage = '',
-      -- Open neotree at cwd
-      open_neotree = {
-        char = '<C-t>',
-        func = function()
-          MiniPick.stop()
-          open_neotree(cwd)
-          return true
-        end,
-      },
     },
 
     window = {
@@ -371,7 +396,6 @@ local function find_file_at(cwd, show_hidden)
     },
   }
 end
-
 local env = require 'env'
 
 return env.module.register {
@@ -438,6 +462,11 @@ return env.module.register {
       },
     },
 
+    -- Helps with mini.pick
+    ['nvim-mini/mini.icons'] = {
+      version = false,
+    },
+
     ['nvim-mini/mini.sessions'] = {
       version = false,
     },
@@ -478,6 +507,58 @@ return env.module.register {
           { '<leader>x', group = 'files' },
         },
       },
+    },
+    ['chrisgrieser/nvim-origami'] = {
+      event = 'VeryLazy',
+      opts = {
+        foldtext = {
+          lineCount = {
+            template = ' %d',
+          },
+        },
+      },
+      -- NOTE this was taken from "The Art of Code Folds (nvim origami)"
+      -- youtube: https://www.youtube.com/watch?v=l6uz_VhP8BU
+      -- gist: https://gist.github.com/AdamFrenzen/497ea55d4c49699d96c3ac0e8c4ea094
+      init = function()
+        -- This sets folds to be open by default
+        -- TODO I'd like to leverage some tree-sitter based heuristics for setting the default fold level
+        vim.opt.foldlevel = 99
+        vim.opt.foldlevelstart = 99
+
+        local fold_util = require 'utils.code_fold'
+
+        vim.keymap.set('n', '<CR>', 'za', { noremap = true, silent = true })
+        vim.keymap.set('n', '[[', fold_util.goto_previous_fold, { noremap = true, silent = true })
+        vim.keymap.set('n', ']]', 'zj', { noremap = true, silent = true })
+
+        vim.api.nvim_create_autocmd({ 'TextChanged', 'InsertLeave', 'LspAttach' }, {
+          callback = function(opts) fold_util.update_ranges(opts.buf) end,
+        })
+
+        local last_row = nil
+        vim.api.nvim_create_autocmd('CursorMoved', {
+          callback = function(opts)
+            local row = vim.api.nvim_win_get_cursor(0)[1]
+            if row ~= last_row then
+              last_row = row
+
+              fold_util.update_current_fold(row, opts.buf)
+            end
+          end,
+        })
+
+        vim.api.nvim_create_autocmd({ 'BufUnload', 'BufWipeout' }, {
+          callback = function(opts) fold_util.clear(opts.buf) end,
+        })
+
+        vim.opt.statuscolumn = '%!v:lua.StatusCol()'
+        function _G.StatusCol() return fold_util.statuscol() end
+      end,
+    },
+
+    ['nvim-mini/mini.pick'] = {
+      version = false,
     },
   },
 
@@ -531,6 +612,17 @@ return env.module.register {
     --   priority = 100,
     --   desc     = "Snacks notification overlay",
     -- })
+    -- Default mini.pick capabilities
+    -- Centered on screen
+    require('mini.icons').setup()
+
+    require('mini.pick').setup {
+      mappings = {
+        toggle_info = '<C-k>',
+        move_up = '',
+        toggle_preview = '<C-p>',
+      },
+    }
 
     env.display.register {
       id = 'interface.indent_guides',
