@@ -11,6 +11,18 @@
 
 local env = require 'env'
 
+-- Declare a global function to retrieve the current directory
+function _G.get_oil_winbar()
+  local bufnr = vim.api.nvim_win_get_buf(vim.g.statusline_winid)
+  local dir = require('oil').get_current_dir(bufnr)
+  if dir then
+    return vim.fn.fnamemodify(dir, ':~')
+  else
+    -- If there is no current directory (e.g. over ssh), just show the buffer name
+    return vim.api.nvim_buf_get_name(0)
+  end
+end
+
 return env.module.register {
   name = 'filesystem',
   domain = 'filesystem',
@@ -21,61 +33,150 @@ return env.module.register {
 
   plugins = {
     ['stevearc/oil.nvim'] = {
-      ---@module 'oil'
-      ---@type oil.SetupOpts
-      opts = {},
-      -- Optional dependencies
-      dependencies = { { 'nvim-mini/mini.icons', opts = {} } },
-      -- dependencies = { "nvim-tree/nvim-web-devicons" }, -- use if you prefer nvim-web-devicons
-      -- Lazy loading is not recommended because it is very tricky to make it work correctly in all situations.
-      lazy = false,
-    },
-    ['nvim-neo-tree/neo-tree.nvim'] = {
-      dependencies = {
-        'nvim-lua/plenary.nvim',
-        'nvim-tree/nvim-web-devicons',
-        'MunifTanjim/nui.nvim',
-      },
-      cmd = 'Neotree',
+      -- plugins/oil.lua (or wherever your plugin specs live)
+      dependencies = { 'nvim-tree/nvim-web-devicons' },
+      lazy = true, -- we only open it programmatically from the picker
       opts = {
-        close_if_last_window = true,
-        enable_git_status = true,
-        enable_diagnostics = true,
-        open_files_do_not_replace_types = { 'terminal', 'trouble', 'qf' },
-        default_component_configs = {
-          indent = {
-            indent_size = 2,
-            with_markers = true,
-            with_expanders = true,
+        -- Use the current window, consistent with your picker's non-disruptive philosophy
+        default_file_explorer = false, -- don't hijack netrw, your picker handles that
+
+        -- Columns mirror what your picker already shows: icon, permissions, size, mtime
+        columns = {
+          { 'icon', highlight = 'MiniPickNormal' },
+          { 'permissions', highlight = 'Comment' },
+          { 'size', highlight = 'Number' },
+          { 'mtime', highlight = 'Special' },
+        },
+
+        buf_options = {
+          buflisted = false,
+          bufhidden = 'hide',
+        },
+
+        win_options = {
+          wrap = false,
+          signcolumn = 'no',
+          cursorcolumn = false,
+          foldcolumn = '0',
+          spell = false,
+          list = false,
+          conceallevel = 3,
+          concealcursor = 'nvic',
+        },
+
+        -- Don't confirm before performing mutations; the buffer edit IS the intent.
+        -- Mirrors dired's behaviour where saving the buffer applies changes.
+        delete_to_trash = true,
+        skip_confirm_for_simple_edits = true,
+        prompt_save_on_select_new_entry = false,
+
+        -- Entering oil lands you in READ-ONLY / navigation mode (like dired).
+        -- The buffer becomes editable only when the user explicitly requests it.
+        -- This is handled via keymaps below rather than a built-in oil flag.
+
+        keymaps = {
+          -- ----------------------------------------------------------------
+          -- Navigation (modal, dired-style: h/l move up/down the tree)
+          -- ----------------------------------------------------------------
+          ['l'] = { 'actions.select', mode = 'n' }, -- open / descend
+          ['h'] = { 'actions.parent', mode = 'n' }, -- ascend
+          ['<CR>'] = { 'actions.select', mode = 'n' },
+          ['<BS>'] = { 'actions.parent', mode = 'n' },
+
+          -- Preview without leaving oil (splits, consistent with picker preview)
+          ['<C-p>'] = { 'actions.preview', mode = 'n' },
+
+          -- ----------------------------------------------------------------
+          -- Dired "enter edit mode" equivalent.
+          -- In dired this is 'C-x C-q' or wdired-change-to-wdired-mode.
+          -- We use 'I' (capital i) — mnemonic: Insert/edit.
+          -- ----------------------------------------------------------------
+          ['I'] = {
+            desc = 'Enter editable (wdired) mode',
+            mode = 'n',
+            callback = function()
+              -- Remove the nomodifiable lock that read-only mode sets
+              vim.bo.modifiable = true
+              vim.bo.readonly = false
+              vim.notify('Oil: edit mode — save (:w) to apply, (:q!) to abort', vim.log.levels.INFO, { title = 'oil.nvim' })
+            end,
+          },
+
+          -- Escape / abort: restore read-only and revert buffer
+          ['<Esc>'] = {
+            desc = 'Abort edits and return to navigation mode',
+            mode = 'n',
+            callback = function()
+              if vim.bo.modifiable then
+                -- Revert any pending mutations
+                require('oil').discard_all_changes()
+                vim.bo.modifiable = false
+                vim.notify('Oil: changes discarded', vim.log.levels.WARN, { title = 'oil.nvim' })
+              else
+                -- No edits pending; just close like dired 'q'
+                require('oil').close()
+              end
+            end,
+          },
+
+          -- Save = apply mutations (mirrors dired C-c C-c)
+          ['<C-s>'] = {
+            desc = 'Apply mutations and return to navigation mode',
+            mode = 'n',
+            callback = function()
+              vim.cmd.write()
+              vim.bo.modifiable = false
+            end,
+          },
+
+          -- Toggle hidden files, mirrors your picker's <C-h>
+          ['<C-h>'] = { 'actions.toggle_hidden', mode = 'n' },
+
+          -- Refresh
+          ['<C-r>'] = { 'actions.refresh', mode = 'n' },
+
+          -- Open in system default application
+          ['gx'] = { 'actions.open_external', mode = 'n' },
+
+          -- Copy path to clipboard (useful companion to your picker)
+          ['gy'] = { 'actions.copy_entry_path', mode = 'n' },
+
+          -- Close oil and return to previous buffer
+          ['q'] = { 'actions.close', mode = 'n' },
+
+          -- Disable keymaps that conflict with navigation-mode intent
+          ['<C-l>'] = false, -- would normally be 'refresh' but clashes with window nav
+        },
+
+        -- Start every oil buffer in non-editable navigation mode.
+        -- The 'I' keymap above unlocks it on demand.
+        keymaps_help = { border = 'rounded' },
+
+        view_options = {
+          show_hidden = false, -- toggled per-session via <C-h>
+          -- Natural sort: directories before files, mirrors your picker's get_entries
+          sort = {
+            { 'type', 'asc' },
+            { 'name', 'asc' },
           },
         },
-        window = {
-          position = 'left',
-          width = 35,
-          mappings = {
-            -- Keep window mappings minimal: heavy operations go
-            -- through env.articulation so they appear in the registry
-            ['<space>'] = 'none', -- avoid conflict with leader
-            ['P'] = { 'toggle_preview', config = { use_float = true } },
-          },
-        },
-        filesystem = {
-          filtered_items = {
-            visible = false,
-            hide_dotfiles = false,
-            hide_gitignored = true,
-          },
-          follow_current_file = { enabled = true },
-          group_empty_dirs = true,
-          use_libuv_file_watcher = true,
-        },
-        buffers = {
-          follow_current_file = { enabled = true },
-        },
-        git_status = {
-          window = { position = 'float' },
-        },
+
+        -- Restore navigation-mode (nomodifiable) every time an oil buffer is entered
+        -- so that switching away and back doesn't leave you in edit mode accidentally.
       },
+
+      config = function(_, opts)
+        require('oil').setup(opts)
+
+        -- Enforce navigation mode whenever we enter any oil buffer
+        vim.api.nvim_create_autocmd('FileType', {
+          pattern = 'oil',
+          callback = function()
+            vim.bo.modifiable = false
+            vim.bo.readonly = false -- readonly would block oil's internal writes
+          end,
+        })
+      end,
     },
   },
 
@@ -141,24 +242,6 @@ return env.module.register {
       -- it will use the mapping at require("oil.actions").<name>
       -- Set to `false` to remove a keymap
       -- See :help oil-actions for a list of all available actions
-      keymaps = {
-        ['g?'] = { 'actions.show_help', mode = 'n' },
-        ['<CR>'] = 'actions.select',
-        ['<C-s>'] = { 'actions.select', opts = { vertical = true } },
-        ['<C-h>'] = { 'actions.select', opts = { horizontal = true } },
-        ['<C-t>'] = { 'actions.select', opts = { tab = true } },
-        ['<C-p>'] = 'actions.preview',
-        ['<C-c>'] = { 'actions.close', mode = 'n' },
-        ['<C-l>'] = 'actions.refresh',
-        ['-'] = { 'actions.parent', mode = 'n' },
-        ['_'] = { 'actions.open_cwd', mode = 'n' },
-        ['`'] = { 'actions.cd', mode = 'n' },
-        ['g~'] = { 'actions.cd', opts = { scope = 'tab' }, mode = 'n' },
-        ['gs'] = { 'actions.change_sort', mode = 'n' },
-        ['gx'] = 'actions.open_external',
-        ['g.'] = { 'actions.toggle_hidden', mode = 'n' },
-        ['g\\'] = { 'actions.toggle_trash', mode = 'n' },
-      },
       -- Set to false to disable all of the above keymaps
       use_default_keymaps = true,
       view_options = {
@@ -184,47 +267,6 @@ return env.module.register {
         },
         -- Customize the highlight group for the file name
         highlight_filename = function(entry, is_hidden, is_link_target, is_link_orphan) return nil end,
-      },
-      -- Extra arguments to pass to SCP when moving/copying files over SSH
-      extra_scp_args = {},
-      -- Extra arguments to pass to aws s3 when creating/deleting/moving/copying files using aws s3
-      extra_s3_args = {},
-      -- EXPERIMENTAL support for performing file operations with git
-      git = {
-        -- Return true to automatically git add/mv/rm files
-        add = function(path) return false end,
-        mv = function(src_path, dest_path) return false end,
-        rm = function(path) return false end,
-      },
-      -- Configuration for the floating window in oil.open_float
-      float = {
-        -- Padding around the floating window
-        padding = 2,
-        -- max_width and max_height can be integers or a float between 0 and 1 (e.g. 0.4 for 40%)
-        max_width = 0,
-        max_height = 0,
-        border = nil,
-        win_options = {
-          winblend = 0,
-        },
-        -- optionally override the oil buffers window title with custom function: fun(winid: integer): string
-        get_win_title = nil,
-        -- preview_split: Split direction: "auto", "left", "right", "above", "below".
-        preview_split = 'auto',
-        -- This is the config that will be passed to nvim_open_win.
-        -- Change values here to customize the layout
-        override = function(conf) return conf end,
-      },
-      -- Configuration for the file preview window
-      preview_win = {
-        -- Whether the preview window is automatically updated when the cursor is moved
-        update_on_cursor_moved = true,
-        -- How to open the preview window "load"|"scratch"|"fast_scratch"
-        preview_method = 'fast_scratch',
-        -- A function that returns true to disable preview on a file e.g. to avoid lag
-        disable_preview = function(filename) return false end,
-        -- Window-local options to use for preview window buffers
-        win_options = {},
       },
       -- Configuration for the floating action confirmation window
       confirmation = {
@@ -262,14 +304,6 @@ return env.module.register {
         win_options = {
           winblend = 0,
         },
-      },
-      -- Configuration for the floating SSH window
-      ssh = {
-        border = nil,
-      },
-      -- Configuration for the floating keymaps help window
-      keymaps_help = {
-        border = nil,
       },
     }
     -- ── Filesystem capability ───────────────────────────────────────
