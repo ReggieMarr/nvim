@@ -170,6 +170,7 @@ return env.module.register {
     },
     ['nvim-mini/mini.files'] = {
       version = false,
+      lazy = true, -- opened programmatically from the picker
     },
 
     -- Helps with mini.pick
@@ -325,6 +326,27 @@ return env.module.register {
     -- Default mini.pick capabilities
     -- Centered on screen
     require('mini.icons').setup()
+    local mfc = require 'utils.file_browsing.file_search_config'
+    -- Load the autocmd/keymap module after setup so MiniFiles global exists.
+    require 'utils.file_browsing.directory_editor'
+    require 'utils.file_browsing.picker_search'
+
+    require('mini.files').setup {
+      content = {
+        prefix = mfc.make_prefix,
+        highlight = mfc.make_highlight,
+      },
+      options = {
+        permanent_delete = false,
+        use_as_default_explorer = false,
+      },
+      windows = {
+        preview = true,
+        width_focus = 50,
+        width_nofocus = 20,
+        width_preview = 60,
+      },
+    }
 
     require('mini.pick').setup {
       mappings = {

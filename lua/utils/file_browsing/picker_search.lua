@@ -240,7 +240,7 @@ function M.find_file_at(cwd, show_hidden)
     -- Current dir item → open in oil float at this directory
     if item.is_cwd then
       MiniPick.stop()
-      vim.schedule(function() require('oil').open(item.path) end)
+      vim.schedule(function() require('utils.file_browsing.directory_editor').open(item.path) end)
       return
     end
 

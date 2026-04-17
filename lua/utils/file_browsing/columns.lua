@@ -135,7 +135,7 @@ function M.format_line(entry)
   local icon_str = string.format('%-2s', M.render_icon(entry))
   local perms_str = string.format('%-9s', M.render_perms(entry))
   local size_str = string.format('%6s', M.render_size(entry):gsub('%s', ''))
-  local time_str = string.format('%-12s', M.render_time(entry):gsub('%s', ''))
+  local time_str = string.format('%-12s', M.render_time(entry))
   local name_str = entry.name or ''
 
   local line = icon_str

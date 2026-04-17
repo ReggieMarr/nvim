@@ -1,283 +1,279 @@
 -- lua/file_browser/directory_editor.lua
 -- dired-style file browser
+local C = require 'utils.file_browsing.columns'
 
 local M = {}
 
-local oil_opts = {
-  -- Columns shown in the oil buffer — mirrors what your picker shows
-  columns = {
-    { 'permissions', highlight = 'Comment' },
-    { 'size', highlight = 'Number' },
-    { 'mtime', highlight = 'Special' },
-    'icon',
+-- ── Stat cache ────────────────────────────────────────────────────────────────
+-- mini.files calls prefix() and highlight() on every render cycle (including
+-- cursor movement via MiniFilesWindowUpdate). Cache stat results per path to
+-- avoid hammering uv.fs_stat on every cursor move.
+
+local stat_cache = {}
+
+local function get_stat(path)
+  if stat_cache[path] == nil then
+    stat_cache[path] = vim.uv.fs_stat(path) or false -- false = "checked, missing"
+  end
+  return stat_cache[path] or nil
+end
+
+-- Invalidate cache entries for paths affected by file action events so that
+-- renames/moves/creates show fresh metadata on next render.
+vim.api.nvim_create_autocmd('User', {
+  pattern = {
+    'MiniFilesActionCreate',
+    'MiniFilesActionDelete',
+    'MiniFilesActionRename',
+    'MiniFilesActionCopy',
+    'MiniFilesActionMove',
   },
+  callback = function(ev)
+    if ev.data.from then stat_cache[ev.data.from] = nil end
+    if ev.data.to then stat_cache[ev.data.to] = nil end
+  end,
+})
 
-  -- Buffer-local options applied to the oil buffer
-  buf_options = {
-    buflisted = true,
-    bufhidden = 'hide',
-  },
+-- Flush whole cache when explorer closes so stale entries don't accumulate
+-- across sessions (e.g. external changes between opens).
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'MiniFilesExplorerClose',
+  callback = function() stat_cache = {} end,
+})
 
-  -- Window options for the oil buffer (non-float)
-  win_options = {
-    wrap = false,
-    signcolumn = 'no',
-    cursorcolumn = false,
-    foldcolumn = '0',
-    spell = false,
-    list = false,
-    conceallevel = 3,
-    concealcursor = 'nvic',
-  },
-  constrain_cursor = true,
+-- ── Normalise a mini.files fs_entry into our shared column format ─────────────
 
-  -- Restore window options when leaving oil
-  restore_win_options = true,
+local function normalise_fs_entry(fs_entry)
+  return {
+    path = fs_entry.path,
+    name = fs_entry.name,
+    is_dir = fs_entry.fs_type == 'directory',
+    stat = get_stat(fs_entry.path),
+  }
+end
 
-  -- Don't confirm before performing mutations
-  skip_confirm_for_simple_edits = true,
+-- ── Per-segment extmark highlights ───────────────────────────────────────────
+-- mini.files renders prefix + name into the buffer then fires
+-- MiniFilesBufferUpdate.  We walk every line and apply the same column
+-- highlight ranges that custom_show applies in the picker, so both surfaces
+-- are pixel-identical.
 
-  -- Prompt before performing ANY destructive action even with above set
-  -- (deletes are still confirmed)
-  prompt_save_on_select_new_entry = true,
+local hl_ns = vim.api.nvim_create_namespace 'file_browser_minifiles'
 
-  -- Watching the filesystem for changes
-  watch_for_changes = true,
+local function apply_line_highlights(buf_id)
+  vim.api.nvim_buf_clear_namespace(buf_id, hl_ns, 0, -1)
 
-  -- Keymaps: hjkl navigation + keep search feeling native
-  keymaps = {
-    ['?'] = 'actions.show_help',
-    ['<CR>'] = 'actions.select',
+  local line_count = vim.api.nvim_buf_line_count(buf_id)
+  local MiniFiles = require 'mini.files'
 
-    -- Open in splits / tabs
-    ['<C-s>'] = { 'actions.select', opts = { vertical = true } },
-    ['<C-x>'] = { 'actions.select', opts = { horizontal = true } },
-    ['<C-t>'] = { 'actions.select', opts = { tab = true } },
+  for lnum = 1, line_count do
+    local fs_entry = MiniFiles.get_fs_entry(buf_id, lnum)
+    if fs_entry then
+      local entry = normalise_fs_entry(fs_entry)
+      local row = lnum - 1
+      local cursor = 0
 
-    -- Preview without navigating
-    ['<C-p>'] = 'actions.preview',
+      -- Walk the same ordered column specs as the picker.
+      -- We derive the byte ranges from C.WIDTHS / C.GAPS — single source of truth.
+      local segments = {
+        { width = C.WIDTHS.icon, gap = C.GAPS.icon, hl = C.hl_icon(entry) },
+        { width = C.WIDTHS.perms, gap = C.GAPS.perms, hl = 'Comment' },
+        { width = C.WIDTHS.size, gap = C.GAPS.size, hl = 'Number' },
+        { width = C.WIDTHS.time, gap = C.GAPS.time, hl = 'Special' },
+      }
 
-    -- Close float or go back
-    ['q'] = 'actions.close',
-    ['<BS>'] = 'actions.parent', -- backspace goes up, mirrors your picker
-
-    -- Open a new oil window at the cwd
-    ['_'] = 'actions.open_cwd',
-
-    -- cd to the directory shown in oil
-    ['`'] = 'actions.cd',
-    ['~'] = { 'actions.cd', opts = { scope = 'tab' } },
-
-    -- Toggle hidden files — mirrors your picker's <C-h>
-    ['<C-h>'] = 'actions.toggle_hidden',
-    ['<leader>ot'] = 'actions.open_terminal',
-
-    ['o'] = 'actions.change_sort',
-    ['<C-o>'] = 'actions.open_external',
-  },
-  -- Disable ALL default keymaps so nothing conflicts with hjkl or search
-  use_default_keymaps = false,
-
-  -- Float configuration mirrors your picker's window sizing
-  float = {
-    padding = 2,
-    max_width = math.floor(vim.o.columns * 0.618),
-    max_height = math.floor(vim.o.lines * 0.618),
-    border = 'rounded',
-    win_options = {
-      winblend = 0,
-    },
-  },
-
-  -- Preview window configuration
-  preview = {
-    max_width = 0.45,
-    min_width = { 40, 0.4 },
-    width = nil,
-    max_height = 0.9,
-    min_height = { 5, 0.1 },
-    height = nil,
-    border = 'rounded',
-    win_options = {
-      winblend = 0,
-    },
-  },
-}
-
-M.NAV_MODE = true
-
-function M.setup()
-  require('oil').setup(oil_opts)
-
-  vim.api.nvim_create_autocmd('FileType', {
-    pattern = 'oil',
-    callback = function(ev)
-      local buf = ev.buf
-
-      -- ----------------------------------------------------------------
-      -- State: each oil buffer independently tracks whether it is in
-      -- navigation mode or edit mode.
-      -- ----------------------------------------------------------------
-
-      local function set_nav_mode()
-        M.NAV_MODE = true
-        vim.bo[buf].modifiable = false
-        vim.bo[buf].readonly = false -- oil needs this false internally
-        vim.notify('Navigation mode', vim.log.levels.INFO, { title = 'oil.nvim' })
+      for _, seg in ipairs(segments) do
+        vim.hl.range(buf_id, hl_ns, seg.hl, { row, cursor }, { row, cursor + seg.width })
+        cursor = cursor + seg.width + seg.gap
       end
 
-      local function set_edit_mode()
-        M.NAV_MODE = false
-        vim.bo[buf].modifiable = true
-        vim.notify('Edit mode  —  <C-x><C-s> to apply  |  <Esc> to discard', vim.log.levels.INFO, { title = 'oil.nvim' })
+      -- Name segment: cursor is now at NAME_COL, highlight to end of line.
+      -- Use MiniFilesDirectory / MiniFilesFile to stay consistent with
+      -- mini.files' own highlight groups rather than our picker groups.
+      local name_hl = entry.is_dir and 'MiniFilesDirectory' or 'MiniFilesFile'
+      vim.hl.range(buf_id, hl_ns, name_hl, { row, cursor }, { row, -1 })
+    end
+  end
+end
+
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'MiniFilesBufferUpdate',
+  callback = function(ev)
+    -- ev.data.buf_id is the directory buffer that was just updated
+    apply_line_highlights(ev.data.buf_id)
+  end,
+})
+
+-- ── Window styling ────────────────────────────────────────────────────────────
+-- Keep window chrome consistent with the picker's rounded borders.
+
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'MiniFilesWindowOpen',
+  callback = function(ev)
+    local win_id = ev.data.win_id
+    vim.wo[win_id].winblend = 0
+    local config = vim.api.nvim_win_get_config(win_id)
+    config.border = 'rounded'
+    config.title_pos = 'left'
+    vim.api.nvim_win_set_config(win_id, config)
+  end,
+})
+
+-- ── Buffer-local keymaps (MiniFilesBufferCreate) ──────────────────────────────
+
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'MiniFilesBufferCreate',
+  callback = function(ev)
+    local buf_id = ev.data.buf_id
+    local MiniFiles = require 'mini.files'
+
+    local function map(lhs, rhs, desc) vim.keymap.set('n', lhs, rhs, { buffer = buf_id, desc = desc, nowait = true }) end
+
+    -- ── Toggle hidden files (mirrors picker's <C-h>) ──────────────────────
+
+    local show_hidden = false
+    local filter_show = function(_) return true end
+    local filter_hide = function(fs_entry) return not vim.startswith(fs_entry.name, '.') end
+
+    map('<C-h>', function()
+      show_hidden = not show_hidden
+      MiniFiles.refresh { content = { filter = show_hidden and filter_show or filter_hide } }
+    end, 'Toggle hidden files')
+
+    -- ── Splits (mirrors picker's <C-v> / <C-x>) ───────────────────────────
+
+    local function map_split(lhs, direction, desc)
+      map(lhs, function()
+        local state = MiniFiles.get_explorer_state()
+        local target = state and state.target_window
+        if not target or not vim.api.nvim_win_is_valid(target) then return end
+        local new_target = vim.api.nvim_win_call(target, function()
+          vim.cmd(direction .. ' split')
+          return vim.api.nvim_get_current_win()
+        end)
+        MiniFiles.set_target_window(new_target)
+        -- Immediately go in so the file opens in the new split
+        MiniFiles.go_in { close_on_file = true }
+      end, desc)
+    end
+
+    map_split('<C-v>', 'belowright vertical', 'Open in vsplit')
+    map_split('<C-x>', 'belowright horizontal', 'Open in split')
+
+    -- ── Tab open ──────────────────────────────────────────────────────────
+
+    map('<C-t>', function()
+      local fs_entry = MiniFiles.get_fs_entry()
+      if not fs_entry or fs_entry.fs_type == 'directory' then return end
+      MiniFiles.close()
+      vim.schedule(function() vim.cmd('tabedit ' .. vim.fn.fnameescape(fs_entry.path)) end)
+    end, 'Open in new tab')
+
+    -- ── Yank path (mirrors picker's gy) ───────────────────────────────────
+
+    map('gy', function()
+      local fs_entry = MiniFiles.get_fs_entry()
+      if not fs_entry then return end
+      vim.fn.setreg(vim.v.register, fs_entry.path)
+      vim.notify('Yanked: ' .. fs_entry.path, vim.log.levels.INFO, { title = 'mini.files' })
+    end, 'Yank path')
+
+    -- ── Set cwd to focused directory ──────────────────────────────────────
+
+    map('g~', function()
+      local fs_entry = MiniFiles.get_fs_entry()
+      if not fs_entry then return end
+      local dir = fs_entry.fs_type == 'directory' and fs_entry.path or vim.fs.dirname(fs_entry.path)
+      vim.fn.chdir(dir)
+      vim.notify('cwd: ' .. dir, vim.log.levels.INFO, { title = 'mini.files' })
+    end, 'Set cwd')
+
+    -- ── OS open (useful for images, PDFs, etc.) ───────────────────────────
+
+    map('gX', function()
+      local fs_entry = MiniFiles.get_fs_entry()
+      if fs_entry then vim.ui.open(fs_entry.path) end
+    end, 'OS open')
+  end,
+})
+
+-- ── Bookmarks (MiniFilesExplorerOpen) ────────────────────────────────────────
+
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'MiniFilesExplorerOpen',
+  callback = function()
+    local MiniFiles = require 'mini.files'
+    MiniFiles.set_bookmark('~', '~', { desc = 'Home' })
+    MiniFiles.set_bookmark('w', vim.fn.getcwd, { desc = 'Working directory' })
+    MiniFiles.set_bookmark('c', vim.fn.stdpath 'config', { desc = 'Neovim config' })
+    MiniFiles.set_bookmark('d', vim.fn.stdpath 'data', { desc = 'Neovim data' })
+  end,
+})
+
+-- Calculate the anchor point for the leftmost window so the whole
+-- explorer panel appears centred. We don't know how many windows will
+-- open, but we can centre on the focused (first) window as a reasonable
+-- approximation, or reserve a fixed total width.
+
+local TOTAL_WIDTH = math.floor(vim.o.columns * 0.85)
+local TOTAL_HEIGHT = math.floor(vim.o.lines * 0.75)
+local ROW_OFFSET = math.floor((vim.o.lines - TOTAL_HEIGHT) / 2)
+local COL_OFFSET = math.floor((vim.o.columns - TOTAL_WIDTH) / 2)
+
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'MiniFilesWindowOpen',
+  callback = function(ev)
+    local win_id = ev.data.win_id
+    local config = vim.api.nvim_win_get_config(win_id)
+    config.border = 'rounded'
+    config.title_pos = 'left'
+    -- Anchor the very first window; mini.files positions subsequent
+    -- windows relative to the first one automatically.
+    config.row = ROW_OFFSET
+    config.col = COL_OFFSET
+    vim.api.nvim_win_set_config(win_id, config)
+  end,
+})
+
+-- WindowUpdate fires after internal layout recalculation and will
+-- overwrite row/col, so we must re-apply there too.
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'MiniFilesWindowUpdate',
+  callback = function(_ev)
+    local MiniFiles = require 'mini.files'
+    local state = MiniFiles.get_explorer_state()
+    if not state or not state.windows or #state.windows == 0 then return end
+
+    -- Recompute col for every window in the branch left-to-right,
+    -- accumulating widths so each window is placed immediately after
+    -- the previous one, all anchored to our COL_OFFSET.
+    local col = COL_OFFSET
+
+    for _, win_data in ipairs(state.windows) do
+      local wid = win_data.win_id
+      if vim.api.nvim_win_is_valid(wid) then
+        local config = vim.api.nvim_win_get_config(wid)
+
+        config.row = ROW_OFFSET
+        config.col = col
+        -- Clamp height so all columns are the same height
+        config.height = TOTAL_HEIGHT
+
+        vim.api.nvim_win_set_config(wid, config)
+
+        -- Advance col by this window's width plus border columns (2 = left+right border)
+        col = col + config.width + 2
       end
+    end
+  end,
+})
+-- ── Public open helper (called from choose_custom) ────────────────────────────
 
-      -- Start in navigation mode
-      set_nav_mode()
-
-      -- ----------------------------------------------------------------
-      -- Helper: define a buffer-local normal-mode map that is easy to
-      -- remove when we toggle modes.
-      -- ----------------------------------------------------------------
-      local nav_maps = {} -- { lhs, rhs_or_callback } pairs
-      local edit_maps = {}
-
-      local function nmap(lhs, rhs, desc, tbl)
-        vim.keymap.set('n', lhs, rhs, { buffer = buf, desc = desc, nowait = true })
-        table.insert(tbl, lhs)
-      end
-
-      local function clear_maps(tbl)
-        for _, lhs in ipairs(tbl) do
-          pcall(vim.keymap.del, 'n', lhs, { buffer = buf })
-        end
-        -- Clear the list so we don't try to delete them twice
-        for k in pairs(tbl) do
-          tbl[k] = nil
-        end
-      end
-
-      -- ----------------------------------------------------------------
-      -- Navigation mode maps
-      -- ----------------------------------------------------------------
-      local function apply_nav_maps()
-        local oil = require 'oil'
-        oil.setup(oil_opts)
-
-        -- Directory traversal on h / l (dired style)
-        nmap('l', function()
-          local entry = oil.get_cursor_entry()
-          if entry and entry.type == 'directory' then
-            oil.select()
-          else
-            -- On a file: preview without leaving oil, mirrors dired 'v'
-            oil.select { preview = true }
-          end
-        end, 'Oil: enter / descend', nav_maps)
-        local actions = require 'oil.actions'
-
-        nmap('h', actions.parent.callback, 'Oil: ascend to parent', nav_maps)
-
-        -- <CR> opens the entry (file → edit buffer, dir → descend)
-        nmap('<CR>', oil.select, 'Oil: open entry', nav_maps)
-        -- -- Backspace also ascends, mirrors your picker's <BS> behaviour
-        nmap('<BS>', actions.parent.callback, 'Oil: ascend (BS)', nav_maps)
-        -- q closes oil and returns to the previous buffer
-        nmap('q', oil.close, 'Oil: close', nav_maps)
-        -- -- Toggle hidden files, same chord as your picker
-        nmap('<C-h>', oil.toggle_hidden, 'Oil: toggle hidden', nav_maps)
-
-        nmap('<C-r>', actions.refresh.callback, 'Oil: refresh', nav_maps)
-
-        -- Open in splits / tab without leaving oil
-        nmap('<C-v>', function() oil.select { vertical = true } end, 'Oil: open vsplit', nav_maps)
-        nmap('<C-x>', function() oil.select { horizontal = true } end, 'Oil: open split', nav_maps)
-        nmap('<C-t>', function() oil.select { tab = true } end, 'Oil: open tab', nav_maps)
-
-        -- Preview pane
-        nmap('<C-p>', oil.open_preview, 'Oil: preview', nav_maps)
-
-        -- Copy path to clipboard
-        nmap('gy', actions.copy_to_system_clipboard.callback, 'Oil: copy path', nav_maps)
-
-        -- Switch to edit mode
-        nmap('i', function()
-          clear_maps(nav_maps)
-          set_edit_mode()
-          apply_edit_maps()
-        end, 'Oil: enter edit mode', nav_maps)
-      end
-
-      -- ----------------------------------------------------------------
-      -- Edit mode maps  (wdired equivalent)
-      -- ----------------------------------------------------------------
-      local function apply_edit_maps()
-        local oil = require 'oil'
-
-        -- <C-x><C-s>: apply mutations and return to navigation mode
-        -- Closest faithful Emacs equivalent achievable in Neovim
-        nmap('<C-x><C-s>', function() -- note: registered as a single lhs string
-          vim.cmd.write()
-          clear_maps(edit_maps)
-          set_nav_mode()
-          apply_nav_maps()
-        end, 'Oil: apply changes (wdired save)', edit_maps)
-
-        -- ZZ: same semantic — save and return
-        nmap('ZZ', function()
-          vim.cmd.write()
-          clear_maps(edit_maps)
-          set_nav_mode()
-          apply_nav_maps()
-        end, 'Oil: apply changes (ZZ)', edit_maps)
-
-        -- <Esc>: discard and return to navigation mode
-        nmap('<Esc>', function()
-          oil.discard_all_changes()
-          clear_maps(edit_maps)
-          set_nav_mode()
-          apply_nav_maps()
-        end, 'Oil: discard changes', edit_maps)
-
-        -- In edit mode h/l should revert to their normal vim motion meaning
-        -- (character navigation) — do NOT add them to edit_maps so that
-        -- the default vim behaviour falls through naturally.
-      end
-
-      -- ----------------------------------------------------------------
-      -- Bootstrap
-      -- ----------------------------------------------------------------
-      apply_nav_maps()
-
-      -- Prevent accidentally entering insert mode via the default 'i' key
-      -- while in navigation mode (apply_nav_maps already remaps 'i' but
-      -- this is a safety net for other insert-mode entry keys).
-      vim.keymap.set('n', 'I', '<Nop>', { buffer = buf, desc = 'Oil: blocked in nav mode' })
-      vim.keymap.set('n', 'a', '<Nop>', { buffer = buf, desc = 'Oil: blocked in nav mode' })
-      vim.keymap.set('n', 'A', '<Nop>', { buffer = buf, desc = 'Oil: blocked in nav mode' })
-      vim.keymap.set('n', 'o', '<Nop>', { buffer = buf, desc = 'Oil: blocked in nav mode' })
-      vim.keymap.set('n', 'O', '<Nop>', { buffer = buf, desc = 'Oil: blocked in nav mode' })
-
-      -- When edit mode is active those <Nop> maps should be lifted so the
-      -- user can actually type. Wire that into the mode transition:
-      local _orig_set_edit = set_edit_mode
-      set_edit_mode = function()
-        _orig_set_edit()
-        for _, key in ipairs { 'I', 'a', 'A', 'o', 'O' } do
-          pcall(vim.keymap.del, 'n', key, { buffer = buf })
-        end
-      end
-
-      local _orig_set_nav = set_nav_mode
-      set_nav_mode = function()
-        _orig_set_nav()
-        -- Re-block insert-mode entry keys when returning to navigation mode
-        for _, key in ipairs { 'I', 'a', 'A', 'o', 'O' } do
-          vim.keymap.set('n', key, '<Nop>', { buffer = buf })
-        end
-      end
-    end,
-  })
+function M.open(path)
+  -- use_latest=false so navigating to a directory from the picker always
+  -- gives a fresh view of that specific path rather than restoring wherever
+  -- the user was last time they opened mini.files at a different anchor.
+  require('mini.files').open(path, false)
 end
 
 return M
