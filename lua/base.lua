@@ -268,7 +268,7 @@ keys.map_group('base', {
   {
     lhs = '<leader>wf',
     rhs = function() toggle_zoom() end,
-    desc = 'Move to left window',
+    desc = 'Full screen window',
   },
   {
     lhs = '<leader>wh',

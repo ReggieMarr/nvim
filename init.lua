@@ -25,10 +25,9 @@ require 'base'
 local module_files = {
   'modules.interface',
   'modules.filesystem',
-  -- "modules.execution",
   'modules.language',
   'modules.text_editing',
-  -- "modules.version_control",
+  'modules.version_control',
   -- "modules.project",
 }
 

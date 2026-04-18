@@ -60,10 +60,19 @@ function M.register(spec)
 
   if not spec.desc or spec.desc == '' then error(string.format("[articulation] Action '%s' from module '%s' must have a description", spec.id, spec.module)) end
 
-  if not spec.allow_override and M._actions[spec.id] then
-    vim.notify(string.format("[articulation] Duplicate action id '%s' from module '%s', overwriting", spec.id, spec.module), vim.log.levels.WARN)
-  end
+  -- After: buffer-local actions are scoped, not global
+  -- A duplicate is only a real conflict if both registrations are global
+  -- or both are local to the same buffer
+  local existing = M._actions[spec.id]
+  if existing and not spec.allow_override then
+    local both_global = not spec.bindings[0].buffer and not existing.bindings[0]
+    local same_buffer = spec.bindings[0].buffer and existing.bindings[0].buffer and spec.bindings[0].buffer == existing.bindings[0].buffer
 
+    if both_global or same_buffer then
+      vim.notify(string.format("[articulation] Duplicate action '%s' from '%s'", spec.id, spec.module), vim.log.levels.WARN)
+    end
+    -- Else Different buffer scopes: silent overwrite is correct behavior
+  end
   M._actions[spec.id] = spec
 
   -- Register keybindings if provided

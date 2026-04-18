@@ -238,13 +238,52 @@ return env.module.register {
         vim.opt.foldlevelstart = 99
 
         local fold_util = require 'utils.code_fold'
+        -- Helper to determine if a buffer should have folding applied
+        local function is_code_buffer(buf)
+          local buftype = vim.bo[buf].buftype
+          local filetype = vim.bo[buf].filetype
 
+          -- Only apply to normal file buffers (not terminals, quickfix, etc.)
+          if buftype ~= '' then return false end
+
+          -- Blocklist of filetypes to exclude
+          local excluded_filetypes = {
+            ['NeogitStatus'] = true,
+            ['NeogitCommitMessage'] = true,
+            ['NeogitLogView'] = true,
+            ['NeogitDiffView'] = true,
+            ['gitcommit'] = true,
+            ['help'] = true,
+            ['man'] = true,
+            ['oil'] = true,
+            ['lazy'] = true,
+            ['mason'] = true,
+          }
+
+          if excluded_filetypes[filetype] then return false end
+
+          return true
+        end
         vim.keymap.set('n', '<CR>', 'za', { noremap = true, silent = true })
         vim.keymap.set('n', '[[', fold_util.goto_previous_fold, { noremap = true, silent = true })
         vim.keymap.set('n', ']]', 'zj', { noremap = true, silent = true })
 
         vim.api.nvim_create_autocmd({ 'TextChanged', 'InsertLeave', 'LspAttach' }, {
-          callback = function(opts) fold_util.update_ranges(opts.buf) end,
+          callback = function(opts)
+            if is_code_buffer(opts.buf) then fold_util.update_ranges(opts.buf) end
+          end,
+        })
+
+        local last_row = nil
+        vim.api.nvim_create_autocmd('CursorMoved', {
+          callback = function(opts)
+            if not is_code_buffer(opts.buf) then return end
+            local row = vim.api.nvim_win_get_cursor(0)[1]
+            if row ~= last_row then
+              last_row = row
+              fold_util.update_current_fold(row, opts.buf)
+            end
+          end,
         })
 
         local last_row = nil

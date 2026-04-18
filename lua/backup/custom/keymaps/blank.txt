@@ -1,0 +1,75 @@
+Senior Firmware Developer
+
+NEW CAREER OPPORTUNITY
+
+
+Build your career with Kraken Robotics. Make a difference to others. If innovation drives you, and you want a career that makes a difference to the world, helping humanity overcome the challenges in our oceans – safely, efficiently, and sustainably – then come join us at Kraken Robotics.
+
+
+Kraken Robotics is currently recruiting for a Senior Firmware Developer to join our Mount Pearl, NL office, Dartmouth, Nova Scotia office or remote may be considered. 
+
+
+We are seeking a skilled and motivated Senior Firmware Developer to join our software team focused on the development of our Towed Systems. In this role, you will be responsible for designing, implementing, and maintaining embedded firmware for sensor integration, power management, and communication interfaces used on these marine sensor platforms. 
+
+ 
+
+ROLES AND RESPONSIBILITIES 
+
+    Design, develop, and debug embedded firmware for microcontrollers and real-time operating systems (RTOS). 
+    Develop and optimize firmware for real-time control, navigation, telemetry, and data logging systems. 
+
+    Implement robust communication protocols (CAN, RS-485, Ethernet, UART, SPI, I2C, etc.) for subsea environments. 
+
+    Ensure firmware reliability under extreme underwater conditions including pressure, temperature, and EMI. 
+
+    Collaborate with cross-functional teams (mechanical, electrical, and software) to support system integration and testing. 
+
+    Conduct hardware-in-the-loop (HIL) testing and diagnostics using simulators and lab environments. 
+
+    Create technical documentation including firmware design specifications, test procedures, and user manuals. 
+
+    Occasionally participate in field deployments and sea trials, providing on-site technical support and troubleshooting. 
+
+ 
+
+QUALIFICATIONS AND EXPERIENCE 
+
+    Bachelor’s degree or higher in Electrical Engineering, Computer Engineering, or a related field. 
+
+    7+ years of experience in embedded firmware development using primarily C++ (bare-metal and RTOS). 
+
+    Proficiency in microcontroller architecture. 
+
+    Experience with real-time systems and low-level hardware interaction. 
+
+    Experience with version control software: Git, Gitlab 
+
+    Experience with Python for testing, scripting, and automating embedded system validation.  
+
+    Familiarity with Agile/Scrum practices and DevOps tools (e.g., GitLab CI, Docker). 
+
+    Familiarity with modern firmware development practices, including software-in-the-loop (SIL) testing and hardware abstraction techniques using mocks/stubs to simulate hardware behavior in software. 
+
+    Excellent time management skills with a focus on meeting deadlines in a high-paced environment. 
+
+    Highly motivated team player with excellent communication skills, initiative, superior problem-solving skills, the ability to prioritize tasks, and willingness to learn and adapt. 
+
+    Demonstrated ability to work independently and take ownership of projects from concept through deployment 
+
+
+PREFERRED SKILLS 
+
+    Proficiency with Arm Cortex-M microcontrollers. 
+
+    Experience with subsea systems, AUVs/ROVs, or oceanographic instrumentation. 
+
+    Knowledge of underwater acoustic communication. 
+
+    Familiarity with underwater or harsh environment electronics. 
+
+    Embedded Linux development experience. 
+
+
+NOTE 
+
+May require occasional offshore or field work aboard research vessels or deployment sites. 
