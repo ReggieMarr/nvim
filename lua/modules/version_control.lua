@@ -443,10 +443,9 @@ return env.module.register {
       git_diff = function(o) require('snacks').picker.git_diff(o) end,
     }, 'version_control')
 
-    -- ── Articulation: global git operations ───────────────────────
+    -- ── global git operations ───────────────────────
     -- These are the primary entry points, mirroring Magit's SPC-g prefix.
     -- Buffer-local hunk operations are registered in gitsigns on_attach above.
-    wk = require('which-key').add { { '<leader>g', 'git', 'n' } }
 
     -- ── Version Control keymaps ─────────────────────────────────────
     local state = env.state.get()

@@ -73,57 +73,62 @@ return env.module.register {
   -- All plugin APIs are available. All env surface registrations live here.
 
   setup = function()
-    -- ── Articulation ────────────────────────────────────────────────
-    env.articulation.register_group('text_editing', {
-      {
-        id = 'search_in_buffer',
-        handler = function()
-          -- TODO could transition to using mini.fuzzy and mini.pick here.
-          -- Then we'd be able to commonize buffer searching in files, file viewers, terminals, ect
-          local current_buf = vim.api.nvim_get_current_buf()
-          local current_win = vim.api.nvim_get_current_win()
+    -- ── Text Editing ────────────────────────────────────────────────
 
-          require('snacks').picker.lines {
-            buf = current_buf,
-            layout = {
-              preset = 'dropdown',
-              preview = false,
-              layout = {
-                height = 0.4,
-              },
-            },
-            -- Jump to line in original window as selection changes
-            on_change = function(picker, item)
-              if item and vim.api.nvim_win_is_valid(current_win) then
-                vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
-                vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
-              end
-            end,
-            -- On confirm, jump to the selected line and close
-            confirm = function(picker, item)
-              picker:close()
-              if item and vim.api.nvim_win_is_valid(current_win) then
-                vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
-                vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
-              end
-            end,
-          }
-        end,
-        desc = 'Fuzzy search current buffer contents',
-        bindings = { { lhs = '<leader>sb' } },
-      },
-      {
-        id = 'emacs_goto_beginning',
-        handler = function() vim.cmd '^<cr>' end,
-        desc = 'Emacs style go to the beginning of a line',
-        bindings = { { lhs = '<C-a>' } },
-      },
-      {
-        id = 'emacs_save',
-        handler = function() vim.cmd 'write' end,
-        desc = 'Emacs style save buffer/file',
-        bindings = { { lhs = '<leader>fs' } },
-      },
+    ----------------------------------------------------------------
+    -- Buffer search (Snacks picker)
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>sb', '', {
+      silent = true,
+      desc = 'text_editing.search_in_buffer',
+      callback = function()
+        local current_buf = vim.api.nvim_get_current_buf()
+        local current_win = vim.api.nvim_get_current_win()
+
+        require('snacks').picker.lines {
+          buf = current_buf,
+          layout = {
+            preset = 'dropdown',
+            preview = false,
+            layout = { height = 0.4 },
+          },
+
+          on_change = function(_, item)
+            if item and vim.api.nvim_win_is_valid(current_win) then
+              vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
+              vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
+            end
+          end,
+
+          confirm = function(picker, item)
+            picker:close()
+
+            if item and vim.api.nvim_win_is_valid(current_win) then
+              vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
+              vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
+            end
+          end,
+        }
+      end,
+    })
+
+    ----------------------------------------------------------------
+    -- Emacs-style navigation
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<C-a>', '^', {
+      silent = true,
+      desc = 'text_editing.emacs_beginning_of_line',
+    })
+
+    ----------------------------------------------------------------
+    -- Emacs-style save
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>fs', '<cmd>write<cr>', {
+      silent = true,
+      desc = 'text_editing.save_buffer',
     })
   end,
 }

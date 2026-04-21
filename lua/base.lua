@@ -5,9 +5,6 @@
 -- No plugin dependencies. Loaded before lazy.
 -- NOTE this file should not introduce dependencies on external plugins
 
--- [[ Base Vim Options ]]
-local keys = require 'lib.keys'
-
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = true
 
@@ -141,26 +138,18 @@ vim.api.nvim_create_autocmd('BufWritePre', {
   desc = 'Trim trailing whitespace on save',
 })
 
--- Close certain filetypes with q
 vim.api.nvim_create_autocmd('FileType', {
   group = augroup 'quick_close',
-  pattern = {
-    'help',
-    'lspinfo',
-    'man',
-    'notify',
-    'qf',
-    'checkhealth',
-  },
+  pattern = { 'help', 'lspinfo', 'man', 'notify', 'qf', 'checkhealth' },
   callback = function(event)
     vim.bo[event.buf].buflisted = false
-    keys.map {
-      lhs = 'q',
-      rhs = '<cmd>close<cr>',
-      desc = 'Close window',
-      module = 'base',
+
+    vim.keymap.set("n", "q", "", {
       buffer = event.buf,
-    }
+      silent = true,
+      callback = function() vim.cmd.close() end,
+      desc = "base.close_window",
+    })
   end,
   desc = 'Close utility windows with q',
 })
@@ -218,18 +207,6 @@ vim.filetype.add {
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ';'
 
--- Groups that span all features - defined here so they
--- always exist in which-key regardless of feature flags
-keys.register_group('<leader>b', 'buffers', 'n')
-keys.register_group('<leader>c', 'config', 'n')
-keys.register_group('<leader>f', 'find', 'n')
-keys.register_group('<leader>g', 'git', 'n')
-keys.register_group('<leader>l', 'lsp', 'n')
-keys.register_group('<leader>p', 'project', 'n')
-keys.register_group('<leader>q', 'quit', 'n')
-keys.register_group('<leader>t', 'toggle', 'n')
-keys.register_group('<leader>w', 'write', 'n')
-
 -- Window zoom toggle (simplified)
 local function toggle_zoom()
   local function is_zoomed() return vim.t.zoomed or false end
@@ -263,180 +240,116 @@ local function toggle_zoom()
 end
 
 local config_dir = vim.fn.stdpath 'config'
-keys.map_group('base', {
-  -- ── Window navigation ───────────────────────────────────────────────
-  {
-    lhs = '<leader>wf',
-    rhs = function() toggle_zoom() end,
-    desc = 'Full screen window',
-  },
-  {
-    lhs = '<leader>wh',
-    rhs = '<C-w>h',
-    desc = 'Move to left window',
-  },
-  {
-    lhs = '<leader>wj',
-    rhs = '<C-w>j',
-    desc = 'Move to lower window',
-  },
-  {
-    lhs = '<leader>wk',
-    rhs = '<C-w>k',
-    desc = 'Move to upper window',
-  },
-  {
-    lhs = '<leader>wl',
-    rhs = '<C-w>l',
-    desc = 'Move to right window',
-  },
-  {
-    lhs = '<leader>wv',
-    rhs = '<cmd>vsplit<cr>',
-    desc = 'Vertical Split Window',
-  },
-  {
-    lhs = '<leader>ws',
-    rhs = '<cmd>split<cr>',
-    desc = 'Horizontal Split Window',
-  },
 
-  -- ── Window repositioning ──────────────────────────────────────────────
-  {
-    lhs = '<leader>H',
-    rhs = '<C-w>H',
-    desc = 'Move window left',
-  },
-  {
-    lhs = '<leader>J',
-    rhs = '<C-w>J',
-    desc = 'Move window down',
-  },
-  {
-    lhs = '<leader>K',
-    rhs = '<C-w>K',
-    desc = 'Move window up',
-  },
-  {
-    lhs = '<leader>L',
-    rhs = '<C-w>L',
-    desc = 'Move window right',
-  },
-  {
-    lhs = '<leader>wd',
-    rhs = '<C-w>c',
-    desc = 'Delete window',
-  },
-  {
-    lhs = '<leader>wo',
-    rhs = '<C-w>o',
-    desc = 'Delete other window',
-  },
+----------------------------------------------------------------
+-- Window navigation
+----------------------------------------------------------------
 
-  -- ── Buffer management ───────────────────────────────────────────────
-  {
-    lhs = '<S-l>',
-    rhs = '<cmd>bnext<cr>',
-    desc = 'Next buffer',
-  },
-  {
-    lhs = '<S-h>',
-    rhs = '<cmd>bprevious<cr>',
-    desc = 'Previous buffer',
-  },
-  {
-    lhs = '<leader>bd',
-    rhs = '<cmd>bdelete<cr>',
-    desc = 'Delete buffer',
-  },
-
-  -- ── Quit ─────────────────────────────────────────────────────────────
-  {
-    lhs = '<leader>qq',
-    rhs = '<cmd>qa<cr>',
-    desc = 'Quit all',
-  },
-  -- {
-  --   lhs  = "<leader>qQ",
-  --   rhs  = "<cmd>qa!<cr>",
-  --   desc = "Quit all (force)",
-  -- },
-  {
-    lhs = '<leader>wq',
-    rhs = '<cmd>wqa<cr>',
-    desc = 'Save and quit all',
-  },
-
-  -- ── Toggle ───────────────────────────────────────────────────────────
-  {
-    lhs = '<leader>tn',
-    rhs = '<cmd>set number!<cr>',
-    desc = 'Toggle line numbers',
-  },
-  {
-    lhs = '<leader>tr',
-    rhs = '<cmd>set relativenumber!<cr>',
-    desc = 'Toggle relative numbers',
-  },
-  {
-    lhs = '<leader>ts',
-    rhs = '<cmd>setlocal spell!<cr>',
-    desc = 'Toggle spell check',
-  },
-  {
-    lhs = '<leader>tw',
-    rhs = '<cmd>set wrap!<cr>',
-    desc = 'Toggle word wrap',
-  },
-
-  -- ── Config ───────────────────────────────────────────────────────────
-  {
-    lhs = '<leader>cf',
-    rhs = function()
-      local files = vim.fn.globpath(config_dir, '**/*', false, true)
-      files = vim.tbl_filter(function(f) return vim.fn.isdirectory(f) == 0 end, files)
-      vim.ui.select(files, {
-        prompt = 'Find config file:',
-        format_item = function(item) return item:gsub(config_dir .. '/', '') end,
-      }, function(choice)
-        if choice then vim.cmd.edit(choice) end
-      end)
-    end,
-    desc = 'Find config file',
-  },
-  {
-    lhs = '<leader>cg',
-    rhs = function()
-      local query = vim.fn.input 'Grep config> '
-      if query == '' then return end
-      vim.cmd('silent! vimgrep /' .. query .. '/gj ' .. config_dir .. '/**/*')
-      vim.cmd 'copen'
-    end,
-    desc = 'Grep config files',
-  },
-  {
-    lhs = '<leader>cm',
-    rhs = '<cmd>ConfigStatus modules<cr>',
-    desc = 'Config module status',
-  },
-  {
-    lhs = '<leader>ck',
-    rhs = '<cmd>ConfigStatus keys<cr>',
-    desc = 'Config keymap registry',
-  },
-  {
-    lhs = '<leader>cc',
-    rhs = '<cmd>ConfigStatus capabilities<cr>',
-    desc = 'Config capability registry',
-  },
-
-  -- ── Misc ────────────────────────────────────────────────────────────
-  {
-    lhs = '<Esc>',
-    rhs = '<cmd>nohlsearch<cr>',
-    desc = 'Clear search highlight',
-  },
-}, {
-  -- Defaults applied to all mappings in this group
+vim.keymap.set("n", "<leader>wf", "", {
   silent = true,
+  callback = toggle_zoom,
+  desc = "base.window_zoom",
+})
+
+vim.keymap.set("n", "<leader>wh", "<C-w>h", { silent = true, desc = "base.window_left" })
+vim.keymap.set("n", "<leader>wj", "<C-w>j", { silent = true, desc = "base.window_down" })
+vim.keymap.set("n", "<leader>wk", "<C-w>k", { silent = true, desc = "base.window_up" })
+vim.keymap.set("n", "<leader>wl", "<C-w>l", { silent = true, desc = "base.window_right" })
+
+vim.keymap.set("n", "<leader>wv", "<cmd>vsplit<cr>", { silent = true, desc = "base.window_vsplit" })
+vim.keymap.set("n", "<leader>ws", "<cmd>split<cr>",  { silent = true, desc = "base.window_split" })
+
+----------------------------------------------------------------
+-- Window repositioning
+----------------------------------------------------------------
+
+vim.keymap.set("n", "<leader>H", "<C-w>H", { silent = true, desc = "base.window_move_left" })
+vim.keymap.set("n", "<leader>J", "<C-w>J", { silent = true, desc = "base.window_move_down" })
+vim.keymap.set("n", "<leader>K", "<C-w>K", { silent = true, desc = "base.window_move_up" })
+vim.keymap.set("n", "<leader>L", "<C-w>L", { silent = true, desc = "base.window_move_right" })
+
+vim.keymap.set("n", "<leader>wd", "<C-w>c", { silent = true, desc = "base.window_delete" })
+vim.keymap.set("n", "<leader>wo", "<C-w>o", { silent = true, desc = "base.window_delete_others" })
+
+----------------------------------------------------------------
+-- Buffer
+----------------------------------------------------------------
+
+vim.keymap.set("n", "<S-l>", "<cmd>bnext<cr>",     { silent = true, desc = "base.buffer_next" })
+vim.keymap.set("n", "<S-h>", "<cmd>bprevious<cr>", { silent = true, desc = "base.buffer_prev" })
+vim.keymap.set("n", "<leader>bd", "<cmd>bdelete<cr>", { silent = true, desc = "base.buffer_delete" })
+
+----------------------------------------------------------------
+-- Quit
+----------------------------------------------------------------
+
+vim.keymap.set("n", "<leader>qq", "<cmd>qa<cr>",  { silent = true, desc = "base.quit_all" })
+vim.keymap.set("n", "<leader>wq", "<cmd>wqa<cr>", { silent = true, desc = "base.write_quit_all" })
+
+----------------------------------------------------------------
+-- Toggles
+----------------------------------------------------------------
+
+vim.keymap.set("n", "<leader>tn", "<cmd>set number!<cr>",          { silent = true, desc = "base.toggle_number" })
+vim.keymap.set("n", "<leader>tr", "<cmd>set relativenumber!<cr>",  { silent = true, desc = "base.toggle_relnumber" })
+vim.keymap.set("n", "<leader>ts", "<cmd>setlocal spell!<cr>",      { silent = true, desc = "base.toggle_spell" })
+vim.keymap.set("n", "<leader>tw", "<cmd>set wrap!<cr>",            { silent = true, desc = "base.toggle_wrap" })
+
+----------------------------------------------------------------
+-- Config
+----------------------------------------------------------------
+
+vim.keymap.set("n", "<leader>cf", "", {
+  silent = true,
+  desc = "base.config_find_file",
+  callback = function()
+    local files = vim.fn.globpath(config_dir, '**/*', false, true)
+    files = vim.tbl_filter(function(f)
+      return vim.fn.isdirectory(f) == 0
+    end, files)
+
+    vim.ui.select(files, {
+      prompt = 'Find config file:',
+      format_item = function(item)
+        return item:gsub(config_dir .. '/', '')
+      end,
+    }, function(choice)
+      if choice then vim.cmd.edit(choice) end
+    end)
+  end,
+})
+
+vim.keymap.set("n", "<leader>cg", "", {
+  silent = true,
+  desc = "base.config_grep",
+  callback = function()
+    local query = vim.fn.input 'Grep config> '
+    if query == '' then return end
+    vim.cmd('silent! vimgrep /' .. query .. '/gj ' .. config_dir .. '/**/*')
+    vim.cmd 'copen'
+  end,
+})
+
+vim.keymap.set("n", "<leader>cm", "<cmd>ConfigStatus modules<cr>", {
+  silent = true,
+  desc = "base.config_modules",
+})
+
+vim.keymap.set("n", "<leader>ck", "<cmd>ConfigStatus keys<cr>", {
+  silent = true,
+  desc = "base.config_keys",
+})
+
+vim.keymap.set("n", "<leader>cc", "<cmd>ConfigStatus capabilities<cr>", {
+  silent = true,
+  desc = "base.config_capabilities",
+})
+
+----------------------------------------------------------------
+-- Misc
+----------------------------------------------------------------
+
+vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<cr>", {
+  silent = true,
+  desc = "base.clear_search_highlight",
 })

@@ -368,13 +368,7 @@ function M.setup_diffview()
       end,
 
       -- Focus the file panel on open
-      view_opened = function(view)
-        vim.notify(
-          'Diffview: ' .. view.class:name(),
-          vim.log.levels.INFO,
-          { title = 'version-control' }
-        )
-      end,
+      view_opened = function(view) vim.notify('Diffview: ' .. view.class:name(), vim.log.levels.INFO, { title = 'version-control' }) end,
     },
 
     -- -----------------------------------------------------------------------
@@ -540,12 +534,7 @@ function M.setup_gitsigns()
       map('n', '<leader>hP', gs.preview_hunk_inline, { desc = 'Git: Preview Hunk Inline' })
 
       -- ── Blame ──────────────────────────────────────────────────────────
-      map(
-        'n',
-        '<leader>hb',
-        function() gs.blame_line { full = true } end,
-        { desc = 'Git: Blame Line (full)' }
-      )
+      map('n', '<leader>hb', function() gs.blame_line { full = true } end, { desc = 'Git: Blame Line (full)' })
       map('n', '<leader>hB', gs.toggle_current_line_blame, { desc = 'Git: Toggle Inline Blame' })
 
       -- ── Diff ───────────────────────────────────────────────────────────
@@ -558,12 +547,7 @@ function M.setup_gitsigns()
 
       -- ── Text objects ───────────────────────────────────────────────────
       map({ 'o', 'x' }, 'ih', ':<C-U>Gitsigns select_hunk<cr>', { desc = 'Git: Select Hunk' })
-      map(
-        { 'o', 'x' },
-        'ah',
-        ':<C-U>Gitsigns select_hunk<cr>',
-        { desc = 'Git: Select Hunk (outer)' }
-      )
+      map({ 'o', 'x' }, 'ah', ':<C-U>Gitsigns select_hunk<cr>', { desc = 'Git: Select Hunk (outer)' })
     end,
   }
 end
@@ -588,9 +572,7 @@ function M.setup_git_conflict()
   vim.api.nvim_create_autocmd('User', {
     pattern = 'GitConflictDetected',
     callback = function(ev)
-      local map = function(lhs, rhs, desc)
-        vim.keymap.set('n', lhs, rhs, { buffer = ev.buf, desc = desc })
-      end
+      local map = function(lhs, rhs, desc) vim.keymap.set('n', lhs, rhs, { buffer = ev.buf, desc = desc }) end
 
       map('<leader>co', '<Plug>(git-conflict-ours)', 'Conflict: Choose Ours')
       map('<leader>ct', '<Plug>(git-conflict-theirs)', 'Conflict: Choose Theirs')
@@ -601,11 +583,7 @@ function M.setup_git_conflict()
       map('[x', '<Plug>(git-conflict-prev-conflict)', 'Conflict: Prev')
       map('<leader>cq', '<cmd>GitConflictListQf<cr>', 'Conflict: List in QF')
 
-      vim.notify(
-        'Merge conflicts detected — <leader>c* to resolve',
-        vim.log.levels.WARN,
-        { title = 'version-control' }
-      )
+      vim.notify('Merge conflicts detected — <leader>c* to resolve', vim.log.levels.WARN, { title = 'version-control' })
     end,
   })
 end
@@ -654,12 +632,9 @@ function M.open_neogit(opts) require('neogit').open(opts or {}) end
 
 -- Open Neogit for a specific cwd (useful for monorepos or submodules)
 function M.open_neogit_cwd()
-  vim.ui.input(
-    { prompt = 'Git root: ', default = vim.fn.getcwd(), completion = 'dir' },
-    function(dir)
-      if dir and dir ~= '' then require('neogit').open { cwd = dir } end
-    end
-  )
+  vim.ui.input({ prompt = 'Git root: ', default = vim.fn.getcwd(), completion = 'dir' }, function(dir)
+    if dir and dir ~= '' then require('neogit').open { cwd = dir } end
+  end)
 end
 
 -- Toggle diffview (open if closed, close if open)
@@ -742,12 +717,7 @@ function M.show_git_log()
 
   -- Close with q or Esc
   for _, key in ipairs { 'q', '<Esc>' } do
-    vim.keymap.set(
-      'n',
-      key,
-      function() vim.api.nvim_win_close(win, true) end,
-      { buffer = buf, nowait = true, desc = 'Close git log' }
-    )
+    vim.keymap.set('n', key, function() vim.api.nvim_win_close(win, true) end, { buffer = buf, nowait = true, desc = 'Close git log' })
   end
 end
 
@@ -808,12 +778,7 @@ function M.setup_keymaps()
 
   -- ── Neogit (Magit-style) ──────────────────────────────────────────────
   map('n', '<leader>gg', function() M.open_neogit() end, { desc = 'Git: Status (Neogit)' })
-  map(
-    'n',
-    '<leader>gG',
-    function() M.open_neogit { kind = 'vsplit' } end,
-    { desc = 'Git: Status (vsplit)' }
-  )
+  map('n', '<leader>gG', function() M.open_neogit { kind = 'vsplit' } end, { desc = 'Git: Status (vsplit)' })
   map('n', '<leader>g.', M.open_neogit_cwd, { desc = 'Git: Status (custom cwd)' })
   map('n', '<leader>gc', function() M.open_neogit { 'commit' } end, { desc = 'Git: Commit' })
   map('n', '<leader>gp', function() M.open_neogit { 'pull' } end, { desc = 'Git: Pull' })
@@ -830,28 +795,13 @@ function M.setup_keymaps()
 
   -- ── Gitsigns (hunk-level ops defined in on_attach above) ─────────────
   -- Top-level toggles accessible outside on_attach
-  map(
-    'n',
-    '<leader>gb',
-    '<cmd>Gitsigns toggle_current_line_blame<cr>',
-    { desc = 'Git: Toggle Blame' }
-  )
+  map('n', '<leader>gb', '<cmd>Gitsigns toggle_current_line_blame<cr>', { desc = 'Git: Toggle Blame' })
   map('n', '<leader>gw', '<cmd>Gitsigns toggle_word_diff<cr>', { desc = 'Git: Toggle Word Diff' })
 
   -- ── Utilities ─────────────────────────────────────────────────────────
   map('n', '<leader>gm', '<cmd>GitMessenger<cr>', { desc = 'Git: Commit at Cursor' })
-  map(
-    'n',
-    '<leader>gl',
-    function() require('gitlinker').get_buf_range_url 'n' end,
-    { desc = 'Git: Copy Permalink' }
-  )
-  map(
-    'v',
-    '<leader>gl',
-    function() require('gitlinker').get_buf_range_url 'v' end,
-    { desc = 'Git: Copy Permalink (range)' }
-  )
+  map('n', '<leader>gl', function() require('gitlinker').get_buf_range_url 'n' end, { desc = 'Git: Copy Permalink' })
+  map('v', '<leader>gl', function() require('gitlinker').get_buf_range_url 'v' end, { desc = 'Git: Copy Permalink (range)' })
   map('n', '<leader>gL', M.show_git_log, { desc = 'Git: Log (float)' })
   map('n', '<leader>gB', M.copy_branch_name, { desc = 'Git: Copy Branch Name' })
 end
