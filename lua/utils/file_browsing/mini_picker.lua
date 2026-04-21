@@ -218,15 +218,16 @@ local function create_directory(path)
   return true
 end
 
-function M.find_file_at(cwd, show_hidden)
-  cwd = vim.fn.resolve(vim.fn.expand(cwd or vim.fn.getcwd()))
-  show_hidden = show_hidden or false
+function M.find_file_at(local_opts)
   local MiniPick = require 'mini.pick'
+  local_opts = local_opts or {} -- guard nil (called from registry.registry)
+  local cwd = vim.fn.resolve(vim.fn.expand(local_opts.cwd or vim.fn.getcwd()))
+  local show_hidden = local_opts.show_hidden or false
 
   -- Restart picker at a new directory
   local function navigate_to(dir)
     MiniPick.stop()
-    vim.schedule(function() M.find_file_at(dir, show_hidden) end)
+    vim.schedule(function() M.find_file_at { cwd = dir, show_hidden = show_hidden } end)
   end
 
   local function navigate_up()
@@ -258,7 +259,7 @@ function M.find_file_at(cwd, show_hidden)
 
   MiniPick.start {
     source = {
-      name = 'Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
+      name = 'Min Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
       cwd = cwd,
       items = get_entries(cwd, show_hidden),
       show = custom_show,
@@ -325,7 +326,7 @@ function M.find_file_at(cwd, show_hidden)
             if query_str:match '%.[^./]+$' then
               if create_file(query_str) then vim.cmd.edit(query_str) end
             else
-              if create_directory(query_str) then find_file_at(query_str, show_hidden) end
+              if create_directory(query_str) then find_file_at { cwd = query_str, show_hidden } end
             end
           end)
           return true
@@ -367,7 +368,7 @@ function M.find_file_at(cwd, show_hidden)
               if create_file(target) then vim.cmd.edit(target) end
             else
               -- No extension → create directory and navigate into it
-              if create_directory(target) then find_file_at(target, show_hidden) end
+              if create_directory(target) then find_file_at { cwd = target, show_hidden = show_hidden } end
             end
           end)
           return true

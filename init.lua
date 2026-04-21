@@ -27,7 +27,7 @@ local module_files = {
   'modules.filesystem',
   'modules.language',
   'modules.text_editing',
-  'modules.version_control',
+  -- 'modules.version_control',
   -- "modules.project",
 }
 

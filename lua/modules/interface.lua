@@ -21,6 +21,9 @@ return env.module.register {
   -- handles all env surface registrations after plugins are loaded.
 
   plugins = {
+    -- ['https://codeberg.org/comfysage/artio.nvim'] = {
+    --   lazy = false,
+    -- },
     ['t-troebst/perfanno.nvim'] = {
       lazy = false,
     },
@@ -174,10 +177,6 @@ return env.module.register {
         animate = { enabled = false },
       },
     },
-    ['nvim-mini/mini.files'] = {
-      version = false,
-      lazy = true, -- opened programmatically from the picker
-    },
 
     -- Helps with mini.pick
     ['nvim-mini/mini.icons'] = {
@@ -197,8 +196,8 @@ return env.module.register {
       priority = 900,
       lazy = false,
       opts = {
-        style = 'night',
-        transparent = false,
+        style = 'storm',
+        transparent = true,
         styles = { sidebars = 'dark', floats = 'dark' },
         on_highlights = function(hl, c) hl.EnvDisplayVirtualText = { fg = c.comment, italic = true } end,
       },
@@ -301,6 +300,7 @@ return env.module.register {
         function _G.StatusCol() return fold_util.statuscol() end
       end,
     },
+    -- ['simifalaye/minibuffer.nvim'] = { lazy = false },
 
     ['nvim-mini/mini.pick'] = {
       version = false,
@@ -318,18 +318,9 @@ return env.module.register {
       -- opts already applied by lazy via plugins["folke/tokyonight.nvim"].opts
       -- calling setup again here is a no-op but makes the apply explicit
     )
-    vim.cmd.colorscheme 'tokyonight-night'
+    vim.cmd.colorscheme 'tokyonight-storm'
 
     -- ── Picker capability ───────────────────────────────────────────
-
-    env.capabilities.register('picker', {
-      files = function(o) require('utils.file_browsing.picker_search').find_file_at(o ~= nil and o or vim.fn.getcwd()) end,
-      grep = function(o) snacks.picker.grep(o) end,
-      buffers = function(o) snacks.picker.buffers(o) end,
-      -- keymaps  = function(o) snacks.picker.keymaps(o)  end,
-      -- commands = function(o) snacks.picker.commands(o) end,
-    }, 'interface')
-
     -- -- Extend picker with interface-level finders
     env.capabilities.extend('picker', {
       help = function(o) snacks.picker.help(o) end,
@@ -353,24 +344,6 @@ return env.module.register {
     local mfc = require 'utils.file_browsing.file_search_config'
     -- Load the autocmd/keymap module after setup so MiniFiles global exists.
     require 'utils.file_browsing.directory_editor'
-    require 'utils.file_browsing.picker_search'
-
-    require('mini.files').setup {
-      content = {
-        prefix = mfc.make_prefix,
-        highlight = mfc.make_highlight,
-      },
-      options = {
-        permanent_delete = false,
-        use_as_default_explorer = false,
-      },
-      windows = {
-        preview = true,
-        width_focus = 50,
-        width_nofocus = 20,
-        width_preview = 60,
-      },
-    }
 
     require('mini.pick').setup {
       mappings = {
@@ -423,13 +396,21 @@ return env.module.register {
         msg = {
           height = 0.3,
           timeout = 5000,
+          target = 'msg',
         },
         pager = {
           height = 0.5,
         },
       },
     }
-
+    -- vim.ui.picker.env.capabilities.register('picker', {
+    --   files = function(o) require('utils.file_browsing.mini_picker').find_file_at(o ~= nil and o or vim.fn.getcwd()) end,
+    --   grep = function(o) snacks.picker.grep(o) end,
+    --   buffers = function(o) snacks.picker.buffers(o) end,
+    --   -- keymaps  = function(o) snacks.picker.keymaps(o)  end,
+    --   -- commands = function(o) snacks.picker.commands(o) end,
+    -- }, 'interface')
+    --
     -- Customize the style of the notification window
     vim.api.nvim_create_autocmd('FileType', {
       pattern = 'msg',

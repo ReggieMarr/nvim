@@ -306,29 +306,6 @@ return env.module.register {
         },
       },
     }
-    -- ── Filesystem capability ───────────────────────────────────────
-    env.capabilities.register('filesystem', {
-      open_tree = function(path)
-        require('neo-tree.command').execute {
-          action = 'show',
-          source = 'filesystem',
-          position = 'left',
-          dir = path or vim.fn.getcwd(),
-          toggle = true,
-        }
-      end,
-
-      reveal_file = function(filepath)
-        require('neo-tree.command').execute {
-          action = 'focus',
-          source = 'filesystem',
-          position = 'left',
-          reveal_file = filepath or vim.api.nvim_buf_get_name(0),
-        }
-      end,
-
-      close_tree = function() require('neo-tree.command').execute { action = 'close' } end,
-    }, 'filesystem')
 
     -- ── Picker extensions ───────────────────────────────────────────
     -- File-specific finders registered as picker extensions.
@@ -420,7 +397,13 @@ return env.module.register {
     -- File finding
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>ff', function() env.use('picker').files() end, { desc = 'filesystem.find_files', silent = true })
+    vim.ui.picker.files = function(opts) require('utils.file_browsing.mini_picker').find_file_at(opts) end
+    vim.keymap.set(
+      'n',
+      '<leader>ff',
+      '',
+      { desc = 'filesystem.find_files_from_cwd', callback = function() vim.ui.picker.files { cwd = vim.fn.getcwd() } end, silent = true }
+    )
 
     -- if state['workspace.root'] ~= nil then
     --   vim.keymap.set(
