@@ -413,214 +413,210 @@ return env.module.register {
 
   -- ── Setup ─────────────────────────────────────────────────────────────
   setup = function()
-    require('mason').setup()
-    require('mason-tool-installer').setup {
-      ensure_installed = mason_formatter_names(),
-    }
-    require('mason-lspconfig').setup {
-      automatic_enable = true,
-    }
+    -- ── Mason setup (async with progress) ───────────────────────────
+    vim.schedule(function()
+      vim.notify('Initializing Mason tools…', vim.log.levels.INFO, {
+        title = 'language.mason',
+        kind = 'progress',
+      })
+      require('mason').setup()
+
+      vim.defer_fn(function()
+        require('mason-tool-installer').setup {
+          ensure_installed = mason_formatter_names(),
+        }
+
+        vim.notify('Formatter tools ensured', vim.log.levels.INFO, {
+          title = 'language.mason',
+          kind = 'progress',
+        })
+      end, 0)
+
+      vim.defer_fn(function()
+        require('mason-lspconfig').setup {
+          automatic_enable = true,
+        }
+
+        vim.notify('LSP servers configured', vim.log.levels.INFO, {
+          title = 'language.mason',
+          kind = 'progress',
+        })
+      end, 0)
+
+      vim.defer_fn(
+        function()
+          vim.notify('Mason setup complete', vim.log.levels.INFO, {
+            title = 'language.mason',
+            kind = 'progress',
+          })
+        end,
+        50
+      )
+    end)
 
     -- ── Shared LSP on_attach ───────────────────────────────────────
-    -- Called when any LSP server attaches to a buffer.
-    -- Registers buffer-local articulation contributions and
-    -- updates env.state for the attached buffer.
     local function on_attach(client, bufnr)
-      -- Update state immediately on attach
       env.state._update('lsp.attached_servers', vim.lsp.get_clients { bufnr = bufnr })
 
-      -- Enable inlay hints if the server supports them
       if client.server_capabilities.inlayHintProvider then vim.lsp.inlay_hint.enable(true, { bufnr = bufnr }) end
-      -- Register buffer-local LSP actions.
-      -- These only exist while LSP is attached to this buffer.
-      -- Using buffer-local bindings means they don't pollute global keymap
-      -- and are automatically cleaned up when the buffer is wiped.
-      env.articulation.register_group('language', {
-        {
-          id = 'go_to_definition',
-          handler = vim.lsp.buf.definition,
-          desc = 'Go to definition',
-          bindings = { { lhs = '<leader>ld', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.definitionProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'go_to_declaration',
-          handler = vim.lsp.buf.declaration,
-          desc = 'Go to declaration',
-          bindings = { { lhs = '<leader>lD', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.declarationProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'go_to_implementation',
-          handler = vim.lsp.buf.implementation,
-          desc = 'Go to implementation',
-          bindings = { { lhs = '<leader>li', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.implementationProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'go_to_type_definition',
-          handler = vim.lsp.buf.type_definition,
-          desc = 'Go to type definition',
-          bindings = { { lhs = '<leader>lt', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.typeDefinitionProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'find_references',
-          handler = function()
-            -- Route through picker capability so references appear
-            -- in lsp picker, not the quickfix list
-            if env.capabilities.has 'picker' and env.use('picker').lsp_references then
-              env.use('picker').lsp_references()
-            else
-              vim.lsp.buf.references()
-            end
-          end,
-          desc = 'Find references',
-          bindings = {
-            { lhs = 'gr', buffer = bufnr },
-            { lhs = '<leader>lr', buffer = bufnr },
-          },
-          when = function(_) return client.server_capabilities.referencesProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'hover',
-          handler = vim.lsp.buf.hover,
-          desc = 'Show hover documentation',
-          bindings = { { lhs = '<leader>lh', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.hoverProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'signature_help',
-          handler = vim.lsp.buf.signature_help,
-          desc = 'Show signature help',
-          bindings = {
-            { lhs = '<leader>lH', buffer = bufnr, mode = { 'n', 'i' } },
-          },
-          when = function(_) return client.server_capabilities.signatureHelpProvider ~= nil end,
-          allow_override = true,
-        },
-        {
-          id = 'rename',
-          handler = vim.lsp.buf.rename,
-          desc = 'Rename symbol',
-          bindings = { { lhs = '<leader>ln', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.renameProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'code_action',
-          handler = vim.lsp.buf.code_action,
-          desc = 'Code actions',
-          bindings = {
-            { lhs = '<leader>la', buffer = bufnr },
-            { lhs = '<leader>la', buffer = bufnr, mode = 'v' },
-          },
-          when = function(_) return client.server_capabilities.codeActionProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'format_buffer',
-          handler = function()
-            require('conform').format {
-              bufnr = bufnr,
-              timeout_ms = 500,
-              lsp_format = 'fallback',
-            }
-          end,
-          desc = 'Format buffer',
-          bindings = { { lhs = '<leader>lf', buffer = bufnr } },
-          allow_override = true,
-        },
-        {
-          id = 'find_symbols_document',
-          handler = function()
-            if env.use('picker').lsp_symbols then
-              env.use('picker').lsp_symbols { filter = 'document' }
-            else
-              vim.lsp.buf.document_symbol()
-            end
-          end,
-          desc = 'Find document symbols',
-          bindings = { { lhs = '<leader>si', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.documentSymbolProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'find_symbols_workspace',
-          handler = function()
-            if env.use('picker').lsp_symbols then
-              env.use('picker').lsp_symbols { filter = 'workspace' }
-            else
-              vim.lsp.buf.workspace_symbol()
-            end
-          end,
-          desc = 'Find workspace symbols',
-          bindings = { { lhs = '<leader>lS', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.workspaceSymbolProvider == true end,
-          allow_override = true,
-        },
-        {
-          id = 'toggle_inlay_hints',
-          handler = function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = bufnr }, { bufnr = bufnr }) end,
-          desc = 'Toggle inlay hints',
-          bindings = { { lhs = '<leader>th', buffer = bufnr } },
-          when = function(_) return client.server_capabilities.inlayHintProvider ~= nil end,
-          allow_override = true,
-        },
-        {
-          id = 'show_diagnostics_line',
-          handler = function() vim.diagnostic.open_float { scope = 'line' } end,
-          desc = 'Show line diagnostics',
-          bindings = { { lhs = '<leader>ll', buffer = bufnr } },
-          allow_override = true,
-        },
-        {
-          id = 'diagnostics_next',
-          handler = function() vim.diagnostic.jump { count = 1, float = true } end,
-          desc = 'Next diagnostic',
-          bindings = { { lhs = ']d', buffer = bufnr } },
-          allow_override = true,
-        },
-        {
-          id = 'diagnostics_prev',
-          handler = function() vim.diagnostic.jump { count = -1, float = true } end,
-          desc = 'Previous diagnostic',
-          bindings = { { lhs = '[d', buffer = bufnr } },
-          allow_override = true,
-        },
-        {
-          id = 'diagnostics_next_error',
-          handler = function()
-            vim.diagnostic.jump {
-              count = 1,
-              float = true,
-              severity = vim.diagnostic.severity.ERROR,
-            }
-          end,
-          desc = 'Next error',
-          bindings = { { lhs = ']e', buffer = bufnr } },
-          allow_override = true,
-        },
-        {
-          id = 'diagnostics_prev_error',
-          handler = function()
-            vim.diagnostic.jump {
-              count = -1,
-              float = true,
-              severity = vim.diagnostic.severity.ERROR,
-            }
-          end,
-          desc = 'Previous error',
-          bindings = { { lhs = '[e', buffer = bufnr } },
-          allow_override = true,
-        },
-      })
+
+      ----------------------------------------------------------------
+      -- Non-trivial callbacks only
+      ----------------------------------------------------------------
+
+      local function find_references()
+        if env.capabilities.has 'picker' and env.use('picker').lsp_references then
+          env.use('picker').lsp_references()
+        else
+          vim.lsp.buf.references()
+        end
+      end
+
+      local function format_buffer()
+        require('conform').format {
+          bufnr = bufnr,
+          timeout_ms = 500,
+          lsp_format = 'fallback',
+        }
+      end
+
+      local function find_symbols_document()
+        if env.use('picker').lsp_symbols then
+          env.use('picker').lsp_symbols { filter = 'document' }
+        else
+          vim.lsp.buf.document_symbol()
+        end
+      end
+
+      local function find_symbols_workspace()
+        if env.use('picker').lsp_symbols then
+          env.use('picker').lsp_symbols { filter = 'workspace' }
+        else
+          vim.lsp.buf.workspace_symbol()
+        end
+      end
+
+      local function toggle_inlay_hints() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = bufnr }, { bufnr = bufnr }) end
+
+      ----------------------------------------------------------------
+      -- Conditional keymaps
+      ----------------------------------------------------------------
+
+      if client.server_capabilities.definitionProvider then
+        vim.keymap.set('n', '<leader>ld', function() vim.lsp.buf.definition() end, { buffer = bufnr, silent = true, desc = 'language.go_to_definition' })
+      end
+
+      if client.server_capabilities.declarationProvider then
+        vim.keymap.set('n', '<leader>lD', function() vim.lsp.buf.declaration() end, { buffer = bufnr, silent = true, desc = 'language.go_to_declaration' })
+      end
+
+      if client.server_capabilities.implementationProvider then
+        vim.keymap.set(
+          'n',
+          '<leader>li',
+          function() vim.lsp.buf.implementation() end,
+          { buffer = bufnr, silent = true, desc = 'language.go_to_implementation' }
+        )
+      end
+
+      if client.server_capabilities.typeDefinitionProvider then
+        vim.keymap.set(
+          'n',
+          '<leader>lt',
+          function() vim.lsp.buf.type_definition() end,
+          { buffer = bufnr, silent = true, desc = 'language.go_to_type_definition' }
+        )
+      end
+
+      if client.server_capabilities.referencesProvider then
+        vim.keymap.set('n', 'gr', find_references, { buffer = bufnr, silent = true, desc = 'language.find_references' })
+
+        vim.keymap.set('n', '<leader>lr', find_references, { buffer = bufnr, silent = true, desc = 'language.find_references' })
+      end
+
+      if client.server_capabilities.hoverProvider then
+        vim.keymap.set('n', '<leader>lh', function() vim.lsp.buf.hover() end, { buffer = bufnr, silent = true, desc = 'language.hover' })
+      end
+
+      if client.server_capabilities.signatureHelpProvider then
+        vim.keymap.set(
+          { 'n', 'i' },
+          '<leader>lH',
+          function() vim.lsp.buf.signature_help() end,
+          { buffer = bufnr, silent = true, desc = 'language.signature_help' }
+        )
+      end
+
+      if client.server_capabilities.renameProvider then
+        vim.keymap.set('n', '<leader>ln', function() vim.lsp.buf.rename() end, { buffer = bufnr, silent = true, desc = 'language.rename' })
+      end
+
+      if client.server_capabilities.codeActionProvider then
+        vim.keymap.set('n', '<leader>la', function() vim.lsp.buf.code_action() end, { buffer = bufnr, silent = true, desc = 'language.code_action' })
+
+        vim.keymap.set('v', '<leader>la', function() vim.lsp.buf.code_action() end, { buffer = bufnr, silent = true, desc = 'language.code_action' })
+      end
+
+      vim.keymap.set('n', '<leader>lf', format_buffer, { buffer = bufnr, silent = true, desc = 'language.format_buffer' })
+
+      if client.server_capabilities.documentSymbolProvider then
+        vim.keymap.set('n', '<leader>si', find_symbols_document, { buffer = bufnr, silent = true, desc = 'language.find_symbols_document' })
+      end
+
+      if client.server_capabilities.workspaceSymbolProvider then
+        vim.keymap.set('n', '<leader>lS', find_symbols_workspace, { buffer = bufnr, silent = true, desc = 'language.find_symbols_workspace' })
+      end
+
+      if client.server_capabilities.inlayHintProvider then
+        vim.keymap.set('n', '<leader>th', toggle_inlay_hints, { buffer = bufnr, silent = true, desc = 'language.toggle_inlay_hints' })
+      end
+
+      vim.keymap.set(
+        'n',
+        '<leader>ll',
+        function() vim.diagnostic.open_float { scope = 'line' } end,
+        { buffer = bufnr, silent = true, desc = 'language.show_diagnostics_line' }
+      )
+
+      vim.keymap.set(
+        'n',
+        ']d',
+        function() vim.diagnostic.jump { count = 1, float = true } end,
+        { buffer = bufnr, silent = true, desc = 'language.diagnostics_next' }
+      )
+
+      vim.keymap.set(
+        'n',
+        '[d',
+        function() vim.diagnostic.jump { count = -1, float = true } end,
+        { buffer = bufnr, silent = true, desc = 'language.diagnostics_prev' }
+      )
+
+      vim.keymap.set(
+        'n',
+        ']e',
+        function()
+          vim.diagnostic.jump {
+            count = 1,
+            float = true,
+            severity = vim.diagnostic.severity.ERROR,
+          }
+        end,
+        { buffer = bufnr, silent = true, desc = 'language.diagnostics_next_error' }
+      )
+
+      vim.keymap.set(
+        'n',
+        '[e',
+        function()
+          vim.diagnostic.jump {
+            count = -1,
+            float = true,
+            severity = vim.diagnostic.severity.ERROR,
+          }
+        end,
+        { buffer = bufnr, silent = true, desc = 'language.diagnostics_prev_error' }
+      )
     end
 
     -- ── Build shared capabilities for all LSP servers ──────────────
@@ -793,25 +789,20 @@ return env.module.register {
     -- ── Global LSP articulation (non-buffer-local) ─────────────────
     -- Actions that operate across buffers or don't require
     -- an attached LSP client go here rather than in on_attach
-    env.articulation.register_group('language', {
-      {
-        id = 'find_diagnostics',
-        handler = function() env.use('picker').diagnostics() end,
-        desc = 'Find all diagnostics',
-        bindings = { { lhs = '<leader>lF' } },
-      },
-      {
-        id = 'lsp_restart',
-        handler = function() vim.cmd 'lsp restart' end,
-        desc = 'Restart LSP clients',
-        bindings = { { lhs = '<leader>lR' } },
-      },
-      {
-        id = 'conform_info',
-        handler = function() vim.cmd 'ConformInfo' end,
-        desc = 'Show formatter info',
-        bindings = { { lhs = '<leader>cF' } },
-      },
+    vim.keymap.set('n', '<leader>lF', '', {
+      desc = 'language.find_diagnostics',
+      silent = true,
+      callback = function() env.use('pickr').diagnostics() end,
+    })
+    vim.keymap.set('n', '<leader>lR', '', {
+      desc = 'language.restart_lsp_clients',
+      silent = true,
+      callback = function() vim.cmd 'lsp restart' end,
+    })
+    vim.keymap.set('n', '<leader>lR', '', {
+      desc = 'language.conform_info',
+      silent = true,
+      callback = function() vim.cmd 'ConformInfo' end,
     })
 
     -- ── LspAttach autocmd: clean state on detach ───────────────────

@@ -412,73 +412,64 @@ return env.module.register {
       -- No when condition: visibility is controlled by the toggle action
     }
 
-    -- ── Articulation ────────────────────────────────────────────────
-    env.articulation.register_group('filesystem', {
-      -- Find / picker
-      {
-        id = 'grep',
-        handler = function() env.use('picker').grep() end,
-        desc = 'Grep current dir',
-        bindings = { { lhs = '<leader>sd' } },
-        when = function(state) return state['workspace.cwd'] ~= nil end,
-      },
-      {
-        id = 'find_recent',
-        handler = function() env.use('picker').recent() end,
-        desc = 'Recent files',
-        bindings = { { lhs = '<leader>fr' } },
-      },
+    -- ── Filesystem keymaps ─────────────────────────────────────────
 
-      -- File finding: extend the find group with filesystem-specific pickers
-      -- {
-      --   id = 'find_files',
-      --   handler = function() env.use('picker').files() end,
-      --   desc = 'Find files',
-      --   bindings = { { lhs = '<leader>ff' } },
-      --   when = function(state) return state['workspace.cwd'] ~= nil end,
-      -- },
-      {
-        id = 'find_project_files',
-        handler = function()
-          env.use('picker').files {
-            title = 'Files — ' .. (env.state.get 'workspace.project_name' or ''),
-          }
-        end,
-        desc = 'Find project files',
-        bindings = { { lhs = '<leader>pf' } },
-        when = function(state) return state['workspace.root'] ~= nil end,
-      },
-      {
-        id = 'find_directories',
-        handler = function() env.use('picker').directories() end,
-        desc = 'Find directories',
-        bindings = { { lhs = '<leader>fd' } },
-      },
+    local state = env.state.get()
 
-      -- Copy path utilities
-      {
-        id = 'copy_relative_path',
-        handler = function()
-          local path = vim.fn.expand '%:.'
-          vim.fn.setreg('+', path)
-          vim.notify('Copied: ' .. path)
-        end,
-        desc = 'Copy relative path to clipboard',
-        bindings = { { lhs = '<leader>fy' } },
-        when = function(state) return state['buffer.is_real'] == true end,
-      },
-      {
-        id = 'copy_absolute_path',
-        handler = function()
-          local path = vim.fn.expand '%:p'
-          vim.fn.setreg('+', path)
-          vim.notify('Copied: ' .. path)
-        end,
-        desc = 'Copy absolute path to clipboard',
-        bindings = { { lhs = '<leader>fY' } },
-        when = function(state) return state['buffer.is_real'] == true end,
-      },
-    })
+    ----------------------------------------------------------------
+    -- Find / picker
+    ----------------------------------------------------------------
+
+    -- if state['workspace.cwd'] ~= nil then
+    --   vim.keymap.set('n', '<leader>sd', function() env.use('picker').grep() end, { desc = 'filesystem.grep', silent = true })
+    -- end
+
+    vim.keymap.set('n', '<leader>fr', function() env.use('picker').recent() end, { desc = 'filesystem.find_recent', silent = true })
+
+    ----------------------------------------------------------------
+    -- File finding
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>ff', function() env.use('picker').files() end, { desc = 'filesystem.find_files', silent = true })
+
+    -- if state['workspace.root'] ~= nil then
+    --   vim.keymap.set(
+    --     'n',
+    --     '<leader>pf',
+    --     function()
+    --       env.use('picker').files {
+    --         title = 'Files — ' .. (env.state.get 'workspace.project_name' or ''),
+    --       }
+    --     end,
+    --     { desc = 'filesystem.find_project_files', silent = true }
+    --   )
+    -- end
+
+    vim.keymap.set('n', '<leader>fd', function() env.use('picker').directories() end, { desc = 'filesystem.find_directories', silent = true })
+
+    ----------------------------------------------------------------
+    -- Copy path utilities
+    ----------------------------------------------------------------
+
+    -- if state['buffer.is_real'] then
+    --   ---Copy relative path to clipboard
+    --   local function copy_relative_path()
+    --     local path = vim.fn.expand '%:.'
+    --     vim.fn.setreg('+', path)
+    --     vim.notify('Copied: ' .. path)
+    --   end
+    --
+    --   vim.keymap.set('n', '<leader>fy', copy_relative_path, { desc = 'filesystem.copy_relative_path', silent = true })
+    --
+    --   ---Copy absolute path to clipboard
+    --   local function copy_absolute_path()
+    --     local path = vim.fn.expand '%:p'
+    --     vim.fn.setreg('+', path)
+    --     vim.notify('Copied: ' .. path)
+    --   end
+    --
+    --   vim.keymap.set('n', '<leader>fY', copy_absolute_path, { desc = 'filesystem.copy_absolute_path', silent = true })
+    -- end
 
     -- ── LspAttach integration ───────────────────────────────────────
     -- When LSP attaches to a buffer, update workspace.root immediately

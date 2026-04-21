@@ -212,6 +212,83 @@ function M.status()
   vim.cmd 'vsplit'
   vim.api.nvim_win_set_buf(0, buf)
 end
+-- ── articulation.status (refactored for native keymaps) ─────────
 
----@return StateLib
+local function collect_maps(bufnr)
+  local modes = { 'n', 'v', 'x', 'i', 'o', 't', 'c' }
+  local maps = {}
+
+  for _, mode in ipairs(modes) do
+    -- global maps
+    for _, map in ipairs(vim.api.nvim_get_keymap(mode)) do
+      if map.desc and map.desc ~= '' then
+        table.insert(
+          maps,
+          vim.tbl_extend('force', map, {
+            mode = mode,
+            buffer = false,
+          })
+        )
+      end
+    end
+
+    -- buffer-local maps
+    if bufnr then
+      for _, map in ipairs(vim.api.nvim_buf_get_keymap(bufnr, mode)) do
+        if map.desc and map.desc ~= '' then
+          table.insert(
+            maps,
+            vim.tbl_extend('force', map, {
+              mode = mode,
+              buffer = true,
+            })
+          )
+        end
+      end
+    end
+  end
+
+  return maps
+end
+
+local function group_by_namespace(maps)
+  local grouped = {}
+
+  for _, map in ipairs(maps) do
+    local ns = map.desc:match '^([^.]+)'
+    ns = ns or 'misc'
+
+    grouped[ns] = grouped[ns] or {}
+    table.insert(grouped[ns], map)
+  end
+
+  return grouped
+end
+
+function M.keymaps_status(opts)
+  opts = opts or {}
+
+  local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
+  local maps = collect_maps(bufnr)
+  local grouped = group_by_namespace(maps)
+
+  -- optional pretty print
+  if opts.print then
+    for ns, entries in pairs(grouped) do
+      print('■ ' .. ns)
+
+      table.sort(entries, function(a, b) return a.lhs < b.lhs end)
+
+      for _, m in ipairs(entries) do
+        local scope = m.buffer and ' (buf)' or ''
+        print(string.format('  %-12s %-18s %s%s', m.mode, m.lhs, m.desc, scope))
+      end
+
+      print ''
+    end
+  end
+
+  return grouped
+end
+
 return M

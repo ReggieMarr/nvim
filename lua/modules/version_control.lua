@@ -446,167 +446,139 @@ return env.module.register {
     -- ── Articulation: global git operations ───────────────────────
     -- These are the primary entry points, mirroring Magit's SPC-g prefix.
     -- Buffer-local hunk operations are registered in gitsigns on_attach above.
-    env.articulation.register_group_label('<leader>g', 'git')
+    wk = require('which-key').add { { '<leader>g', 'git', 'n' } }
 
-    env.articulation.register_group('version_control', {
+    -- ── Version Control keymaps ─────────────────────────────────────
+    local state = env.state.get()
 
-      -- ── Neogit: the Magit equivalent entry points ─────────────
-      {
-        id = 'version_control.status',
-        handler = function() require('neogit').open() end,
-        desc = 'Open Neogit status  (Magit equivalent)',
-        bindings = {
-          { lhs = '<leader>gg' }, -- primary: matches Magit's SPC-g-g muscle memory
-          { lhs = '<leader>gG' }, -- alternate for consistency
-        },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.commit',
-        handler = function() require('neogit').open { 'commit' } end,
-        desc = 'Open Neogit commit popup',
-        bindings = { { lhs = '<leader>gc' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.push',
-        handler = function() require('neogit').open { 'push' } end,
-        desc = 'Open Neogit push popup',
-        bindings = { { lhs = '<leader>gP' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.pull',
-        handler = function() require('neogit').open { 'pull' } end,
-        desc = 'Open Neogit pull popup',
-        bindings = { { lhs = '<leader>gF' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.fetch',
-        handler = function() require('neogit').open { 'fetch' } end,
-        desc = 'Open Neogit fetch popup',
-        bindings = { { lhs = '<leader>gf' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.branch',
-        handler = function() require('neogit').open { 'branch' } end,
-        desc = 'Open Neogit branch popup',
-        bindings = { { lhs = '<leader>gB' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.rebase',
-        handler = function() require('neogit').open { 'rebase' } end,
-        desc = 'Open Neogit rebase popup',
-        bindings = { { lhs = '<leader>gr' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.stash',
-        handler = function() require('neogit').open { 'stash' } end,
-        desc = 'Open Neogit stash popup',
-        bindings = { { lhs = '<leader>gz' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.log',
-        handler = function() require('neogit').open { 'log' } end,
-        desc = 'Open Neogit log popup',
-        bindings = { { lhs = '<leader>gl' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
+    -- if not state['vcs.is_repo'] then return end
 
-      -- ── Diffview: diff and file history ───────────────────────
-      {
-        id = 'version_control.diff_open',
-        handler = function() vim.cmd 'DiffviewOpen' end,
-        desc = 'Open diffview for working tree',
-        bindings = { { lhs = '<leader>gv' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.diff_close',
-        handler = function() vim.cmd 'DiffviewClose' end,
-        desc = 'Close diffview',
-        bindings = { { lhs = '<leader>gV' } },
-        when = function(state)
-          -- Only show this action when diffview is actually open
-          for _, tabpage in ipairs(vim.api.nvim_list_tabpages()) do
-            for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
-              local buf = vim.api.nvim_win_get_buf(win)
-              local ft = vim.bo[buf].filetype
-              if ft == 'DiffviewFiles' or ft == 'DiffviewFileHistory' then return true end
-            end
+    ----------------------------------------------------------------
+    -- Neogit
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>gg', '', {
+      silent = true,
+      callback = function() require('neogit').open() end,
+      desc = 'version_control.status',
+    })
+
+    vim.keymap.set('n', '<leader>gG', '', {
+      silent = true,
+      callback = function() require('neogit').open() end,
+      desc = 'version_control.status',
+    })
+
+    vim.keymap.set('n', '<leader>gc', '', {
+      silent = true,
+      callback = function() require('neogit').open { 'commit' } end,
+      desc = 'version_control.commit',
+    })
+
+    vim.keymap.set('n', '<leader>gP', '', {
+      silent = true,
+      callback = function() require('neogit').open { 'push' } end,
+      desc = 'version_control.push',
+    })
+
+    vim.keymap.set('n', '<leader>gF', '', {
+      silent = true,
+      callback = function() require('neogit').open { 'pull' } end,
+      desc = 'version_control.pull',
+    })
+
+    vim.keymap.set('n', '<leader>gf', '', {
+      silent = true,
+      callback = function() require('neogit').open { 'fetch' } end,
+      desc = 'version_control.fetch',
+    })
+
+    vim.keymap.set('n', '<leader>gB', '', {
+      silent = true,
+      callback = function() require('neogit').open { 'branch' } end,
+      desc = 'version_control.branch',
+    })
+
+    vim.keymap.set('n', '<leader>gr', '', {
+      silent = true,
+      callback = function() require('neogit').open { 'rebase' } end,
+      desc = 'version_control.rebase',
+    })
+
+    vim.keymap.set('n', '<leader>gz', '', {
+      silent = true,
+      callback = function() require('neogit').open { 'stash' } end,
+      desc = 'version_control.stash',
+    })
+
+    vim.keymap.set('n', '<leader>gl', '', {
+      silent = true,
+      callback = function() require('neogit').open { 'log' } end,
+      desc = 'version_control.log',
+    })
+
+    ----------------------------------------------------------------
+    -- Diffview
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>gv', '', {
+      silent = true,
+      callback = function() vim.cmd 'DiffviewOpen' end,
+      desc = 'version_control.diff_open',
+    })
+
+    ---Close diffview if open
+    local function diff_close()
+      for _, tabpage in ipairs(vim.api.nvim_list_tabpages()) do
+        for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
+          local buf = vim.api.nvim_win_get_buf(win)
+          local ft = vim.bo[buf].filetype
+          if ft == 'DiffviewFiles' or ft == 'DiffviewFileHistory' then
+            vim.cmd 'DiffviewClose'
+            return
           end
-          return false
-        end,
-      },
-      {
-        id = 'version_control.file_history',
-        handler = function() vim.cmd 'DiffviewFileHistory %' end,
-        desc = 'File history for current buffer',
-        bindings = { { lhs = '<leader>gh' } },
-        when = function(state) return state['vcs.is_repo'] == true and state['buffer.is_real'] == true end,
-      },
-      {
-        id = 'version_control.repo_history',
-        handler = function() vim.cmd 'DiffviewFileHistory' end,
-        desc = 'File history for entire repo',
-        bindings = { { lhs = '<leader>gH' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.merge_tool',
-        handler = function() vim.cmd 'DiffviewOpen HEAD' end,
-        desc = 'Open merge conflict resolution tool',
-        bindings = { { lhs = '<leader>gM' } },
-        when = function(state)
-          local status = state['vcs.status']
-          return status ~= nil and status.conflicts > 0
-        end,
-      },
+        end
+      end
+    end
 
-      -- ── Picker-based git operations ────────────────────────────
-      {
-        id = 'version_control.find_commits',
-        handler = function() env.use('picker').git_commits() end,
-        desc = 'Browse git commit log',
-        bindings = { { lhs = '<leader>gL' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.find_branches',
-        handler = function() env.use('picker').git_branches() end,
-        desc = 'Find and switch git branches',
-        bindings = { { lhs = '<leader>g<space>' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.find_status',
-        handler = function() env.use('picker').git_status() end,
-        desc = 'Browse changed files (git status)',
-        bindings = { { lhs = '<leader>gw' } },
-        when = function(state) return state['vcs.is_repo'] == true end,
-      },
-      {
-        id = 'version_control.find_stash',
-        handler = function() env.use('picker').git_stash() end,
-        desc = 'Browse git stash',
-        bindings = { { lhs = '<leader>gZ' } },
-        when = function(state)
-          local status = state['vcs.status']
-          return state['vcs.is_repo'] == true
-        end,
-      },
-      {
-        id = 'version_control.find_file_commits',
-        handler = function() env.use('picker').git_log_file() end,
-        desc = 'Browse commits for current file',
-        bindings = { { lhs = '<leader>gk' } },
-        when = function(state) return state['vcs.is_repo'] == true and state['buffer.is_real'] == true end,
-      },
+    vim.keymap.set('n', '<leader>gV', '', {
+      silent = true,
+      callback = diff_close,
+      desc = 'version_control.diff_close',
+    })
+
+    vim.keymap.set('n', '<leader>gH', '', {
+      silent = true,
+      callback = function() vim.cmd 'DiffviewFileHistory' end,
+      desc = 'version_control.repo_history',
+    })
+
+    ----------------------------------------------------------------
+    -- Picker-based operations
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>gL', '', {
+      silent = true,
+      callback = function() env.use('picker').git_commits() end,
+      desc = 'version_control.find_commits',
+    })
+
+    vim.keymap.set('n', '<leader>g<space>', '', {
+      silent = true,
+      callback = function() env.use('picker').git_branches() end,
+      desc = 'version_control.find_branches',
+    })
+
+    vim.keymap.set('n', '<leader>gw', '', {
+      silent = true,
+      callback = function() env.use('picker').git_status() end,
+      desc = 'version_control.find_status',
+    })
+
+    vim.keymap.set('n', '<leader>gZ', '', {
+      silent = true,
+      callback = function() env.use('picker').git_stash() end,
+      desc = 'version_control.find_stash',
     })
 
     -- ── Neogit autocmds: feed events back into env.state ──────────

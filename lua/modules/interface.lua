@@ -322,6 +322,7 @@ return env.module.register {
     vim.cmd.colorscheme 'tokyonight-night'
 
     -- ── Picker capability ───────────────────────────────────────────
+
     env.capabilities.register('picker', {
       files = function(o) require('utils.file_browsing.picker_search').find_file_at(o ~= nil and o or vim.fn.getcwd()) end,
       grep = function(o) snacks.picker.grep(o) end,
@@ -488,156 +489,98 @@ return env.module.register {
     end
 
     require('mini.sessions').setup()
-    -- ── Articulation ────────────────────────────────────────────────
-    env.articulation.register_group('interface', {
-      {
-        id = 'restart', -- TODO this shouldn't go here
-        handler = function() MiniSessions.restart() end,
-        desc = 'restart the current session',
-        bindings = { { lhs = '<leader>R' } },
-      },
+    -- ── Interface keymaps ───────────────────────────────────────────
 
-      -- Buffer management
-      {
-        id = 'find_buffers',
-        handler = function() env.use('picker').buffers() end,
-        desc = 'Find open buffers',
-        bindings = { { lhs = '<leader>bb' } },
-      },
-      {
-        id = 'close_buffer',
-        handler = function() snacks.bufdelete() end,
-        desc = 'Close current buffer',
-        bindings = { { lhs = '<leader>bd' } },
-        when = function(state) return state['buffer.is_real'] == true end,
-      },
-      {
-        id = 'close_other_buffers',
-        handler = function() snacks.bufdelete.other() end,
-        desc = 'Close all other buffers',
-        bindings = { { lhs = '<leader>bo' } },
-      },
-      {
-        id = 'next_buffer',
-        handler = function() vim.cmd 'bnext' end,
-        desc = 'Next buffer',
-        bindings = { { lhs = ']b' } },
-      },
-      {
-        id = 'prev_buffer',
-        handler = function() vim.cmd 'bprevious' end,
-        desc = 'Previous buffer',
-        bindings = { { lhs = '[b' } },
-      },
-      {
-        id = 'scratch_buffer',
-        handler = function() snacks.scratch() end,
-        desc = 'Open scratch buffer',
-        bindings = { { lhs = '<leader>bs' } },
-      },
+    -- restart (TODO: relocate later)
+    vim.keymap.set('n', '<leader>R', function() MiniSessions.restart() end, { desc = 'interface.restart', silent = true })
 
-      -- Basic introspection
-      {
-        id = 'find_keymaps',
-        handler = function() env.use('picker').keymaps() end,
-        desc = 'Find keymaps',
-        bindings = { { lhs = '<leader>fk' } },
-      },
-      {
-        id = 'find_commands',
-        handler = function() env.use('picker').commands() end,
-        desc = 'Find commands',
-        bindings = { { lhs = '<leader>fC' } },
-      },
-      {
-        id = 'find_help',
-        handler = function() env.use('picker').help() end,
-        desc = 'Find help tags',
-        bindings = { { lhs = '<leader>fh' } },
-      },
-      {
-        id = 'find_notifications',
-        handler = function() env.use('picker').notifications() end,
-        desc = 'Find notification history',
-        bindings = { { lhs = '<leader>fn' } },
-      },
+    ----------------------------------------------------------------
+    -- Buffer management
+    ----------------------------------------------------------------
 
-      -- UI toggles
-      {
-        id = 'toggle_diagnostics',
-        handler = function() vim.diagnostic.enable(not vim.diagnostic.is_enabled()) end,
-        desc = 'Toggle diagnostics',
-        bindings = { { lhs = '<leader>ud' } },
-      },
-      {
-        id = 'toggle_line_numbers',
-        handler = function()
-          vim.opt.number = not vim.opt.number:get()
-          vim.opt.relativenumber = not vim.opt.relativenumber:get()
-        end,
-        desc = 'Toggle line numbers',
-        bindings = { { lhs = '<leader>ul' } },
-      },
-      {
-        id = 'toggle_word_highlights',
-        handler = function() snacks.words.toggle() end,
-        desc = 'Toggle word highlights',
-        bindings = { { lhs = '<leader>uw' } },
-      },
-      {
-        id = 'toggle_indent_guides',
-        handler = function() snacks.indent.toggle() end,
-        desc = 'Toggle indent guides',
-        bindings = { { lhs = '<leader>ui' } },
-      },
-      {
-        id = 'zoom_window',
-        handler = function() snacks.zen.zoom() end,
-        desc = 'Zoom current window',
-        bindings = { { lhs = '<leader>uz' } },
-      },
+    vim.keymap.set('n', '<leader>bb', function() env.use('picker').buffers() end, { desc = 'interface.find_buffers', silent = true })
 
-      -- Config inspection
-      {
-        id = 'find_in_config',
-        handler = function()
-          env.use('picker').files {
-            cwd = vim.fn.stdpath 'config',
-            title = 'Config files',
-          }
-        end,
-        desc = 'Find in config',
-        bindings = { { lhs = '<leader>cc' } },
-      },
-      {
-        id = 'grep_config',
-        handler = function()
-          env.use('picker').grep {
-            cwd = vim.fn.stdpath 'config',
-            title = 'Grep config',
-          }
-        end,
-        desc = 'Grep config',
-        bindings = { { lhs = '<leader>cg' } },
-      },
-      {
-        id = 'config_status',
-        handler = function() vim.cmd 'ConfigStatus' end,
-        desc = 'Open config status',
-        bindings = { { lhs = '<leader>cs' } },
-      },
-      {
-        id = 'config_status_state',
-        handler = function() vim.cmd 'ConfigStatus state' end,
-        desc = 'Inspect environment state',
-        bindings = { { lhs = '<leader>cS' } },
-      },
-      {
-        id = 'lazy',
-        handler = function() require('lazy').home() end,
-        desc = 'Open lazy plugin manager',
-        bindings = { { lhs = '<leader>cl' } },
-      },
-    })
+    -- if env.state.get()['buffer.is_real'] then
+    --   vim.keymap.set('n', '<leader>bd', function() snacks.bufdelete() end, { desc = 'interface.close_buffer', silent = true })
+    -- end
+
+    vim.keymap.set('n', '<leader>bo', function() snacks.bufdelete.other() end, { desc = 'interface.close_other_buffers', silent = true })
+
+    vim.keymap.set('n', ']b', function() vim.cmd 'bnext' end, { desc = 'interface.next_buffer', silent = true })
+
+    vim.keymap.set('n', '[b', function() vim.cmd 'bprevious' end, { desc = 'interface.prev_buffer', silent = true })
+
+    vim.keymap.set('n', '<leader>bs', function() snacks.scratch() end, { desc = 'interface.scratch_buffer', silent = true })
+
+    ----------------------------------------------------------------
+    -- Basic introspection
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>fk', function() env.use('picker').keymaps() end, { desc = 'interface.find_keymaps', silent = true })
+
+    vim.keymap.set('n', '<leader>fC', function() env.use('picker').commands() end, { desc = 'interface.find_commands', silent = true })
+
+    vim.keymap.set('n', '<leader>fh', function() env.use('picker').help() end, { desc = 'interface.find_help', silent = true })
+
+    vim.keymap.set('n', '<leader>fn', function() env.use('picker').notifications() end, { desc = 'interface.find_notifications', silent = true })
+
+    ----------------------------------------------------------------
+    -- UI toggles
+    ----------------------------------------------------------------
+
+    vim.keymap.set(
+      'n',
+      '<leader>ud',
+      function() vim.diagnostic.enable(not vim.diagnostic.is_enabled()) end,
+      { desc = 'interface.toggle_diagnostics', silent = true }
+    )
+
+    ---Toggle absolute + relative line numbers
+    local function toggle_line_numbers()
+      vim.opt.number = not vim.opt.number:get()
+      vim.opt.relativenumber = not vim.opt.relativenumber:get()
+    end
+
+    vim.keymap.set('n', '<leader>ul', toggle_line_numbers, { desc = 'interface.toggle_line_numbers', silent = true })
+
+    vim.keymap.set('n', '<leader>uw', function() snacks.words.toggle() end, { desc = 'interface.toggle_word_highlights', silent = true })
+
+    vim.keymap.set('n', '<leader>ui', function() snacks.indent.toggle() end, { desc = 'interface.toggle_indent_guides', silent = true })
+
+    vim.keymap.set('n', '<leader>uz', function() snacks.zen.zoom() end, { desc = 'interface.zoom_window', silent = true })
+
+    ----------------------------------------------------------------
+    -- Config inspection
+    ----------------------------------------------------------------
+
+    vim.keymap.set(
+      'n',
+      '<leader>cc',
+      function()
+        env.use('picker').files {
+          cwd = vim.fn.stdpath 'config',
+          title = 'Config files',
+        }
+      end,
+      { desc = 'interface.find_in_config', silent = true }
+    )
+
+    vim.keymap.set(
+      'n',
+      '<leader>cg',
+      function()
+        env.use('picker').grep {
+          cwd = vim.fn.stdpath 'config',
+          title = 'Grep config',
+        }
+      end,
+      { desc = 'interface.grep_config', silent = true }
+    )
+
+    vim.keymap.set('n', '<leader>cs', function() vim.cmd 'ConfigStatus' end, { desc = 'interface.config_status', silent = true })
+
+    vim.keymap.set('n', '<leader>cS', function() vim.cmd 'ConfigStatus state' end, { desc = 'interface.config_status_state', silent = true })
+
+    vim.keymap.set('n', '<leader>cl', function() require('lazy').home() end, { desc = 'interface.lazy', silent = true })
   end,
 }
