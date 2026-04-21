@@ -1,238 +1,162 @@
 -- lua/lib/articulation.lua
--- Action registry and keymap management.
---
--- The core abstraction: an "action" is a named, documented, preconditioned
--- operation. Keybindings, commands, and agent calls are all ways of invoking
--- the same underlying action registry entry.
---
--- This means:
---   - the handler is defined once
---   - the precondition is checked consistently regardless of invocation path
---   - the action is introspectable and attributable
+-- Thin registry over vim's native keymap API.
+-- Only stores what vim cannot: preconditions, module attribution, schema.
+-- Keymaps themselves are the source of truth; use nvim_get_keymap for introspection.
 
 ---@class ArticulationLib
 local M = {}
 
----@type table<string, Action>
-M._actions = {}
+---@class ActionMeta
+---@field id string
+---@field module string
+---@field when? fun(): boolean  -- No state arg; closure captures what it needs
+---@field params_schema? table
 
----@type table<string, string> maps "mode:lhs[@bufnr]" -> action_id for conflict detection
-M._bindings = {}
-
----Convert a fully qualified action id to a valid user command name.
----"interface.find_buffers" -> "InterfaceFindBuffers"
----"filesystem.toggle_tree" -> "FilesystemToggleTree"
----@param id string
----@return string
-local function id_to_cmd_name(id)
-  local result = id
-    -- Replace dots and underscores with a marker, capitalize next char
-    :gsub('[%._](%a)', function(c) return c:upper() end)
-    -- Capitalize the very first character
-    :gsub('^%a', string.upper)
-  return result
-end
-
----@class Action
----@field id string Stable dot-namespaced identifier e.g. "navigation.find_files"
----@field handler fun(params?: table) The operation to perform
----@field desc string Human readable description
----@field module string Module that registered this action
----@field when? fun(state: table): boolean Precondition evaluated against env.state
----@field bindings? ActionBinding[] Keybindings that invoke this action
----@field params_schema? table Parameter schema for agent invocation
----@field allow_override? boolean
+---@type table<string, ActionMeta>  -- action_id -> meta
+M._meta = {}
 
 ---@class ActionBinding
----@field lhs string Key sequence
----@field mode? string|string[] Defaults to "n"
----@field buffer? number Buffer-local binding
+---@field lhs string
+---@field mode? string|string[]
+---@field buffer? number
 
----Register an action and optionally bind it to keys.
----@param spec Action
+---@class ActionSpec
+---@field id string
+---@field module string
+---@field handler fun(params?: table)
+---@field desc string
+---@field bindings? ActionBinding[]
+---@field when? fun(): boolean
+---@field params_schema? table
+---@field allow_override? boolean
+
+---Register an action and its keybindings.
+---The keymap callback IS the action. No intermediate dispatch.
+---@param spec ActionSpec
 function M.register(spec)
-  vim.validate {
-    id = { spec.module .. '.' .. spec.id, 'string' },
-    handler = { spec.handler, 'function' },
-    desc = { spec.desc, 'string' },
-    module = { spec.module, 'string' },
+  local fqid = spec.module .. '.' .. spec.id
+
+  -- Build the guarded handler once; shared by keymap callback and command
+  local function invoke(params)
+    if spec.when then
+      local ok, result = pcall(spec.when)
+      if not ok then
+        vim.notify(('[articulation] precondition error %s: %s'):format(fqid, result), vim.log.levels.WARN)
+        return
+      end
+      if not result then
+        vim.notify(('[articulation] precondition not met: %s'):format(fqid), vim.log.levels.INFO)
+        return
+      end
+    end
+    local ok, err = pcall(spec.handler, params)
+    if not ok then vim.notify(('[articulation] %s failed: %s'):format(fqid, err), vim.log.levels.ERROR) end
+  end
+
+  -- Store only what vim cannot represent natively
+  M._meta[fqid] = {
+    id = spec.id,
+    module = spec.module,
+    when = spec.when,
+    params_schema = spec.params_schema,
   }
 
-  if not spec.desc or spec.desc == '' then error(string.format("[articulation] Action '%s' from module '%s' must have a description", spec.id, spec.module)) end
-
-  -- After: buffer-local actions are scoped, not global
-  -- A duplicate is only a real conflict if both registrations are global
-  -- or both are local to the same buffer
-  local existing = M._actions[spec.id]
-  if existing and not spec.allow_override then
-    local both_global = not spec.bindings[0].buffer and not existing.bindings[0]
-    local same_buffer = spec.bindings[0].buffer and existing.bindings[0].buffer and spec.bindings[0].buffer == existing.bindings[0].buffer
-
-    if both_global or same_buffer then
-      vim.notify(string.format("[articulation] Duplicate action '%s' from '%s'", spec.id, spec.module), vim.log.levels.WARN)
-    end
-    -- Else Different buffer scopes: silent overwrite is correct behavior
-  end
-  M._actions[spec.id] = spec
-
-  -- Register keybindings if provided
-  if spec.bindings then
-    for _, binding in ipairs(spec.bindings) do
-      M._bind(spec.id, binding)
-    end
+  -- Keybindings: vim.keymap.set with callback; desc is the contract
+  for _, binding in ipairs(spec.bindings or {}) do
+    local modes = type(binding.mode) == 'table' and binding.mode or { binding.mode or 'n' }
+    vim.keymap.set(modes, binding.lhs, invoke, {
+      desc = spec.desc,
+      buffer = binding.buffer,
+      silent = true,
+    })
   end
 
-  -- Derive command name from fully qualified id
-  local cmd_name = id_to_cmd_name(spec.id)
-
-  local ok = pcall(vim.api.nvim_create_user_command, cmd_name, function() M.execute(spec.id) end, { desc = spec.desc })
-
-  if not ok then
-    -- Command name collision is non-fatal
-    vim.notify(string.format("[articulation] Could not create command ':%s' for action '%s'", cmd_name, spec.id), vim.log.levels.DEBUG)
-  end
+  -- User command for agent/manual invocation
+  -- nvim_create_user_command does not support buffer-local + params cleanly,
+  -- so we register one global command per action id.
+  -- Buffer-local actions invoked via command run against current buffer,
+  -- which is the correct semantic for agent calls.
+  local cmd = M._to_cmd_name(fqid)
+  pcall(vim.api.nvim_create_user_command, cmd, function(cmd_args)
+    -- Parse args as key=value pairs for agent invocation
+    local params = M._parse_cmd_args(cmd_args.args)
+    invoke(params)
+  end, {
+    desc = spec.desc,
+    nargs = '?',
+  })
 end
 
----Register a group of actions sharing a module context.
+---Register a group sharing a module.
 ---@param module string
----@param actions Action[]
-function M.register_group(module, actions)
-  for _, spec in ipairs(actions) do
+---@param specs ActionSpec[]
+function M.register_group(module, specs)
+  for _, spec in ipairs(specs) do
     spec.module = spec.module or module
     M.register(spec)
   end
 end
 
----Bind an existing action to a key sequence.
----Separated from register() so bindings can be remapped without re-registering.
----@param action_id string
----@param binding ActionBinding
-function M._bind(action_id, binding)
-  local modes = type(binding.mode) == 'table' and binding.mode or { binding.mode or 'n' }
-
-  for _, mode in ipairs(modes) do
-    local buf_suffix = binding.buffer and ('@' .. binding.buffer) or '@global'
-    local key = string.format('%s:%s%s', mode, binding.lhs, buf_suffix)
-
-    if M._bindings[key] then
-      local existing_id = M._bindings[key]
-      if existing_id ~= action_id then
-        vim.notify(
-          string.format("[articulation] Binding conflict: '%s' (%s) used by '%s', overwriting with '%s'", binding.lhs, mode, existing_id, action_id),
-          vim.log.levels.WARN
-        )
-      end
+---Execute an action by fully-qualified id (agent entry point).
+---@param fqid string e.g. "language.go_to_definition"
+---@param params? table
+function M.execute(fqid, params)
+  -- We stored the guarded handler in the command; for direct agent calls
+  -- we re-resolve through the command to avoid duplicating dispatch logic.
+  -- Alternatively, store invoke in _meta if you prefer not going through commands.
+  local cmd = M._to_cmd_name(fqid)
+  -- Build args string from params table if provided
+  local args = ''
+  if params then
+    local parts = {}
+    for k, v in pairs(params) do
+      parts[#parts + 1] = k .. '=' .. tostring(v)
     end
-
-    M._bindings[key] = action_id
-
-    vim.keymap.set(mode, binding.lhs, function() M.execute(action_id, nil, binding.buffer) end, {
-      desc = M._actions[action_id] and M._actions[action_id].desc or action_id,
-      buffer = binding.buffer,
-      silent = true,
-    })
+    args = table.concat(parts, ' ')
   end
+  local ok, err = pcall(vim.cmd, cmd .. (args ~= '' and (' ' .. args) or ''))
+  if not ok then vim.notify(('[articulation] execute failed for %s: %s'):format(fqid, err), vim.log.levels.ERROR) end
 end
 
----Execute a registered action by id.
----Evaluates the precondition against current state before dispatching.
----@param action_id string
----@param params? table Parameters passed to the handler
----@param buffer? number Buffer context for state evaluation
----@return boolean success
-function M.execute(action_id, params, buffer)
-  local action = M._actions[action_id]
-  if not action then
-    vim.notify(string.format("[articulation] Unknown action: '%s'", action_id), vim.log.levels.ERROR)
-    return false
-  end
-
-  -- Evaluate precondition if present
-  if action.when then
-    local state = require('lib.state').snapshot()
-    local ok, result = pcall(action.when, state)
-    if not ok then
-      vim.notify(string.format("[articulation] Precondition error for '%s': %s", action_id, result), vim.log.levels.WARN)
-      return false
-    end
-    if not result then
-      vim.notify(string.format("[articulation] Action '%s' precondition not met", action_id), vim.log.levels.INFO)
-      return false
-    end
-  end
-
-  local ok, err = pcall(action.handler, params)
-  if not ok then
-    vim.notify(string.format("[articulation] Action '%s' failed: %s", action_id, err), vim.log.levels.ERROR)
-    return false
-  end
-
-  return true
-end
-
----Get all actions registered by a module.
----@param module string
----@return Action[]
-function M.get_by_module(module)
-  local result = {}
-  for _, action in pairs(M._actions) do
-    if action.module == module then table.insert(result, action) end
-  end
-  return result
-end
-
----Register a which-key group label.
----Deferred until which-key is available so load order doesn't matter.
----@param prefix string
----@param label string
----@param mode? string
-function M.register_group_label(prefix, label, mode)
-  vim.schedule(function()
-    local ok, wk = pcall(require, 'which-key')
-    if not ok then return end
-    wk.add { { prefix, group = label, mode = mode or 'n' } }
-  end)
-end
-
----Introspection
+---Introspect using vim's native keymap storage as source of truth.
+---Augments with precondition state from _meta.
 function M.status()
-  local lines = { '# Articulation Registry', string.rep('─', 50), '' }
+  local lines = { '# Articulation Registry', ('─'):rep(50), '' }
 
-  -- Group by module
+  -- Group meta by module for the header structure
   local by_module = {}
-  for _, action in pairs(M._actions) do
-    by_module[action.module] = by_module[action.module] or {}
-    table.insert(by_module[action.module], action)
+  for fqid, meta in pairs(M._meta) do
+    by_module[meta.module] = by_module[meta.module] or {}
+    by_module[meta.module][fqid] = meta
   end
 
   local modules = vim.tbl_keys(by_module)
   table.sort(modules)
 
   for _, mod in ipairs(modules) do
-    table.insert(lines, '## ' .. mod)
+    lines[#lines + 1] = '## ' .. mod
     local actions = by_module[mod]
-    table.sort(actions, function(a, b) return a.id < b.id end)
 
-    for _, action in ipairs(actions) do
-      table.insert(lines, string.format('  %s', action.id))
-      table.insert(lines, string.format('    %s', action.desc))
+    -- Pull actual keymaps from vim; this is the real source of truth
+    local keymaps_by_desc = M._collect_keymaps_by_desc()
 
-      if action.bindings then
-        for _, binding in ipairs(action.bindings) do
-          local modes = type(binding.mode) == 'table' and table.concat(binding.mode, ',') or (binding.mode or 'n')
-          table.insert(lines, string.format('    [%s] %s%s', modes, binding.lhs, binding.buffer and (' @buf:' .. binding.buffer) or ''))
-        end
+    for fqid, meta in vim.spairs(actions) do
+      lines[#lines + 1] = ('  %s'):format(fqid)
+
+      -- Get bindings from vim's own tables, not our registry
+      local bound = keymaps_by_desc[fqid] or {}
+      for _, km in ipairs(bound) do
+        local loc = km.buffer ~= 0 and (' @buf:%d'):format(km.buffer) or ''
+        lines[#lines + 1] = ('    [%s] %s%s'):format(km.mode, km.lhs, loc)
       end
 
-      if action.when then
-        -- Evaluate current precondition state for introspection
-        local state = require('lib.state').snapshot()
-        local ok, result = pcall(action.when, state)
+      if meta.when then
+        local ok, result = pcall(meta.when)
         local status = ok and (result and '✓ met' or '✗ not met') or '! error'
-        table.insert(lines, string.format('    when: %s', status))
+        lines[#lines + 1] = ('    when: %s'):format(status)
       end
 
-      table.insert(lines, '')
+      lines[#lines + 1] = ''
     end
   end
 
@@ -244,5 +168,56 @@ function M.status()
   vim.api.nvim_win_set_buf(0, buf)
 end
 
----@return ArticulationLib
+---Collect all keymaps (global + all open buffers) indexed by desc.
+---desc is the stable contract between the keymap and the action registry.
+---@return table<string, table[]>
+function M._collect_keymaps_by_desc()
+  local result = {}
+  local function collect(maps, bufnr)
+    for _, km in ipairs(maps) do
+      if km.desc then
+        result[km.desc] = result[km.desc] or {}
+        -- nvim_get_keymap returns buffer=0 for global; normalize
+        km.buffer = bufnr
+        result[km.desc][#result[km.desc] + 1] = km
+      end
+    end
+  end
+
+  for _, mode in ipairs { 'n', 'v', 'i', 'x' } do
+    collect(vim.api.nvim_get_keymap(mode), 0)
+  end
+
+  -- Buffer-local: check all listed buffers
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(bufnr) then
+      for _, mode in ipairs { 'n', 'v', 'i', 'x' } do
+        local ok, maps = pcall(vim.api.nvim_buf_get_keymap, bufnr, mode)
+        if ok then collect(maps, bufnr) end
+      end
+    end
+  end
+
+  return result
+end
+
+---@param fqid string
+---@return string
+function M._to_cmd_name(fqid)
+  return fqid:gsub('[%._](%a)', function(c) return c:upper() end):gsub('^%a', string.upper)
+end
+
+---Parse "key=value key2=value2" from command args.
+---@param args string
+---@return table
+function M._parse_cmd_args(args)
+  local params = {}
+  if not args or args == '' then return params end
+  for k, v in args:gmatch '(%w+)=(%S+)' do
+    -- Attempt numeric coercion
+    params[k] = tonumber(v) or v
+  end
+  return params
+end
+
 return M

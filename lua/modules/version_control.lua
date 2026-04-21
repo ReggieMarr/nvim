@@ -83,20 +83,21 @@ return env.module.register {
           rebase = { folded = false, hidden = false },
         },
         commit_editor = {
-          kind = 'tab',
+          kind = 'replace',
           show_staged_diff = true,
           staged_diff_split_kind = 'vsplit',
         },
         popup = {
-          kind = 'split',
+          kind = 'replace',
         },
-        kind = 'split',
+        kind = 'replace',
         disable_hint = false,
         auto_refresh = true,
         status = {
           recent_commit_count = 10,
         },
         use_default_keymaps = true,
+        auto_show_console = true,
         mappings = {
           finder = {
             ['<CR>'] = 'Select',
@@ -120,267 +121,198 @@ return env.module.register {
 
     -- gitsigns: buffer-level git integration
     -- Sign column indicators, inline blame, hunk operations
-    ['lewis6991/gitsigns.nvim'] = {
-      event = { 'BufReadPre', 'BufNewFile' },
-      opts = {
-        signs = {
-          add = { text = '│' },
-          change = { text = '│' },
-          delete = { text = '_' },
-          topdelete = { text = '‾' },
-          changedelete = { text = '~' },
-          untracked = { text = '┆' },
-        },
-        signs_staged = {
-          add = { text = '║' },
-          change = { text = '║' },
-          delete = { text = '═' },
-          topdelete = { text = '═' },
-          changedelete = { text = '≈' },
-        },
-        signs_staged_enable = true,
-        signcolumn = true,
-        numhl = false,
-        linehl = false,
-        word_diff = false,
-        watch_gitdir = { follow_files = true },
-        auto_attach = true,
-        attach_to_untracked = false,
-        current_line_blame = false, -- toggled via action, off by default
-        current_line_blame_opts = {
-          virt_text = true,
-          virt_text_pos = 'eol',
-          delay = 500,
-          ignore_whitespace = false,
-          virt_text_formatter = function(name, blame_info)
-            -- Format: "Author, N days ago • message"
-            if blame_info.author == 'Not Committed Yet' then return { { '  Not committed yet', 'GitSignsCurrentLineBlame' } } end
-            local date_time = os.difftime(os.time(), blame_info.author_time)
-            local unit, value
-            if date_time < 60 then
-              unit, value = 'sec', date_time
-            elseif date_time < 3600 then
-              unit, value = 'min', math.floor(date_time / 60)
-            elseif date_time < 86400 then
-              unit, value = 'hr', math.floor(date_time / 3600)
-            elseif date_time < 2592000 then
-              unit, value = 'day', math.floor(date_time / 86400)
-            else
-              unit, value = 'month', math.floor(date_time / 2592000)
-            end
-            local time_str = string.format('%d %s%s ago', value, unit, value ~= 1 and 's' or '')
-            local msg = blame_info.summary
-            if #msg > 45 then msg = msg:sub(1, 42) .. '...' end
-            return {
-              {
-                string.format('  %s, %s • %s', blame_info.author, time_str, msg),
-                'GitSignsCurrentLineBlame',
-              },
-            }
-          end,
-        },
-        preview_config = {
-          border = 'rounded',
-          style = 'minimal',
-          relative = 'cursor',
-          row = 0,
-          col = 1,
-        },
-        -- Gitsigns callback: fires when gitsigns attaches to a buffer.
-        -- Used to register buffer-local hunk navigation actions
-        -- and update env.state with hunk information.
-        on_attach = function(bufnr)
-          local gs = require 'gitsigns'
-
-          -- Guard: don't attach to non-file buffers
-          -- gitsigns calls on_attach for any buffer it tracks but
-          -- we only want to register actions for real file buffers
-          if not vim.api.nvim_buf_is_valid(bufnr) then return end
-          if vim.bo[bufnr].buftype ~= '' then return end
-
-          -- Safe hunk count: get_hunks returns nil before initial diff completes
-          local function update_hunk_count()
-            local hunks = gs.get_hunks(bufnr)
-            env.state._update('vcs.hunk_count', hunks and #hunks or 0)
-          end
-
-          update_hunk_count()
-
-          -- Refresh hunk count when the buffer changes
-          -- Use a buffer-local autocmd so it cleans up when the buffer is wiped
-          vim.api.nvim_create_autocmd({ 'BufWritePost', 'TextChanged' }, {
-            buffer = bufnr,
-            group = vim.api.nvim_create_augroup('env_vcs_hunk_count_' .. bufnr, { clear = true }),
-            callback = update_hunk_count,
-          })
-          --
-          -- -- Buffer-local action registration.
-          -- -- Action IDs are suffixed with the bufnr to avoid duplicate ID warnings
-          -- -- when multiple buffers are open simultaneously.
-          -- -- The desc remains human-readable without the suffix.
-          -- local function buf_id(name) return string.format('version_control.%s_%d', name, bufnr) end
-          --
-          -- -- Helper: register a single buffer-local action cleanly
-          -- -- Reduces repetition in the registrations below
-          -- local function buf_action(name, handler, desc, lhs, extra_bindings, when)
-          --   local bindings = { { lhs = lhs, buffer = bufnr } }
-          --   if extra_bindings then
-          --     for _, b in ipairs(extra_bindings) do
-          --       b.buffer = bufnr
-          --       table.insert(bindings, b)
-          --     end
-          --   end
-          --
-          --   require('lib.articulation').register {
-          --     id = buf_id(name),
-          --     handler = handler,
-          --     desc = desc,
-          --     module = 'version_control',
-          --     bindings = bindings,
-          --     when = when,
-          --     buffer = bufnr,
-          --   }
-          -- end
-          --
-          -- -- Hunk navigation
-          -- buf_action('hunk_next', function()
-          --   if vim.wo.diff then
-          --     vim.cmd.normal { ']c', bang = true }
-          --   else
-          --     gs.nav_hunk 'next'
-          --   end
-          -- end, 'Next hunk', ']c')
-          --
-          -- buf_action('hunk_prev', function()
-          --   if vim.wo.diff then
-          --     vim.cmd.normal { '[c', bang = true }
-          --   else
-          --     gs.nav_hunk 'prev'
-          --   end
-          -- end, 'Previous hunk', '[c')
-          --
-          -- -- Hunk staging
-          -- buf_action('stage_hunk', function() gs.stage_hunk() end, 'Stage hunk', '<leader>gs', { { lhs = '<leader>gs', mode = 'v' } })
-          --
-          -- buf_action('unstage_hunk', gs.undo_stage_hunk, 'Unstage hunk', '<leader>gu')
-          --
-          -- buf_action('reset_hunk', function() gs.reset_hunk() end, 'Reset hunk to HEAD', '<leader>gx', { { lhs = '<leader>gx', mode = 'v' } })
-          --
-          -- buf_action('stage_buffer', gs.stage_buffer, 'Stage entire buffer', '<leader>gS')
-          --
-          -- buf_action('reset_buffer', gs.reset_buffer, 'Reset entire buffer to HEAD', '<leader>gX')
-          --
-          -- -- Hunk display
-          -- buf_action('preview_hunk', gs.preview_hunk, 'Preview hunk diff', '<leader>gp')
-          --
-          -- buf_action('toggle_blame', gs.toggle_current_line_blame, 'Toggle inline git blame', '<leader>gb')
-          --
-          -- -- Diff
-          -- buf_action('diff_this', function() gs.diffthis() end, 'Diff buffer against index', '<leader>gd')
-          --
-          -- buf_action('diff_this_head', function() gs.diffthis 'HEAD' end, 'Diff buffer against HEAD', '<leader>gD')
-          --
-          -- -- Text objects
-          -- buf_action('textobj_hunk', function() gs.select_hunk() end, 'Select hunk as text object', 'ih', { { lhs = 'ah', mode = { 'o', 'x' } } }, nil)
-          -- -- Fix: the primary binding above only registers "ih"
-          -- -- "ah" needs its own registration for the alternate text object
-          -- require('lib.articulation').register {
-          --   id = buf_id 'textobj_hunk_outer',
-          --   handler = function() gs.select_hunk() end,
-          --   desc = 'Select hunk as text object (outer)',
-          --   module = 'version_control',
-          --   bindings = {
-          --     { lhs = 'ah', buffer = bufnr, mode = { 'o', 'x' } },
-          --   },
-          -- }
-
-          -- Clean up buffer-local state when the buffer is wiped
-          vim.api.nvim_create_autocmd('BufWipeout', {
-            buffer = bufnr,
-            once = true,
-            callback = function()
-              -- Remove this buffer's hunk count from state
-              -- so stale data doesn't persist
-              env.state._update('vcs.hunk_count', nil)
-            end,
-          })
-        end,
-      },
-    },
+    -- ['lewis6991/gitsigns.nvim'] = {
+    --   event = { 'BufReadPre', 'BufNewFile' },
+    --   opts = {
+    --     signs = {
+    --       add = { text = '│' },
+    --       change = { text = '│' },
+    --       delete = { text = '_' },
+    --       topdelete = { text = '‾' },
+    --       changedelete = { text = '~' },
+    --       untracked = { text = '┆' },
+    --     },
+    --     signs_staged = {
+    --       add = { text = '║' },
+    --       change = { text = '║' },
+    --       delete = { text = '═' },
+    --       topdelete = { text = '═' },
+    --       changedelete = { text = '≈' },
+    --     },
+    --     signs_staged_enable = true,
+    --     signcolumn = true,
+    --     numhl = false,
+    --     linehl = false,
+    --     word_diff = false,
+    --     watch_gitdir = { follow_files = true },
+    --     auto_attach = true,
+    --     attach_to_untracked = false,
+    --     current_line_blame = false, -- toggled via action, off by default
+    --     current_line_blame_opts = {
+    --       virt_text = true,
+    --       virt_text_pos = 'eol',
+    --       delay = 500,
+    --       ignore_whitespace = false,
+    --       virt_text_formatter = function(name, blame_info)
+    --         -- Format: "Author, N days ago • message"
+    --         if blame_info.author == 'Not Committed Yet' then return { { '  Not committed yet', 'GitSignsCurrentLineBlame' } } end
+    --         local date_time = os.difftime(os.time(), blame_info.author_time)
+    --         local unit, value
+    --         if date_time < 60 then
+    --           unit, value = 'sec', date_time
+    --         elseif date_time < 3600 then
+    --           unit, value = 'min', math.floor(date_time / 60)
+    --         elseif date_time < 86400 then
+    --           unit, value = 'hr', math.floor(date_time / 3600)
+    --         elseif date_time < 2592000 then
+    --           unit, value = 'day', math.floor(date_time / 86400)
+    --         else
+    --           unit, value = 'month', math.floor(date_time / 2592000)
+    --         end
+    --         local time_str = string.format('%d %s%s ago', value, unit, value ~= 1 and 's' or '')
+    --         local msg = blame_info.summary
+    --         if #msg > 45 then msg = msg:sub(1, 42) .. '...' end
+    --         return {
+    --           {
+    --             string.format('  %s, %s • %s', blame_info.author, time_str, msg),
+    --             'GitSignsCurrentLineBlame',
+    --           },
+    --         }
+    --       end,
+    --     },
+    --     preview_config = {
+    --       border = 'rounded',
+    --       style = 'minimal',
+    --       relative = 'cursor',
+    --       row = 0,
+    --       col = 1,
+    --     },
+    --     -- Gitsigns callback: fires when gitsigns attaches to a buffer.
+    --     -- Used to register buffer-local hunk navigation actions
+    --     -- and update env.state with hunk information.
+    --     on_attach = function(bufnr)
+    --       local gs = require 'gitsigns'
+    --
+    --       -- Guard: don't attach to non-file buffers
+    --       -- gitsigns calls on_attach for any buffer it tracks but
+    --       -- we only want to register actions for real file buffers
+    --       if not vim.api.nvim_buf_is_valid(bufnr) then return end
+    --       if vim.bo[bufnr].buftype ~= '' then return end
+    --
+    --       -- Safe hunk count: get_hunks returns nil before initial diff completes
+    --       local function update_hunk_count()
+    --         local hunks = gs.get_hunks(bufnr)
+    --         env.state._update('vcs.hunk_count', hunks and #hunks or 0)
+    --       end
+    --
+    --       update_hunk_count()
+    --
+    --       -- Refresh hunk count when the buffer changes
+    --       -- Use a buffer-local autocmd so it cleans up when the buffer is wiped
+    --       vim.api.nvim_create_autocmd({ 'BufWritePost', 'TextChanged' }, {
+    --         buffer = bufnr,
+    --         group = vim.api.nvim_create_augroup('env_vcs_hunk_count_' .. bufnr, { clear = true }),
+    --         callback = update_hunk_count,
+    --       })
+    --
+    --       -- Buffer-local action registration.
+    --       -- Action IDs are suffixed with the bufnr to avoid duplicate ID warnings
+    --       -- when multiple buffers are open simultaneously.
+    --       -- The desc remains human-readable without the suffix.
+    --       local function buf_id(name) return string.format('version_control.%s_%d', name, bufnr) end
+    --
+    --       -- Helper: register a single buffer-local action cleanly
+    --       -- Reduces repetition in the registrations below
+    --       local function buf_action(name, handler, desc, lhs, extra_bindings, when)
+    --         local bindings = { { lhs = lhs, buffer = bufnr } }
+    --         if extra_bindings then
+    --           for _, b in ipairs(extra_bindings) do
+    --             b.buffer = bufnr
+    --             table.insert(bindings, b)
+    --           end
+    --         end
+    --
+    --         require('lib.articulation').register {
+    --           id = buf_id(name),
+    --           handler = handler,
+    --           desc = desc,
+    --           module = 'version_control',
+    --           bindings = bindings,
+    --           when = when,
+    --           buffer = bufnr,
+    --         }
+    --       end
+    --
+    --       -- Hunk navigation
+    --       buf_action('hunk_next', function()
+    --         if vim.wo.diff then
+    --           vim.cmd.normal { ']c', bang = true }
+    --         else
+    --           gs.nav_hunk 'next'
+    --         end
+    --       end, 'Next hunk', ']c')
+    --
+    --       buf_action('hunk_prev', function()
+    --         if vim.wo.diff then
+    --           vim.cmd.normal { '[c', bang = true }
+    --         else
+    --           gs.nav_hunk 'prev'
+    --         end
+    --       end, 'Previous hunk', '[c')
+    --
+    --       -- -- Hunk staging
+    --       -- buf_action('stage_hunk', function() gs.stage_hunk() end, 'Stage hunk', '<leader>gs', { { lhs = '<leader>gs', mode = 'v' } })
+    --       --
+    --       -- buf_action('unstage_hunk', gs.undo_stage_hunk, 'Unstage hunk', '<leader>gu')
+    --       --
+    --       -- buf_action('reset_hunk', function() gs.reset_hunk() end, 'Reset hunk to HEAD', '<leader>gx', { { lhs = '<leader>gx', mode = 'v' } })
+    --       --
+    --       -- buf_action('stage_buffer', gs.stage_buffer, 'Stage entire buffer', '<leader>gS')
+    --       --
+    --       -- buf_action('reset_buffer', gs.reset_buffer, 'Reset entire buffer to HEAD', '<leader>gX')
+    --       --
+    --       -- -- Hunk display
+    --       -- buf_action('preview_hunk', gs.preview_hunk, 'Preview hunk diff', '<leader>gp')
+    --       --
+    --       -- buf_action('toggle_blame', gs.toggle_current_line_blame, 'Toggle inline git blame', '<leader>gb')
+    --       --
+    --       -- -- Diff
+    --       -- buf_action('diff_this', function() gs.diffthis() end, 'Diff buffer against index', '<leader>gd')
+    --       --
+    --       -- buf_action('diff_this_head', function() gs.diffthis 'HEAD' end, 'Diff buffer against HEAD', '<leader>gD')
+    --       --
+    --       -- -- Text objects
+    --       -- buf_action('textobj_hunk', function() gs.select_hunk() end, 'Select hunk as text object', 'ih', { { lhs = 'ah', mode = { 'o', 'x' } } }, nil)
+    --       -- -- Fix: the primary binding above only registers "ih"
+    --       -- -- "ah" needs its own registration for the alternate text object
+    --       -- require('lib.articulation').register {
+    --       --   id = buf_id 'textobj_hunk_outer',
+    --       --   handler = function() gs.select_hunk() end,
+    --       --   desc = 'Select hunk as text object (outer)',
+    --       --   module = 'version_control',
+    --       --   bindings = {
+    --       --     { lhs = 'ah', buffer = bufnr, mode = { 'o', 'x' } },
+    --       --   },
+    --       -- }
+    --
+    --       -- Clean up buffer-local state when the buffer is wiped
+    --       vim.api.nvim_create_autocmd('BufWipeout', {
+    --         buffer = bufnr,
+    --         once = true,
+    --         callback = function()
+    --           -- Remove this buffer's hunk count from state
+    --           -- so stale data doesn't persist
+    --           env.state._update('vcs.hunk_count', nil)
+    --         end,
+    --       })
+    --     end,
+    --   },
+    -- },
 
     -- diffview.nvim: file history and merge conflict resolution
     -- Provides the diff view surface used by Neogit
-    ['sindrets/diffview.nvim'] = {
-      dependencies = { 'nvim-lua/plenary.nvim' },
-      cmd = {
-        'DiffviewOpen',
-        'DiffviewClose',
-        'DiffviewToggleFiles',
-        'DiffviewFocusFiles',
-        'DiffviewFileHistory',
-      },
-      opts = {
-        enhanced_diff_hl = true,
-        show_help_hints = true,
-        watch_index = true,
-        icons = {
-          folder_closed = '',
-          folder_open = '',
-        },
-        signs = {
-          fold_closed = '',
-          fold_open = '',
-          done = '✓',
-        },
-        view = {
-          -- Default layout mirrors Magit's side-by-side diff
-          default = {
-            layout = 'diff2_horizontal',
-            disable_diagnostics = true,
-          },
-          merge_tool = {
-            -- 3-way merge layout: LOCAL | BASE | REMOTE with result below
-            layout = 'diff3_horizontal',
-            disable_diagnostics = true,
-          },
-          file_history = {
-            layout = 'diff2_horizontal',
-            disable_diagnostics = true,
-          },
-        },
-        file_panel = {
-          listing_style = 'tree',
-          tree_options = {
-            flatten_dirs = true,
-            folder_statuses = 'only_folded',
-          },
-          win_config = {
-            position = 'left',
-            width = 35,
-          },
-        },
-        file_history_panel = {
-          log_options = {
-            git = {
-              single_file = {
-                diff_merges = 'combined',
-              },
-              multi_file = {
-                diff_merges = 'first-parent',
-              },
-            },
-          },
-          win_config = {
-            position = 'bottom',
-            height = 16,
-          },
-        },
-        keymaps = {
-          -- Let diffview handle its own internal navigation
-          -- Entry point keymaps are registered via env.articulation below
-          disable_defaults = false,
-        },
-      },
+    ['esmuellert/codediff.nvim'] = {
+      cmd = 'CodeDiff',
     },
   },
 

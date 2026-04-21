@@ -68,7 +68,20 @@ require('lazy').setup(module_lib.collect_plugin_specs(), {
   --   },
   -- },
 })
-
+require('perfanno').setup()
+if vim.env.PROF then
+  -- example for lazy.nvim
+  -- change this to the correct path for your plugin manager
+  local snacks = vim.fn.stdpath 'data' .. '/lazy/snacks.nvim'
+  vim.opt.rtp:append(snacks)
+  require('snacks.profiler').startup {
+    startup = {
+      event = 'VimEnter', -- stop profiler on this event. Defaults to `VimEnter`
+      -- event = "UIEnter",
+      -- event = "VeryLazy",
+    },
+  }
+end
 -- Run all module setup() functions in dependency order.
 -- At this point lazy has loaded plugins so plugin APIs are available.
 module_lib.run_setup()

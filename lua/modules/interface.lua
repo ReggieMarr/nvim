@@ -21,6 +21,9 @@ return env.module.register {
   -- handles all env surface registrations after plugins are loaded.
 
   plugins = {
+    ['t-troebst/perfanno.nvim'] = {
+      lazy = false,
+    },
     ['stevearc/oil.nvim'] = {
       dependencies = { 'nvim-tree/nvim-web-devicons' },
       opts = {
@@ -130,6 +133,9 @@ return env.module.register {
       priority = 1000,
       lazy = false,
       opts = {
+        profiler = {
+          autocmd = true,
+        },
         picker = {
           ui_select = true,
           layout = { preset = 'default', cycle = true },
@@ -221,6 +227,7 @@ return env.module.register {
     },
     ['chrisgrieser/nvim-origami'] = {
       event = 'VeryLazy',
+      pauseFoldsOnSearch = true,
       opts = {
         foldtext = {
           lineCount = {
@@ -281,18 +288,6 @@ return env.module.register {
             local row = vim.api.nvim_win_get_cursor(0)[1]
             if row ~= last_row then
               last_row = row
-              fold_util.update_current_fold(row, opts.buf)
-            end
-          end,
-        })
-
-        local last_row = nil
-        vim.api.nvim_create_autocmd('CursorMoved', {
-          callback = function(opts)
-            local row = vim.api.nvim_win_get_cursor(0)[1]
-            if row ~= last_row then
-              last_row = row
-
               fold_util.update_current_fold(row, opts.buf)
             end
           end,
