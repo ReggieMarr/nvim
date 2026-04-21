@@ -12,10 +12,6 @@ local M = {}
 ---Modules register providers that feed structured data into the environment.
 M.state = require 'lib.state'
 
----Articulation surface.
----Modules register actions, bindings, and preconditions here.
-M.articulation = require 'lib.articulation'
-
 ---Display surface.
 ---Modules register rendering contributions and display conditions here.
 M.display = require 'lib.display'
