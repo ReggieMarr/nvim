@@ -402,16 +402,6 @@ return env.module.register {
       desc = 'Name of the current project (basename of root)',
     }
 
-    -- ── Display contributions ───────────────────────────────────────
-    env.display.register {
-      id = 'filesystem.file_tree',
-      module = 'filesystem',
-      region = 'signs',
-      priority = 90,
-      desc = 'Neo-tree file explorer panel',
-      -- No when condition: visibility is controlled by the toggle action
-    }
-
     -- ── Filesystem keymaps ─────────────────────────────────────────
 
     local state = env.state.get()

@@ -310,7 +310,6 @@ return env.module.register {
   -- ── Setup ─────────────────────────────────────────────────────────────
   -- Called by module_lib.run_setup() after lazy has loaded plugins.
   -- All plugin APIs are available. All env surface registrations live here.
-
   setup = function()
     local snacks = require 'snacks'
 
@@ -332,32 +331,22 @@ return env.module.register {
     }, 'interface')
 
     -- -- Extend picker with interface-level finders
-    -- env.capabilities.extend("picker", {
-    --   help          = function(o) snacks.picker.help(o)          end,
-    --   notifications = function(o) snacks.picker.notifications(o) end,
-    --   recent        = function(o) snacks.picker.recent(o)        end,
-    --   colorschemes  = function(o) snacks.picker.colorschemes(o)  end,
-    -- }, "interface")
+    env.capabilities.extend('picker', {
+      help = function(o) snacks.picker.help(o) end,
+      notifications = function(o) snacks.picker.notifications(o) end,
+      recent = function(o) snacks.picker.recent(o) end,
+      colorschemes = function(o) snacks.picker.colorschemes(o) end,
+    }, 'interface')
 
     -- ── State providers ─────────────────────────────────────────────
-    -- env.state.register_provider({
-    --   id      = "interface.notification_count",
-    --   events  = { "User" },
-    --   pattern = "SnacksNotifierUpdated",
-    --   collect = function()
-    --     return #snacks.notifier.get_history()
-    --   end,
-    --   desc = "Number of notifications in snacks history",
-    -- })
+    env.state.register_provider {
+      id = 'interface.notification_count',
+      events = { 'User' },
+      pattern = 'SnacksNotifierUpdated',
+      collect = function() return #snacks.notifier.get_history() end,
+      desc = 'Number of notifications in snacks history',
+    }
 
-    -- -- ── Display contributions ───────────────────────────────────────
-    -- env.display.register({
-    --   id       = "interface.notifications",
-    --   module   = "interface",
-    --   region   = "notification",
-    --   priority = 100,
-    --   desc     = "Snacks notification overlay",
-    -- })
     -- Default mini.pick capabilities
     -- Centered on screen
     require('mini.icons').setup()
@@ -389,24 +378,6 @@ return env.module.register {
         move_up = '',
         toggle_preview = '<C-p>',
       },
-    }
-
-    env.display.register {
-      id = 'interface.indent_guides',
-      module = 'interface',
-      region = 'virtual_text',
-      priority = 10,
-      desc = 'Indent scope guides',
-      when = function(state) return state['buffer.is_real'] == true end,
-    }
-
-    env.display.register {
-      id = 'interface.word_highlights',
-      module = 'interface',
-      region = 'highlight',
-      priority = 50,
-      desc = 'Current word occurrence highlights',
-      when = function(state) return state['buffer.is_real'] == true and state['editor.mode'] == 'n' end,
     }
 
     -- Experimental UI2: floating cmdline and messages

@@ -12,10 +12,6 @@ local M = {}
 ---Modules register providers that feed structured data into the environment.
 M.state = require 'lib.state'
 
----Display surface.
----Modules register rendering contributions and display conditions here.
-M.display = require 'lib.display'
-
 ---Capability adapter layer.
 ---Modules register and consume named capability implementations.
 M.capabilities = require 'lib.capabilities'

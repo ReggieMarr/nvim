@@ -394,45 +394,6 @@ return env.module.register {
       desc = 'Working tree status summary (staged/unstaged/untracked counts)',
     }
 
-    -- ── Display contributions ──────────────────────────────────────
-    env.display.register {
-      id = 'version_control.signs',
-      module = 'version_control',
-      region = 'signs',
-      priority = 90,
-      desc = 'Gitsigns add/change/delete indicators in sign column',
-      when = function(state) return state['vcs.is_repo'] == true and state['buffer.is_real'] == true end,
-    }
-
-    env.display.register {
-      id = 'version_control.blame',
-      module = 'version_control',
-      region = 'virtual_text',
-      priority = 70,
-      desc = 'Inline git blame on current line',
-      when = function(state)
-        -- Only show blame in real file buffers inside a repo
-        return state['vcs.is_repo'] == true and state['buffer.is_real'] == true
-      end,
-    }
-
-    env.display.register {
-      id = 'version_control.conflict_markers',
-      module = 'version_control',
-      region = 'highlight',
-      priority = 110, -- above diagnostics: conflicts must be visible
-      desc = 'Merge conflict marker highlighting',
-      when = function(state)
-        local status = state['vcs.status']
-        return status ~= nil and status.conflicts > 0
-      end,
-      on_enable = function()
-        -- When conflicts exist, open diffview merge tool automatically
-        -- if not already in a diffview buffer
-        if vim.bo.filetype ~= 'DiffviewFiles' then vim.notify('Merge conflicts detected. Use <leader>gM to open merge tool.', vim.log.levels.WARN) end
-      end,
-    }
-
     -- ── Picker capability extensions ───────────────────────────────
     env.capabilities.extend('picker', {
       git_commits = function(o) require('snacks').picker.git_log(o) end,
