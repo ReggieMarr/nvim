@@ -15,11 +15,12 @@ vim.g.have_nerd_font = true
 
 local options = {
   -- Editing
-  shiftwidth = 4,
-  tabstop = 4,
+  shiftwidth = 2,
+  tabstop = 2,
   softtabstop = 4,
-  smartindent = true,
-  cindent = true,
+  autoindent = true, -- let treesitter handle it
+  smartindent = false, -- let treesitter handle it
+  cindent = false, -- let treesitter handle it
   -- Convert tabs to spaces
   expandtab = true,
   wrap = false,

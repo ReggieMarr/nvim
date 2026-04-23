@@ -286,7 +286,7 @@ return env.module.register {
             return ok and stats and stats.size > max
           end,
         },
-        indent = { enable = true },
+        indent = { enable = false },
         incremental_selection = {
           enable = true,
           keymaps = {
@@ -355,11 +355,11 @@ return env.module.register {
         vim.api.nvim_create_autocmd('FileType', {
           callback = function() pcall(vim.treesitter.start) end,
         })
-
         -- Enable treesitter indentation
-        vim.api.nvim_create_autocmd('FileType', {
-          callback = function() vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end,
-        })
+        -- vim.api.nvim_create_autocmd('FileType', {
+        --   pattern = '*',
+        --   callback = function() vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end,
+        -- })
       end,
     },
 
@@ -374,7 +374,9 @@ return env.module.register {
         separator = '─',
       },
     },
-
+    ['nmac427/guess-indent.nvim'] = {
+      config = function() require('guess-indent').setup {} end,
+    },
     -- conform.nvim: formatting
     ['stevearc/conform.nvim'] = {
       event = { 'BufWritePre' },
