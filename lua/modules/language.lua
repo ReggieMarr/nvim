@@ -40,6 +40,7 @@ local servers = {
   lua_ls = {
     install = true,
     config = {
+      cmd = { 'lua-language-server' },
       settings = {
         Lua = {
           runtime = {
@@ -84,6 +85,7 @@ local servers = {
   basedpyright = {
     install = true,
     config = {
+      cmd = { 'basedpyright-langserver', '--stdio' },
       -- root_dir: find the project root by walking up from the current file
       -- looking for uv-specific markers before falling back to generic ones
       root_dir = function(fname)
@@ -160,6 +162,7 @@ local servers = {
   ruff = {
     install = true,
     config = {
+      cmd = { 'ruff', 'server' },
       root_dir = function(fname) return require('lspconfig.util').root_pattern('ruff.toml', '.ruff.toml', 'pyproject.toml', 'uv.lock', '.git')(fname) end,
       on_attach = function(client, _)
         -- Disable ruff's hover in favor of basedpyright's
