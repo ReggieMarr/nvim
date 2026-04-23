@@ -311,18 +311,18 @@ return env.module.register {
     -- File-specific finders registered as picker extensions.
     -- Other modules (language, vcs) similarly extend picker with their
     -- domain-specific finders in their own setup() calls.
-    env.capabilities.extend('picker', {
-      -- Find files scoped to cwd (generic files already in interface,
-      -- this adds config-aware variants)
-      directories = function(o)
-        require('snacks').picker.pick(vim.tbl_extend('force', {
-          source = 'directories',
-          finder = 'files',
-          filter = { cwd = true, dirs_only = true },
-          title = 'Directories',
-        }, o or {}))
-      end,
-    }, 'filesystem')
+    -- env.capabilities.extend('picker', {
+    --   -- Find files scoped to cwd (generic files already in interface,
+    --   -- this adds config-aware variants)
+    --   directories = function(o)
+    --     require('snacks').picker.pick(vim.tbl_extend('force', {
+    --       source = 'directories',
+    --       finder = 'files',
+    --       filter = { cwd = true, dirs_only = true },
+    --       title = 'Directories',
+    --     }, o or {}))
+    --   end,
+    -- }, 'filesystem')
 
     -- ── State providers ─────────────────────────────────────────────
     env.state.register_provider {
@@ -391,18 +391,20 @@ return env.module.register {
     --   vim.keymap.set('n', '<leader>sd', function() env.use('picker').grep() end, { desc = 'filesystem.grep', silent = true })
     -- end
 
-    vim.keymap.set('n', '<leader>fr', function() env.use('picker').recent() end, { desc = 'filesystem.find_recent', silent = true })
+    local snacks = require 'snacks'
+    vim.ui.picker.recent = function(o) snacks.picker.recent(o) end
+    vim.keymap.set('n', '<leader>fr', function() vim.ui.picker.recent() end, { desc = 'filesystem.find_recent', silent = true })
 
     ----------------------------------------------------------------
     -- File finding
     ----------------------------------------------------------------
 
-    vim.ui.picker.files = function(opts) require('utils.file_browsing.mini_picker').find_file_at(opts) end
+    vim.ui.picker.files_at = function(opts) require('utils.file_browsing.mini_picker').find_file_at(opts) end
     vim.keymap.set(
       'n',
       '<leader>ff',
       '',
-      { desc = 'filesystem.find_files_from_cwd', callback = function() vim.ui.picker.files { cwd = vim.fn.getcwd() } end, silent = true }
+      { desc = 'filesystem.find_files_at', callback = function() vim.ui.picker.files_at { cwd = vim.fn.getcwd() } end, silent = true }
     )
 
     -- if state['workspace.root'] ~= nil then
@@ -418,7 +420,29 @@ return env.module.register {
     --   )
     -- end
 
-    vim.keymap.set('n', '<leader>fd', function() env.use('picker').directories() end, { desc = 'filesystem.find_directories', silent = true })
+    vim.ui.picker.grep = function(o)
+      require('mini.pick').builtin.grep_live(
+        { globs = vim.fn.resolve(o.cwd or vim.fn.getcwd()) },
+        vim.tbl_extend('force', {
+          -- NOTE this is meant to make a centered window
+          -- TODO pull this from the same source and utils.file_browsing.mini_picker
+          window = {
+            config = function()
+              local height = math.floor(0.618 * vim.o.lines)
+              local width = math.floor(0.618 * vim.o.columns)
+              return {
+                anchor = 'NW',
+                height = height,
+                width = width,
+                row = math.floor(0.5 * (vim.o.lines - height)),
+                col = math.floor(0.5 * (vim.o.columns - width)),
+              }
+            end,
+          },
+        }, o or {})
+      )
+    end
+    vim.keymap.set('n', '<leader>sd', function() vim.ui.picker.grep { cwd = vim.fn.getcwd() } end, { desc = 'filesystem.search_cwd', silent = true })
 
     ----------------------------------------------------------------
     -- Copy path utilities

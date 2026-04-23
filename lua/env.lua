@@ -12,10 +12,6 @@ local M = {}
 ---Modules register providers that feed structured data into the environment.
 M.state = require 'lib.state'
 
----Capability adapter layer.
----Modules register and consume named capability implementations.
-M.capabilities = require 'lib.capabilities'
-
 ---Module system.
 ---Modules declare themselves, their dependencies, and their plugin specs here.
 M.module = require 'lib.module'
@@ -31,17 +27,5 @@ function M.module_active(module_name) return require('lib.module').available(mod
 ---@param domain string
 ---@return boolean
 function M.domain_active(domain) return require('lib.module').domain_active(domain) end
-
----Convenience: check if a capability is available.
----Shorthand for env.capabilities.has()
----@param name string
----@return boolean
-function M.has(name) return require('lib.capabilities').has(name) end
-
----Convenience: get a capability implementation, raising if absent.
----Shorthand for env.capabilities.require()
----@param name string
----@return table
-function M.use(name) return require('lib.capabilities').require(name) end
 
 return M

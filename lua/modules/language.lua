@@ -469,13 +469,7 @@ return env.module.register {
       -- Non-trivial callbacks only
       ----------------------------------------------------------------
 
-      local function find_references()
-        if env.capabilities.has 'picker' and env.use('picker').lsp_references then
-          env.use('picker').lsp_references()
-        else
-          vim.lsp.buf.references()
-        end
-      end
+      local function find_references() vim.lsp.buf.references() end
 
       local function format_buffer()
         require('conform').format {
@@ -534,8 +528,6 @@ return env.module.register {
       end
 
       if client.server_capabilities.referencesProvider then
-        vim.keymap.set('n', 'gr', find_references, { buffer = bufnr, silent = true, desc = 'language.find_references' })
-
         vim.keymap.set('n', '<leader>lr', find_references, { buffer = bufnr, silent = true, desc = 'language.find_references' })
       end
 
@@ -726,23 +718,20 @@ return env.module.register {
 
     -- ── Picker capability extensions ───────────────────────────────
     -- Extend the picker with LSP-specific finders.
-    -- so env.use("picker") is safe here.
-    env.capabilities.extend('picker', {
-      lsp_references = function(o) require('snacks').picker.lsp_references(o) end,
-      lsp_symbols = function(o)
-        -- Snacks picker supports document/workspace symbol filtering
-        local opts = vim.tbl_extend('force', {}, o or {})
-        if opts.filter == 'document' then
-          require('snacks').picker.lsp_symbols(opts)
-        else
-          require('snacks').picker.lsp_workspace_symbols(opts)
-        end
-      end,
-      lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end,
-      lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end,
-      lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end,
-      diagnostics = function(o) require('snacks').picker.diagnostics(o) end,
-    }, 'language')
+    vim.ui.picker.lsp_references = function(o) require('snacks').picker.lsp_references(o) end
+    vim.ui.picker.lsp_symbols = function(o)
+      -- Snacks picker supports document/workspace symbol filtering
+      local opts = vim.tbl_extend('force', {}, o or {})
+      if opts.filter == 'document' then
+        require('snacks').picker.lsp_symbols(opts)
+      else
+        require('snacks').picker.lsp_workspace_symbols(opts)
+      end
+    end
+    vim.ui.picker.lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end
+    vim.ui.picker.lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end
+    vim.ui.picker.lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end
+    vim.ui.picker.diagnostics = function(o) require('snacks').picker.diagnostics(o) end
 
     -- ── Global LSP articulation (non-buffer-local) ─────────────────
     -- Actions that operate across buffers or don't require

@@ -324,13 +324,10 @@ return env.module.register {
     vim.cmd.colorscheme 'tokyonight-storm'
 
     -- ── Picker capability ───────────────────────────────────────────
-    -- -- Extend picker with interface-level finders
-    env.capabilities.extend('picker', {
-      help = function(o) snacks.picker.help(o) end,
-      notifications = function(o) snacks.picker.notifications(o) end,
-      recent = function(o) snacks.picker.recent(o) end,
-      colorschemes = function(o) snacks.picker.colorschemes(o) end,
-    }, 'interface')
+    -- Extend picker with interface-level finders
+    vim.ui.picker.notificatons = function(o) snacks.picker.notifications(o) end
+    vim.ui.picker.help = function(o) snacks.picker.help(o) end
+    vim.ui.picker.colorschemes = function(o) snacks.picker.colorschemes(o) end
 
     -- ── State providers ─────────────────────────────────────────────
     env.state.register_provider {
@@ -347,6 +344,23 @@ return env.module.register {
     local mfc = require 'utils.file_browsing.file_search_config'
     -- Load the autocmd/keymap module after setup so MiniFiles global exists.
     require 'utils.file_browsing.directory_editor'
+
+    require('mini.files').setup {
+      content = {
+        prefix = mfc.make_prefix,
+        highlight = mfc.make_highlight,
+      },
+      options = {
+        permanent_delete = false,
+        use_as_default_explorer = false,
+      },
+      windows = {
+        preview = true,
+        width_focus = 50,
+        width_nofocus = 20,
+        width_preview = 60,
+      },
+    }
 
     require('mini.pick').setup {
       mappings = {
@@ -407,7 +421,6 @@ return env.module.register {
       },
     }
     -- vim.ui.picker.env.capabilities.register('picker', {
-    --   files = function(o) require('utils.file_browsing.mini_picker').find_file_at(o ~= nil and o or vim.fn.getcwd()) end,
     --   grep = function(o) snacks.picker.grep(o) end,
     --   buffers = function(o) snacks.picker.buffers(o) end,
     --   -- keymaps  = function(o) snacks.picker.keymaps(o)  end,
@@ -453,7 +466,8 @@ return env.module.register {
     -- Buffer management
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>bb', function() env.use('picker').buffers() end, { desc = 'interface.find_buffers', silent = true })
+    vim.ui.picker.buffers = function(o) snacks.picker.buffers(o) end
+    vim.keymap.set('n', '<leader>bb', function() vim.ui.picker.buffers() end, { desc = 'interface.find_buffers', silent = true })
 
     -- if env.state.get()['buffer.is_real'] then
     --   vim.keymap.set('n', '<leader>bd', function() snacks.bufdelete() end, { desc = 'interface.close_buffer', silent = true })
@@ -507,30 +521,6 @@ return env.module.register {
     ----------------------------------------------------------------
     -- Config inspection
     ----------------------------------------------------------------
-
-    vim.keymap.set(
-      'n',
-      '<leader>cc',
-      function()
-        env.use('picker').files {
-          cwd = vim.fn.stdpath 'config',
-          title = 'Config files',
-        }
-      end,
-      { desc = 'interface.find_in_config', silent = true }
-    )
-
-    vim.keymap.set(
-      'n',
-      '<leader>cg',
-      function()
-        env.use('picker').grep {
-          cwd = vim.fn.stdpath 'config',
-          title = 'Grep config',
-        }
-      end,
-      { desc = 'interface.grep_config', silent = true }
-    )
 
     vim.keymap.set('n', '<leader>cs', function() vim.cmd 'ConfigStatus' end, { desc = 'interface.config_status', silent = true })
 

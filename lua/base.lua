@@ -341,9 +341,14 @@ vim.ui.picker.files = vim.ui.picker.files
 
     -- Build find command
     local cmd = { 'find', directory, '-type', 'f' }
+    -- We basically never want to search in the .git dir so ignore that
+    -- TODO account for .gitignore
+    table.insert(cmd, '-not')
+    table.insert(cmd, '-path')
+    table.insert(cmd, '*/.git*')
     if not show_hidden then
       table.insert(cmd, '-not')
-      table.insert(cmd, '-path')
+      table.insert(cmd, '-name')
       table.insert(cmd, '*/.*')
     end
 
@@ -365,6 +370,66 @@ vim.ui.picker.files = vim.ui.picker.files
     end)
   end
 
+--- Pick from live grep results using vim's built-in quickfix integration.
+--- Falls back to an incremental search using vim.ui.input and vimgrep.
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.ui.input()| for the search pattern
+---   - |:vimgrep| to perform the search
+---   - |vim.ui.select()| to pick from results
+---   - |vim.fn.getqflist()| to retrieve matches
+---
+---@param opts table|nil
+---   - cwd (string): Directory to search from. Default: |getcwd()|
+---   - prompt (string): Input prompt text. Default: "Grep: "
+vim.ui.picker.grep = vim.ui.picker.grep
+  or function(opts)
+    opts = opts or {}
+    local cwd = vim.fn.resolve(vim.fn.expand(opts.cwd or vim.fn.getcwd()))
+    local prompt = opts.prompt or 'Grep: '
+
+    vim.ui.input({ prompt = prompt }, function(pattern)
+      if not pattern or pattern == '' then return end
+
+      -- Run vimgrep recursively from cwd
+      local ok, err = pcall(vim.cmd, string.format('silent! vimgrep /\\V%s/gj %s/**/*', vim.fn.escape(pattern, '/\\'), vim.fn.fnameescape(cwd)))
+
+      if not ok then
+        vim.notify('grep: no matches for ' .. pattern, vim.log.levels.INFO)
+        return
+      end
+
+      local results = vim.fn.getqflist()
+      if vim.tbl_isempty(results) then
+        vim.notify('grep: no matches for ' .. pattern, vim.log.levels.INFO)
+        return
+      end
+
+      -- Format results for selection
+      local items = vim.tbl_map(function(entry)
+        local fname = vim.fn.bufname(entry.bufnr)
+        local relpath = vim.fn.fnamemodify(fname, ':.')
+        return {
+          label = string.format('%s:%d:%d  %s', relpath, entry.lnum, entry.col, vim.trim(entry.text)),
+          bufnr = entry.bufnr,
+          lnum = entry.lnum,
+          col = entry.col,
+          fname = fname,
+        }
+      end, results)
+
+      vim.ui.select(items, {
+        prompt = string.format('Grep: %s (%d matches)', pattern, #items),
+        kind = 'grep',
+        format_item = function(item) return item.label end,
+      }, function(choice)
+        if not choice then return end
+        vim.cmd.edit(choice.fname)
+        vim.api.nvim_win_set_cursor(0, { choice.lnum, choice.col - 1 })
+      end)
+    end)
+  end
+
 vim.keymap.set('n', '<leader>cf', '', {
   silent = true,
   desc = 'base.config_find_file',
@@ -374,12 +439,7 @@ vim.keymap.set('n', '<leader>cf', '', {
 vim.keymap.set('n', '<leader>cg', '', {
   silent = true,
   desc = 'base.config_grep',
-  callback = function()
-    local query = vim.fn.input 'Grep config> '
-    if query == '' then return end
-    vim.cmd('silent! vimgrep /' .. query .. '/gj ' .. config_dir .. '/**/*')
-    vim.cmd 'copen'
-  end,
+  callback = function() vim.ui.picker.grep { cwd = config_dir } end,
 })
 
 vim.keymap.set('n', '<leader>cm', '<cmd>ConfigStatus modules<cr>', {
@@ -396,6 +456,12 @@ vim.keymap.set('n', '<leader>cc', '<cmd>ConfigStatus capabilities<cr>', {
   silent = true,
   desc = 'base.config_capabilities',
 })
+
+vim.keymap.set('n', '<leader>cs', function() vim.cmd 'ConfigStatus' end, { desc = 'interface.config_status', silent = true })
+
+vim.keymap.set('n', '<leader>cS', function() vim.cmd 'ConfigStatus state' end, { desc = 'interface.config_status_state', silent = true })
+
+vim.keymap.set('n', '<leader>cl', function() require('lazy').home() end, { desc = 'interface.lazy', silent = true })
 
 ----------------------------------------------------------------
 -- Misc
