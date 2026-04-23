@@ -305,6 +305,9 @@ return env.module.register {
     ['nvim-mini/mini.pick'] = {
       version = false,
     },
+    ['nvim-mini/mini.files'] = {
+      version = false,
+    },
   },
 
   -- ── Setup ─────────────────────────────────────────────────────────────
