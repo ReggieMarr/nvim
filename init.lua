@@ -17,8 +17,10 @@ vim.opt.rtp:prepend(lazy_path)
 -- Core state providers run before any module
 require('lib.state')._register_core_providers()
 
+-- Add's basic vim.ui.pickers table
+require 'core.pickers'
 -- Base vim options (no plugin deps)
-require 'base'
+require 'core.base_config'
 
 -- Module manifest: this list is the only control surface.
 -- Comment a line to disable that module entirely.

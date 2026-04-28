@@ -239,7 +239,7 @@ local function toggle_zoom()
     vim.o.sessionoptions = old_sessionoptions
   end
 end
-
+vim.fn.toggle_zoom = toggle_zoom
 local config_dir = vim.fn.stdpath 'config'
 
 ----------------------------------------------------------------
@@ -248,7 +248,7 @@ local config_dir = vim.fn.stdpath 'config'
 
 vim.keymap.set('n', '<leader>wf', '', {
   silent = true,
-  callback = toggle_zoom,
+  callback = vim.fn.toggle_zoom,
   desc = 'base.window_zoom',
 })
 
@@ -299,136 +299,6 @@ vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<cr>', { silent = true, desc = 
 ----------------------------------------------------------------
 -- Config
 ----------------------------------------------------------------
-
----@defgroup vim.ui.picker
----
----@brief Pickers ~
----
---- |vim.ui.picker| is a registry of named pickers that can be overridden by
---- plugins to provide custom implementations.
----
---- Plugins can override individual pickers: >lua
----
----   -- Override a single picker
----   vim.ui.picker.files = function(opts)
----     -- custom implementation
----   end
----
----   -- Extend with a new picker
----   vim.ui.picker.my_picker = function(opts)
----     -- custom implementation
----   end
---- <
----
---- To preserve original pickers: >lua
----
----   local orig_files = vim.ui.picker.files
----   require('myplugin').setup()
----   vim.ui.picker.files = orig_files
---- <
-vim.ui.picker = vim.ui.picker or {}
-
---- Default file picker relative to a given directory using the built-in vim.ui.select.
----
----@param opts table|nil Optional parameters
----   - cwd (string): Directory to search from. Default: |getcwd()|
----   - show_hidden (boolean): Include hidden files. Default: false
-vim.ui.picker.files = vim.ui.picker.files
-  or function(local_opts)
-    local_opts = local_opts or {} -- guard nil (called from registry.registry)
-    local directory = vim.fn.resolve(vim.fn.expand(local_opts.cwd or vim.fn.getcwd()))
-    local show_hidden = local_opts.show_hidden or false
-
-    -- Build find command
-    local cmd = { 'find', directory, '-type', 'f' }
-    -- We basically never want to search in the .git dir so ignore that
-    -- TODO account for .gitignore
-    table.insert(cmd, '-not')
-    table.insert(cmd, '-path')
-    table.insert(cmd, '*/.git*')
-    if not show_hidden then
-      table.insert(cmd, '-not')
-      table.insert(cmd, '-name')
-      table.insert(cmd, '*/.*')
-    end
-
-    local files = vim.fn.systemlist(cmd)
-
-    if vim.v.shell_error ~= 0 or #files == 0 then
-      vim.notify('vim.ui.picker.files: no files found in ' .. directory, vim.log.levels.WARN)
-      return
-    end
-
-    -- Show relative paths for readability
-    local relative = vim.tbl_map(function(f) return vim.fn.fnamemodify(f, ':~:.') end, files)
-
-    vim.ui.select(relative, {
-      prompt = 'Files: ' .. vim.fn.fnamemodify(directory, ':~'),
-      kind = 'file',
-    }, function(choice)
-      if choice then vim.cmd.edit(choice) end
-    end)
-  end
-
---- Pick from live grep results using vim's built-in quickfix integration.
---- Falls back to an incremental search using vim.ui.input and vimgrep.
----
---- This default implementation requires no external plugins and uses:
----   - |vim.ui.input()| for the search pattern
----   - |:vimgrep| to perform the search
----   - |vim.ui.select()| to pick from results
----   - |vim.fn.getqflist()| to retrieve matches
----
----@param opts table|nil
----   - cwd (string): Directory to search from. Default: |getcwd()|
----   - prompt (string): Input prompt text. Default: "Grep: "
-vim.ui.picker.grep = vim.ui.picker.grep
-  or function(opts)
-    opts = opts or {}
-    local cwd = vim.fn.resolve(vim.fn.expand(opts.cwd or vim.fn.getcwd()))
-    local prompt = opts.prompt or 'Grep: '
-
-    vim.ui.input({ prompt = prompt }, function(pattern)
-      if not pattern or pattern == '' then return end
-
-      -- Run vimgrep recursively from cwd
-      local ok, err = pcall(vim.cmd, string.format('silent! vimgrep /\\V%s/gj %s/**/*', vim.fn.escape(pattern, '/\\'), vim.fn.fnameescape(cwd)))
-
-      if not ok then
-        vim.notify('grep: no matches for ' .. pattern, vim.log.levels.INFO)
-        return
-      end
-
-      local results = vim.fn.getqflist()
-      if vim.tbl_isempty(results) then
-        vim.notify('grep: no matches for ' .. pattern, vim.log.levels.INFO)
-        return
-      end
-
-      -- Format results for selection
-      local items = vim.tbl_map(function(entry)
-        local fname = vim.fn.bufname(entry.bufnr)
-        local relpath = vim.fn.fnamemodify(fname, ':.')
-        return {
-          label = string.format('%s:%d:%d  %s', relpath, entry.lnum, entry.col, vim.trim(entry.text)),
-          bufnr = entry.bufnr,
-          lnum = entry.lnum,
-          col = entry.col,
-          fname = fname,
-        }
-      end, results)
-
-      vim.ui.select(items, {
-        prompt = string.format('Grep: %s (%d matches)', pattern, #items),
-        kind = 'grep',
-        format_item = function(item) return item.label end,
-      }, function(choice)
-        if not choice then return end
-        vim.cmd.edit(choice.fname)
-        vim.api.nvim_win_set_cursor(0, { choice.lnum, choice.col - 1 })
-      end)
-    end)
-  end
 
 vim.keymap.set('n', '<leader>cf', '', {
   silent = true,
