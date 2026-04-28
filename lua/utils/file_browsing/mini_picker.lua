@@ -209,30 +209,47 @@ local function create_file(path)
   return true
 end
 
-local function create_directory(path)
-  local ok = vim.fn.mkdir(path, 'p')
-  if ok == 0 then
-    vim.notify('Failed to create directory: ' .. path, vim.log.levels.ERROR)
-    return false
-  end
-  return true
-end
-
+---@param local_opts table|nil
+---@return nil
 function M.find_file_at(local_opts)
   local MiniPick = require 'mini.pick'
   local_opts = local_opts or {} -- guard nil (called from registry.registry)
   local cwd = vim.fn.resolve(vim.fn.expand(local_opts.cwd or vim.fn.getcwd()))
   local show_hidden = local_opts.show_hidden or false
 
+  local function create_dwim(path)
+    vim.schedule(function()
+      if path:match '%.[^./]+$' then
+        local ok, err = pcall(vim.fn.writefile, {}, path)
+        if not ok then vim.notify('Failed to create file: ' .. err, vim.log.levels.ERROR) end
+      else
+        local ok = vim.fn.mkdir(path, 'p')
+        if ok == 0 then
+          vim.notify('Failed to create directory: ' .. path, vim.log.levels.ERROR)
+          return
+        end
+        M.find_file_at { cwd = path, show_hidden }
+      end
+    end)
+    MiniPick.stop()
+  end
+
   -- Restart picker at a new directory
   local function navigate_to(dir)
-    MiniPick.stop()
-    vim.schedule(function() M.find_file_at { cwd = dir, show_hidden = show_hidden } end)
+    MiniPick.set_picker_query { '' }
+    local current_opts = MiniPick.get_picker_opts()
+    current_opts.source.name = 'Find: ' .. vim.fn.fnamemodify(dir, ':~')
+    current_opts.source.cwd = dir
+    MiniPick.set_picker_opts(current_opts)
+    MiniPick.set_picker_items(get_entries(dir, show_hidden), { do_match = false, querytick = nil })
+    MiniPick.refresh()
   end
 
   local function navigate_up()
-    local parent = vim.fn.fnamemodify(cwd, ':h')
-    if parent ~= cwd then navigate_to(parent) end
+    local current_opts = MiniPick.get_picker_opts()
+    local dir = current_opts.source.cwd
+    local parent = vim.fn.fnamemodify(dir, ':h')
+    if parent ~= dir then navigate_to(parent) end
   end
 
   local function choose_custom(item)
@@ -259,7 +276,7 @@ function M.find_file_at(local_opts)
 
   MiniPick.start {
     source = {
-      name = 'Min Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
+      name = 'Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
       cwd = cwd,
       items = get_entries(cwd, show_hidden),
       show = custom_show,
@@ -317,19 +334,10 @@ function M.find_file_at(local_opts)
 
           -- No item matched → create from query
           local query_str = table.concat(MiniPick.get_picker_query())
-          print(query_str)
           local name = query_str
           if name == '' then return end
 
-          MiniPick.stop()
-          vim.schedule(function()
-            if query_str:match '%.[^./]+$' then
-              if create_file(query_str) then vim.cmd.edit(query_str) end
-            else
-              if create_directory(query_str) then find_file_at { cwd = query_str, show_hidden } end
-            end
-          end)
-          return true
+          return create_dwim(query_str)
         end,
       },
       move_down = '',
@@ -337,9 +345,9 @@ function M.find_file_at(local_opts)
       navigate_in = {
         char = '<Tab>',
         func = function()
-          local item = MiniPick.get_picker_matches().current
-          choose_custom(item)
-          return true
+          local matches = MiniPick.get_picker_matches()
+          local item = matches and matches.current
+          return choose_custom(item)
         end,
       },
 
@@ -350,28 +358,6 @@ function M.find_file_at(local_opts)
         func = function()
           show_hidden = not show_hidden
           MiniPick.set_picker_items(get_entries(cwd, show_hidden))
-        end,
-      },
-
-      -- Create file/directory from current query (vertico-style)
-      create = {
-        char = '<C-n>',
-        func = function()
-          local query = table.concat(MiniPick.get_picker_query())
-          if query == '' then return end
-
-          local target = cwd .. '/' .. query
-          MiniPick.stop()
-          vim.schedule(function()
-            if query:match '%.[^./]+$' ~= nil then
-              -- Has extension → create file and open
-              if create_file(target) then vim.cmd.edit(target) end
-            else
-              -- No extension → create directory and navigate into it
-              if create_directory(target) then find_file_at { cwd = target, show_hidden = show_hidden } end
-            end
-          end)
-          return true
         end,
       },
 
@@ -391,6 +377,7 @@ function M.find_file_at(local_opts)
           col = math.floor(0.5 * (vim.o.columns - width)),
         }
       end,
+      -- prompt_prefix = '> ' .. cwd .. '/',
     },
   }
 end
