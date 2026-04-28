@@ -358,11 +358,6 @@ return env.module.register {
         vim.api.nvim_create_autocmd('FileType', {
           callback = function() pcall(vim.treesitter.start) end,
         })
-        -- Enable treesitter indentation
-        -- vim.api.nvim_create_autocmd('FileType', {
-        --   pattern = '*',
-        --   callback = function() vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end,
-        -- })
       end,
     },
 
@@ -414,62 +409,86 @@ return env.module.register {
         },
       },
     },
+    ['nvim-mini/mini.extra'] = {
+      version = false,
+    },
   },
 
   -- ── Setup ─────────────────────────────────────────────────────────────
   setup = function()
     -- ── Mason setup (async with progress) ───────────────────────────
-    vim.schedule(function()
-      vim.notify('Initializing Mason tools…', vim.log.levels.INFO, {
-        title = 'language.mason',
-        kind = 'progress',
-      })
-      require('mason').setup()
-
-      vim.defer_fn(function()
-        require('mason-tool-installer').setup {
-          ensure_installed = mason_formatter_names(),
-        }
-
-        vim.notify('Formatter tools ensured', vim.log.levels.INFO, {
+    local function setup_mason()
+      vim.schedule(function()
+        vim.notify('Initializing Mason tools…', vim.log.levels.INFO, {
           title = 'language.mason',
           kind = 'progress',
         })
-      end, 0)
+        require('mason').setup()
 
-      vim.defer_fn(function()
-        require('mason-lspconfig').setup {
-          automatic_enable = true,
-        }
+        vim.defer_fn(function()
+          require('mason-tool-installer').setup {
+            ensure_installed = mason_formatter_names(),
+          }
 
-        vim.notify('LSP servers configured', vim.log.levels.INFO, {
-          title = 'language.mason',
-          kind = 'progress',
-        })
-      end, 0)
-
-      vim.defer_fn(
-        function()
-          vim.notify('Mason setup complete', vim.log.levels.INFO, {
+          vim.notify('Formatter tools ensured', vim.log.levels.INFO, {
             title = 'language.mason',
             kind = 'progress',
           })
-        end,
-        50
-      )
-    end)
+        end, 0)
+
+        vim.defer_fn(function()
+          require('mason-lspconfig').setup {
+            automatic_enable = true,
+          }
+
+          vim.notify('LSP servers configured', vim.log.levels.INFO, {
+            title = 'language.mason',
+            kind = 'progress',
+          })
+        end, 0)
+
+        vim.defer_fn(
+          function()
+            vim.notify('Mason setup complete', vim.log.levels.INFO, {
+              title = 'language.mason',
+              kind = 'progress',
+            })
+          end,
+          50
+        )
+      end)
+    end
+    -- TODO this should be defined along with the plugin config and called by an autocmd
+    setup_mason()
+
+    vim.keymap.set('n', '<leader>lR', '', {
+      desc = 'language.conform_info',
+      silent = true,
+      callback = function() vim.cmd 'ConformInfo' end,
+    })
+
+    -- ── Picker capability extensions ───────────────────────────────
+    -- Extend the picker with LSP-specific finders.
+    -- vim.ui.picker.lsp_references = function(o) require('snacks').picker.lsp_references(o) end
+    -- vim.ui.picker.lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end
+    -- vim.ui.picker.lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end
+    -- vim.ui.picker.lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end
+    -- vim.ui.picker.diagnostics = function(o) require('snacks').picker.diagnostics(o) end
 
     -- ── Shared LSP on_attach ───────────────────────────────────────
     local function on_attach(client, bufnr)
       env.state._update('lsp.attached_servers', vim.lsp.get_clients { bufnr = bufnr })
 
-      if client.server_capabilities.inlayHintProvider then vim.lsp.inlay_hint.enable(true, { bufnr = bufnr }) end
-
-      ----------------------------------------------------------------
-      -- Non-trivial callbacks only
-      ----------------------------------------------------------------
-
-      local function find_references() vim.lsp.buf.references() end
+      -- if client.server_capabilities.inlayHintProvider then vim.lsp.inlay_hint.enable(true, { bufnr = bufnr }) end
+      -- ── Helper ──────────────────────────────────────────────────────
+      --- Notify the user that the LSP server does not provide a capability.
+      ---@param capability string The capability name as it appears in server_capabilities
+      local function missing(capability)
+        vim.notify(
+          string.format('LSP: %s does not provide %s\nclient_id=%d  root=%s', client.name, capability, client.id, (client.root_dir or '(no root)')),
+          vim.log.levels.WARN
+        )
+      end
 
       local function format_buffer()
         require('conform').format {
@@ -479,143 +498,234 @@ return env.module.register {
         }
       end
 
-      local function find_symbols_document()
-        if env.use('picker').lsp_symbols then
-          env.use('picker').lsp_symbols { filter = 'document' }
-        else
-          vim.lsp.buf.document_symbol()
-        end
-      end
+      -- ── Always-available keymaps ────────────────────────────────────
 
-      local function find_symbols_workspace()
-        if env.use('picker').lsp_symbols then
-          env.use('picker').lsp_symbols { filter = 'workspace' }
-        else
-          vim.lsp.buf.workspace_symbol()
-        end
-      end
+      vim.keymap.set('n', '<leader>lf', format_buffer, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.format_buffer',
+      })
 
+      vim.keymap.set('n', '<leader>ll', function() vim.diagnostic.open_float { scope = 'line' } end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.show_diagnostics_line',
+      })
+
+      -- Diagnostic navigation follows ]d / [d / ]e / [e conventions
+      -- established by vim-unimpaired and adopted widely.
+      vim.keymap.set('n', ']d', function() vim.diagnostic.jump { count = 1, float = true } end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.diagnostics_next',
+      })
+
+      vim.keymap.set('n', '[d', function() vim.diagnostic.jump { count = -1, float = true } end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.diagnostics_prev',
+      })
+
+      vim.keymap.set('n', ']e', function() vim.diagnostic.jump { count = 1, float = true, severity = vim.diagnostic.severity.ERROR } end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.diagnostics_next_error',
+      })
+
+      vim.keymap.set('n', '[e', function() vim.diagnostic.jump { count = -1, float = true, severity = vim.diagnostic.severity.ERROR } end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.diagnostics_prev_error',
+      })
+
+      -- ── Picker keymaps (conditional) ────────────────────────────────
+
+      -- <leader>ls  — document Symbols (mnemonic: s for symbols, scoped to buffer)
+      vim.keymap.set('n', '<leader>ls', function()
+        if client.server_capabilities.documentSymbolProvider then
+          vim.ui.picker.lsp_document_symbols()
+        else
+          missing 'documentSymbolProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.find_symbols_document',
+      })
+
+      -- <leader>lS  — workspace Symbols (capital S = wider scope)
+      vim.keymap.set('n', '<leader>lS', function()
+        if client.server_capabilities.workspaceSymbolProvider then
+          vim.ui.picker.lsp_workspace_symbols()
+        else
+          missing 'workspaceSymbolProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.find_symbols_workspace',
+      })
+
+      -- <leader>lr  — References
+      vim.keymap.set('n', '<leader>lr', function()
+        if client.server_capabilities.referencesProvider then
+          vim.ui.picker.lsp_references()
+        else
+          missing 'referencesProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.find_references',
+      })
+
+      -- <leader>li  — Implementations
+      vim.keymap.set('n', '<leader>li', function()
+        if client.server_capabilities.implementationProvider then
+          vim.ui.picker.lsp_implementations()
+        else
+          missing 'implementationProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.find_implementations',
+      })
+
+      -- <leader>lt  — Type definitions
+      vim.keymap.set('n', '<leader>lt', function()
+        if client.server_capabilities.typeDefinitionProvider then
+          vim.ui.picker.lsp_type_definitions()
+        else
+          missing 'typeDefinitionProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.find_type_definitions',
+      })
+
+      -- <leader>lci — incoming Calls (mnemonic: c for calls, i for incoming)
+      vim.keymap.set('n', '<leader>lci', function()
+        if client.server_capabilities.callHierarchyProvider then
+          vim.ui.picker.lsp_incoming_calls()
+        else
+          missing 'callHierarchyProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.find_incoming_calls',
+      })
+
+      -- <leader>lco — outgoing Calls (mnemonic: c for calls, o for outgoing)
+      vim.keymap.set('n', '<leader>lco', function()
+        if client.server_capabilities.callHierarchyProvider then
+          vim.ui.picker.lsp_outgoing_calls()
+        else
+          missing 'callHierarchyProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.find_outgoing_calls',
+      })
+
+      -- ── Non-picker LSP actions (conditional) ────────────────────────
+
+      -- gd — go to Definition (gd is a widely established default)
+      vim.keymap.set('n', 'gd', function()
+        if client.server_capabilities.definitionProvider then
+          vim.lsp.buf.definition()
+        else
+          missing 'definitionProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.go_to_definition',
+      })
+
+      -- gD — go to Declaration (capital D, parallel to gd)
+      vim.keymap.set('n', 'gD', function()
+        if client.server_capabilities.declarationProvider then
+          vim.lsp.buf.declaration()
+        else
+          missing 'declarationProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.go_to_declaration',
+      })
+
+      -- K — hover docs (K is the established vim default for keyword lookup)
+      vim.keymap.set('n', 'K', function()
+        if client.server_capabilities.hoverProvider then
+          vim.lsp.buf.hover()
+        else
+          missing 'hoverProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.hover',
+      })
+
+      -- <leader>lh — signature Help (h for help; also available in insert mode)
+      vim.keymap.set({ 'n', 'i' }, '<leader>lh', function()
+        if client.server_capabilities.signatureHelpProvider then
+          vim.lsp.buf.signature_help()
+        else
+          missing 'signatureHelpProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.signature_help',
+      })
+
+      -- <leader>ln — reName symbol
+      vim.keymap.set('n', '<leader>ln', function()
+        if client.server_capabilities.renameProvider then
+          vim.lsp.buf.rename()
+        else
+          missing 'renameProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.rename',
+      })
+
+      -- <leader>la — code Actions (visual + normal for range actions)
+      vim.keymap.set({ 'n', 'v' }, '<leader>la', function()
+        if client.server_capabilities.codeActionProvider then
+          vim.lsp.buf.code_action()
+        else
+          missing 'codeActionProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.code_action',
+      })
+
+      -- <leader>lI — toggle Inlay hints (capital I, distinct from implementations)
       local function toggle_inlay_hints() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = bufnr }, { bufnr = bufnr }) end
 
-      ----------------------------------------------------------------
-      -- Conditional keymaps
-      ----------------------------------------------------------------
-
-      if client.server_capabilities.definitionProvider then
-        vim.keymap.set('n', '<leader>ld', function() vim.lsp.buf.definition() end, { buffer = bufnr, silent = true, desc = 'language.go_to_definition' })
-      end
-
-      if client.server_capabilities.declarationProvider then
-        vim.keymap.set('n', '<leader>lD', function() vim.lsp.buf.declaration() end, { buffer = bufnr, silent = true, desc = 'language.go_to_declaration' })
-      end
-
-      if client.server_capabilities.implementationProvider then
-        vim.keymap.set(
-          'n',
-          '<leader>li',
-          function() vim.lsp.buf.implementation() end,
-          { buffer = bufnr, silent = true, desc = 'language.go_to_implementation' }
-        )
-      end
-
-      if client.server_capabilities.typeDefinitionProvider then
-        vim.keymap.set(
-          'n',
-          '<leader>lt',
-          function() vim.lsp.buf.type_definition() end,
-          { buffer = bufnr, silent = true, desc = 'language.go_to_type_definition' }
-        )
-      end
-
-      if client.server_capabilities.referencesProvider then
-        vim.keymap.set('n', '<leader>lr', find_references, { buffer = bufnr, silent = true, desc = 'language.find_references' })
-      end
-
-      if client.server_capabilities.hoverProvider then
-        vim.keymap.set('n', '<leader>lh', function() vim.lsp.buf.hover() end, { buffer = bufnr, silent = true, desc = 'language.hover' })
-      end
-
-      if client.server_capabilities.signatureHelpProvider then
-        vim.keymap.set(
-          { 'n', 'i' },
-          '<leader>lH',
-          function() vim.lsp.buf.signature_help() end,
-          { buffer = bufnr, silent = true, desc = 'language.signature_help' }
-        )
-      end
-
-      if client.server_capabilities.renameProvider then
-        vim.keymap.set('n', '<leader>ln', function() vim.lsp.buf.rename() end, { buffer = bufnr, silent = true, desc = 'language.rename' })
-      end
-
-      if client.server_capabilities.codeActionProvider then
-        vim.keymap.set('n', '<leader>la', function() vim.lsp.buf.code_action() end, { buffer = bufnr, silent = true, desc = 'language.code_action' })
-
-        vim.keymap.set('v', '<leader>la', function() vim.lsp.buf.code_action() end, { buffer = bufnr, silent = true, desc = 'language.code_action' })
-      end
-
-      vim.keymap.set('n', '<leader>lf', format_buffer, { buffer = bufnr, silent = true, desc = 'language.format_buffer' })
-
-      if client.server_capabilities.documentSymbolProvider then
-        vim.keymap.set('n', '<leader>si', find_symbols_document, { buffer = bufnr, silent = true, desc = 'language.find_symbols_document' })
-      end
-
-      if client.server_capabilities.workspaceSymbolProvider then
-        vim.keymap.set('n', '<leader>lS', find_symbols_workspace, { buffer = bufnr, silent = true, desc = 'language.find_symbols_workspace' })
-      end
-
-      if client.server_capabilities.inlayHintProvider then
-        vim.keymap.set('n', '<leader>th', toggle_inlay_hints, { buffer = bufnr, silent = true, desc = 'language.toggle_inlay_hints' })
-      end
-
-      vim.keymap.set(
-        'n',
-        '<leader>ll',
-        function() vim.diagnostic.open_float { scope = 'line' } end,
-        { buffer = bufnr, silent = true, desc = 'language.show_diagnostics_line' }
-      )
-
-      vim.keymap.set(
-        'n',
-        ']d',
-        function() vim.diagnostic.jump { count = 1, float = true } end,
-        { buffer = bufnr, silent = true, desc = 'language.diagnostics_next' }
-      )
-
-      vim.keymap.set(
-        'n',
-        '[d',
-        function() vim.diagnostic.jump { count = -1, float = true } end,
-        { buffer = bufnr, silent = true, desc = 'language.diagnostics_prev' }
-      )
-
-      vim.keymap.set(
-        'n',
-        ']e',
-        function()
-          vim.diagnostic.jump {
-            count = 1,
-            float = true,
-            severity = vim.diagnostic.severity.ERROR,
-          }
-        end,
-        { buffer = bufnr, silent = true, desc = 'language.diagnostics_next_error' }
-      )
-
-      vim.keymap.set(
-        'n',
-        '[e',
-        function()
-          vim.diagnostic.jump {
-            count = -1,
-            float = true,
-            severity = vim.diagnostic.severity.ERROR,
-          }
-        end,
-        { buffer = bufnr, silent = true, desc = 'language.diagnostics_prev_error' }
-      )
+      vim.keymap.set('n', '<leader>lI', function()
+        if client.server_capabilities.inlayHintProvider then
+          toggle_inlay_hints()
+        else
+          missing 'inlayHintProvider'
+        end
+      end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.toggle_inlay_hints',
+      })
     end
-
     -- ── Build shared capabilities for all LSP servers ──────────────
     -- blink.cmp extends LSP capabilities with completion protocol support
     local capabilities = vim.tbl_deep_extend('force', vim.lsp.protocol.make_client_capabilities(), require('blink.cmp').get_lsp_capabilities())
@@ -716,40 +826,13 @@ return env.module.register {
       },
     }
 
-    -- ── Picker capability extensions ───────────────────────────────
-    -- Extend the picker with LSP-specific finders.
-    vim.ui.picker.lsp_references = function(o) require('snacks').picker.lsp_references(o) end
-    vim.ui.picker.lsp_symbols = function(o)
-      -- Snacks picker supports document/workspace symbol filtering
-      local opts = vim.tbl_extend('force', {}, o or {})
-      if opts.filter == 'document' then
-        require('snacks').picker.lsp_symbols(opts)
-      else
-        require('snacks').picker.lsp_workspace_symbols(opts)
-      end
-    end
-    vim.ui.picker.lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end
-    vim.ui.picker.lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end
-    vim.ui.picker.lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end
-    vim.ui.picker.diagnostics = function(o) require('snacks').picker.diagnostics(o) end
-
     -- ── Global LSP articulation (non-buffer-local) ─────────────────
     -- Actions that operate across buffers or don't require
     -- an attached LSP client go here rather than in on_attach
-    vim.keymap.set('n', '<leader>lF', '', {
-      desc = 'language.find_diagnostics',
-      silent = true,
-      callback = function() env.use('pickr').diagnostics() end,
-    })
     vim.keymap.set('n', '<leader>lR', '', {
       desc = 'language.restart_lsp_clients',
       silent = true,
       callback = function() vim.cmd 'lsp restart' end,
-    })
-    vim.keymap.set('n', '<leader>lR', '', {
-      desc = 'language.conform_info',
-      silent = true,
-      callback = function() vim.cmd 'ConformInfo' end,
     })
 
     -- ── LspAttach autocmd: clean state on detach ───────────────────
