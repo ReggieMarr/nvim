@@ -470,7 +470,7 @@ return env.module.register {
     -- ── Picker capability extensions ───────────────────────────────
     -- Extend the picker with LSP-specific finders.
     -- vim.ui.picker.lsp_references = function(o) require('snacks').picker.lsp_references(o) end
-    -- vim.ui.picker.lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end
+    vim.ui.picker.lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end
     -- vim.ui.picker.lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end
     -- vim.ui.picker.lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end
     -- vim.ui.picker.diagnostics = function(o) require('snacks').picker.diagnostics(o) end
@@ -499,6 +499,11 @@ return env.module.register {
       end
 
       -- ── Always-available keymaps ────────────────────────────────────
+      vim.keymap.set('n', '<leader>ld', function() vim.ui.picker.lsp_definitions() end, {
+        buffer = bufnr,
+        silent = true,
+        desc = 'language.find_definitions',
+      })
 
       vim.keymap.set('n', '<leader>lf', format_buffer, {
         buffer = bufnr,
