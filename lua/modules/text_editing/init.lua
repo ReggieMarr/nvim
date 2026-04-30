@@ -8,52 +8,7 @@
 -- Domain: interface
 
 local env = require 'env'
-
--- ── Mason setup (async with progress) ───────────────────────────
-local function setup_mason()
-  vim.schedule(function()
-    vim.notify('Initializing Mason tools…', vim.log.levels.INFO, {
-      title = 'language.mason',
-      kind = 'progress',
-    })
-    require('mason').setup()
-
-    vim.defer_fn(function()
-      require('mason-tool-installer').setup {
-        ensure_installed = mason_formatter_names(),
-        auto_update = false,
-        run_on_start = true,
-      }
-
-      vim.notify('Formatter tools ensured', vim.log.levels.INFO, {
-        title = 'language.mason',
-        kind = 'progress',
-      })
-    end, 0)
-
-    vim.defer_fn(function()
-      require('mason-lspconfig').setup {
-        automatic_enable = true,
-        ensure_installed = mason_lsp_names(),
-      }
-
-      vim.notify('LSP servers configured', vim.log.levels.INFO, {
-        title = 'language.mason',
-        kind = 'progress',
-      })
-    end, 0)
-
-    vim.defer_fn(
-      function()
-        vim.notify('Mason setup complete', vim.log.levels.INFO, {
-          title = 'language.mason',
-          kind = 'progress',
-        })
-      end,
-      50
-    )
-  end)
-end
+local languages = require 'modules.text_editing.languages'
 
 return env.module.register {
   name = 'text_editing',
@@ -69,11 +24,9 @@ return env.module.register {
   plugins = {
     -- Mason: LSP/formatter/linter installer
     ['williamboman/mason.nvim'] = {
-      -- Build step ensures mason's internal registry is compiled
       build = ':MasonUpdate',
+      lazy = false,
       opts = {
-        -- Install mason packages to a stable path so lazy
-        -- changes don't trigger reinstalls
         install_root_dir = vim.fn.stdpath 'data' .. '/mason',
       },
     },
@@ -82,43 +35,77 @@ return env.module.register {
     -- Ensures servers listed in ensure_installed are present
     ['williamboman/mason-lspconfig.nvim'] = {
       dependencies = { 'williamboman/mason.nvim', 'neovim/nvim-lspconfig' },
+      lazy = false,
+      opts = {
+        -- Query is deferred: languages module is loaded once at plugin
+        -- resolution time, which is fine — specs are static tables.
+        ensure_installed = languages.get_mason_lsp_packages(),
+        automatic_enable = true,
+      },
     },
 
     -- mason-tool-installer: installs formatters/linters via mason
     -- Separate from mason-lspconfig which only handles LSPs
     ['WhoIsSethDaniel/mason-tool-installer.nvim'] = {
       dependencies = { 'williamboman/mason.nvim' },
+      lazy = false,
+      opts = {
+        ensure_installed = languages.get_mason_tool_packages(),
+        auto_update = false,
+        run_on_start = true,
+      },
     },
+
     -- Treesitter: syntax parsing for highlighting, textobjects, context
     ['nvim-treesitter/nvim-treesitter'] = {
       branch = 'main',
       lazy = false,
       build = ':TSUpdate',
-      dependencies = {
-        'nvim-treesitter/nvim-treesitter-textobjects',
-      },
+      dependencies = { 'nvim-treesitter/nvim-treesitter-textobjects' },
+      config = function()
+        require('nvim-treesitter').setup {
+          install_dir = vim.fn.stdpath 'data' .. '/site',
+        }
+
+        -- Single source of truth: language specs + universal set
+        local language_parsers = languages.get_treesitter_parsers()
+        local all_parsers = vim.tbl_keys(
+          vim.tbl_extend(
+            'keep',
+            vim.tbl_map(function() return true end, vim.iter(languages.universal_parsers):totable()),
+            vim.tbl_map(function() return true end, vim.iter(language_parsers):totable())
+          )
+        )
+        -- simpler dedup:
+        local seen, parsers = {}, {}
+        for _, p in ipairs(languages.universal_parsers) do
+          if not seen[p] then
+            seen[p] = true
+            table.insert(parsers, p)
+          end
+        end
+        for _, p in ipairs(language_parsers) do
+          if not seen[p] then
+            seen[p] = true
+            table.insert(parsers, p)
+          end
+        end
+
+        require('nvim-treesitter').install(parsers)
+
+        vim.api.nvim_create_autocmd('FileType', {
+          callback = function() pcall(vim.treesitter.start) end,
+        })
+      end,
+
+      -- Textobject keymaps, highlight config, etc. live here in opts
+      -- and are passed to the old-api setup if you use it, or configured
+      -- via the module directly. Keep them here as they are generic,
+      -- not language-specific.
       opts = {
-        ensure_installed = {
-          'lua',
-          'luadoc',
-          'python',
-          'vim',
-          'vimdoc',
-          'markdown',
-          'markdown_inline',
-          'bash',
-          'json',
-          'jsonc',
-          'toml',
-          'yaml',
-          'regex',
-        },
-        auto_install = true,
         highlight = {
           enable = true,
           disable = function(_, buf)
-            -- Disable on large files: checked via state if available,
-            -- otherwise fall back to direct size check
             local max = 1.5 * 1024 * 1024
             local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(buf))
             return ok and stats and stats.size > max
@@ -128,10 +115,6 @@ return env.module.register {
         incremental_selection = {
           enable = true,
           keymaps = {
-            -- These are the only keymaps set directly rather than
-            -- through env.articulation: treesitter's incremental
-            -- selection is modal and doesn't map cleanly to the
-            -- action registry model
             init_selection = '<C-space>',
             node_incremental = '<C-space>',
             scope_incremental = '<C-S-space>',
@@ -165,35 +148,6 @@ return env.module.register {
           },
         },
       },
-      config = function()
-        require('nvim-treesitter').setup {
-          install_dir = vim.fn.stdpath 'data' .. '/site',
-        }
-
-        -- -- Install parsers (async, idempotent)
-        -- require('nvim-treesitter').install {
-        --   'lua',
-        --   'bash',
-        --   'json',
-        --   'yaml',
-        --   'markdown',
-        --   'vim',
-        --   'python',
-        --   'go',
-        --   'rust',
-        --   'zig',
-        --   'toml',
-        --   'html',
-        --   'css',
-        --   'javascript',
-        --   'typescript',
-        -- }
-
-        -- Enable treesitter highlighting
-        vim.api.nvim_create_autocmd('FileType', {
-          callback = function() pcall(vim.treesitter.start) end,
-        })
-      end,
     },
 
     -- Treesitter context: sticky function/class header at top of window
@@ -215,33 +169,19 @@ return env.module.register {
       event = { 'BufWritePre' },
       cmd = { 'ConformInfo' },
       opts = {
-        formatters_by_ft = {
-          lua = { 'stylua' },
-          python = {
-            'ruff_format', -- fast, uv-aware
-            'ruff_organize_imports',
-          },
-          -- Fallback for any filetype with an LSP that can format
-          ['_'] = { 'trim_whitespace' },
-        },
+        -- Derived entirely from language specs
+        formatters_by_ft = vim.tbl_extend(
+          'keep',
+          languages.get_formatters_by_ft(),
+          -- Universal fallback: not language-specific, lives here
+          { ['_'] = { 'trim_whitespace' } }
+        ),
         format_on_save = {
           timeout_ms = 500,
-          lsp_format = 'fallback', -- use LSP if no conform formatter
+          lsp_format = 'fallback',
         },
-        formatters = {
-          stylua = {
-            -- stylua reads StyLua.toml from the project root
-            -- no extra config needed; uv projects have pyproject.toml
-            -- stylua has its own config discovery
-          },
-          ruff_format = {
-            -- ruff respects pyproject.toml [tool.ruff] automatically
-            condition = function(_, ctx)
-              -- only run ruff in python projects
-              return vim.fs.find({ 'pyproject.toml', 'ruff.toml', '.ruff.toml' }, { path = ctx.filename, upward = true })[1] ~= nil
-            end,
-          },
-        },
+        -- Per-formatter config (condition functions, args, etc.)
+        formatters = languages.get_conform_formatter_configs(),
       },
     },
     -- Completion engine
@@ -298,8 +238,8 @@ return env.module.register {
   setup = function()
     -- ── Text Editing ────────────────────────────────────────────────
 
-    -- Async call to setup dependencies
-    -- setup_mason()
+    local lsp_config = require 'modules.text_editing.lsp'
+    lsp_config.setup()
     -- ── Diagnostic display configuration ──────────────────────────
     vim.diagnostic.config {
       -- Can switch between these as you prefer
@@ -348,7 +288,6 @@ return env.module.register {
     ----------------------------------------------------------------
     -- Buffer search (Snacks picker)
     ----------------------------------------------------------------
-
 
     -- vim.ui.pickers.buffer_lines = function()
     --     local current_buf = vim.api.nvim_get_current_buf()

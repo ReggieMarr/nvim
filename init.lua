@@ -26,9 +26,9 @@ require 'core.base_config'
 -- Comment a line to disable that module entirely.
 local module_files = {
   'modules.interface',
-  -- 'modules.introspection',
+  'modules.introspection',
   'modules.filesystem',
-  -- 'modules.text_editing',
+  'modules.text_editing',
   -- 'modules.workspace',
   -- 'modules.version_control',
   -- "modules.project",

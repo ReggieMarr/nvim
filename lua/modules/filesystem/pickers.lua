@@ -32,7 +32,6 @@ function M.find_file_at(local_opts)
   end
 
   local function select_dwim(item)
-    print("got selected")
     -- Current dir item → open in oil float at this directory
     if item.is_cwd then
       vim.schedule(function() require('utils.file_browsing.directory_editor').open(item.path) end)
@@ -107,9 +106,7 @@ function M.find_file_at(local_opts)
         char = '<CR>',
         func = function() 
             local matches = MiniPick.get_picker_matches()
-            print(vim.inspect(item))
             item = matches and matches.current
-            print(vim.inspect(item))
 
             if item then
               -- Delegate to your normal choose logic (extracted to a function)
