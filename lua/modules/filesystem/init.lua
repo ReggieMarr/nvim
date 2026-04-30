@@ -207,7 +207,7 @@ return env.module.register {
       end,
     },
     ['nvim-mini/mini.files'] = {
-      dependencies = { 'nvim-mini/mini.pick' },
+      -- dependencies = { 'nvim-mini/mini.pick' },
       version = false,
       config = function()
         local mfc = require 'utils.file_browsing.file_search_config'
@@ -270,7 +270,8 @@ return env.module.register {
     -- File finding
     ----------------------------------------------------------------
 
-    vim.ui.picker.files_at = function(opts) require('utils.file_browsing.mini_picker').find_file_at(opts) end
+    require 'modules.filesystem.pickers'
+    vim.ui.picker.files_at = function(opts) require('modules.filesystem.pickers').find_file_at(opts) end
     vim.keymap.set(
       'n',
       '<leader>ff',

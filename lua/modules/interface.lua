@@ -332,6 +332,39 @@ return env.module.register {
       init = function() vim.o.cmdheight = 0 end,
       lazy = false,
     },
+    ['stevearc/conform.nvim'] = {
+      event = { 'BufWritePre' },
+      cmd = { 'ConformInfo' },
+      opts = {
+        formatters_by_ft = {
+          lua = { 'stylua' },
+          python = {
+            'ruff_format', -- fast, uv-aware
+            'ruff_organize_imports',
+          },
+          -- Fallback for any filetype with an LSP that can format
+          ['_'] = { 'trim_whitespace' },
+        },
+        format_on_save = {
+          timeout_ms = 500,
+          lsp_format = 'fallback', -- use LSP if no conform formatter
+        },
+        formatters = {
+          stylua = {
+            -- stylua reads StyLua.toml from the project root
+            -- no extra config needed; uv projects have pyproject.toml
+            -- stylua has its own config discovery
+          },
+          ruff_format = {
+            -- ruff respects pyproject.toml [tool.ruff] automatically
+            condition = function(_, ctx)
+              -- only run ruff in python projects
+              return vim.fs.find({ 'pyproject.toml', 'ruff.toml', '.ruff.toml' }, { path = ctx.filename, upward = true })[1] ~= nil
+            end,
+          },
+        },
+      },
+    },
     ['nvim-mini/mini.pick'] = {
       version = false,
       -- NOTE this will automatically override vim.ui.select
