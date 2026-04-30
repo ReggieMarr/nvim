@@ -121,9 +121,7 @@ function M.find_file_at(local_opts)
             if file_query == '' then return end
             local path = MiniPick.get_picker_opts().source.cwd .. '/' .. file_query
             fs_utils.create_dwim(path, M.find_file_at, local_opts)
-            MiniPick.set_picker_items(fs_utils.get_files_in_dir(MiniPick.get_picker_opts().source.cwd, show_hidden), { do_match = false, querytick = nil })
-            -- MiniPick.stop()
-            -- MiniPick.refresh()
+            MiniPick.stop()
         end,
       },
       -- Tab: navigate into selected dir (or open file)
@@ -183,7 +181,6 @@ function M.find_file_at(local_opts)
 
           fs_utils.create_dwim(path, M.find_file_at, local_opts)
           MiniPick.stop()
-          MiniPick.refresh()
         end,
       },
 
