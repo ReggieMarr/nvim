@@ -140,8 +140,9 @@ function M.find_file_at(local_opts)
       },
 
       -- Toggle mark on current item
+      -- TODO fix this, for some reason it's been overwriting choose behavior
       -- toggle_mark = {
-      --   char = '<C-m>',
+      --   char = '<C-x>',
       --   func = function()
       --     local matches = MiniPick.get_picker_matches()
       --     if not matches or not matches.current then return end
