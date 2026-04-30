@@ -33,7 +33,6 @@ local env = require 'env'
 ---@field install boolean       Whether mason should ensure this is installed
 ---@field config table          lspconfig setup() options
 ---@field formatters? string[]  mason formatter names to install alongside the LSP
-
 local servers = {
 
   -- ── Lua ─────────────────────────────────────────────────────────────
@@ -417,187 +416,47 @@ return env.module.register {
         local extra = require 'mini.extra'
 
         extra.setup()
-        local function lsp_picker_show(buf_id, items_to_show, query)
-          local ns = vim.api.nvim_create_namespace 'minipick_lsp_custom'
-          vim.api.nvim_buf_clear_namespace(buf_id, ns, 0, -1)
-
-          -- One line per item: the filename header
-          local lines = {}
-          for _, item in ipairs(items_to_show) do
-            local path = item.path or item.filename or ''
-            local rel = vim.fn.fnamemodify(path, ':~:.')
-            lines[#lines + 1] = rel ~= '' and rel or '[No File]'
-          end
-          vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
-
-          -- Highlight filename lines yellow and attach virt_lines for content
-          for i, item in ipairs(items_to_show) do
-            local lnum_0 = i - 1 -- 0-indexed
-
-            -- Yellow highlight on the filename line
-            vim.api.nvim_buf_add_highlight(buf_id, ns, 'DiagnosticWarn', lnum_0, 0, -1)
-
-            -- Virtual line below with line number + content
-            local item_lnum = item.lnum or 0
-            local text = item.text or ''
-            -- mini.extra formats text as "filepath:lnum:col: content" strip it
-            local content = text:match ':%d+:%d+:%s?(.*)$' or text
-            local virt_line = {
-              { string.format('  %4d: ', item_lnum), 'LineNr' },
-              { content, 'Normal' },
-            }
-            vim.api.nvim_buf_set_extmark(buf_id, ns, lnum_0, 0, {
-              virt_lines = { virt_line },
-              virt_lines_above = false,
-            })
-          end
-        end
-        local function make_lsp_split_picker(scope, extra_opts)
-          local pick = require 'mini.pick'
-
-          -- Pre-create a split layout: left = items, right = preview
-          local preview_buf = vim.api.nvim_create_buf(false, true)
-          local total_width = vim.o.columns
-          local total_height = vim.o.lines - vim.o.cmdheight - 1
-          local items_width = math.floor(total_width * 0.4)
-          local preview_width = total_width - items_width - 1
-
-          -- Open preview window on the right first
-          local height = math.floor(0.618 * vim.o.lines)
-          local width = math.floor(0.618 * vim.o.columns)
-          local preview_win = vim.api.nvim_open_win(preview_buf, false, {
-            relative = 'editor',
-            row = 0,
-            col = 0,
-            width = preview_width,
-            -- height = total_height,
-            -- anchor = 'NW',
-            style = 'minimal',
-            border = 'rounded',
-            focusable = false,
-
-            anchor = 'NW',
-            height = height,
-            -- row = math.floor(0.5 * (vim.o.lines - height)),
-            -- col = math.floor(0.5 * (vim.o.columns - width)),
-          })
-
-          -- Custom preview: render into our persistent preview_win instead of
-          -- the picker's scratch buf
-          local function split_preview(buf_id, item)
-            local path = item.path or item.filename
-            if not path then return end
-
-            local ok, lines = pcall(vim.fn.readfile, path)
-            if not ok or not lines then return end
-
-            vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, lines)
-
-            local ft = vim.filetype.match { filename = path, buf = preview_buf }
-            if ft then vim.bo[preview_buf].filetype = ft end
-
-            local lnum_0 = (item.lnum or 1) - 1
-            local col_0 = (item.col or 1) - 1
-
-            local ns = vim.api.nvim_create_namespace 'minipick_lsp_split_preview'
-            vim.api.nvim_buf_clear_namespace(preview_buf, ns, 0, -1)
-            -- vim.api.nvim_buf_add_highlight(preview_buf, ns, 'CursorLine', lnum_0, 0, -1)
-            -- if item.col then
-            --   local col_end = item.end_col or (col_0 + 1)
-            --   -- vim.api.nvim_buf_add_highlight(preview_buf, ns, 'Search', lnum_0, col_0, col_end)
-            -- end
-
-            -- Set preview window buffer and scroll to target line
-            vim.api.nvim_win_set_buf(preview_win, preview_buf)
-            vim.api.nvim_win_set_cursor(preview_win, { lnum_0 + 1, col_0 })
-            vim.api.nvim_win_call(preview_win, function() vim.cmd 'normal! zz' end)
-          end
-
-          -- Cleanup preview window when picker closes
-          local function on_stop()
-            pcall(vim.api.nvim_win_close, preview_win, true)
-            pcall(vim.api.nvim_buf_delete, preview_buf, { force = true })
-          end
-
-          local opts = vim.tbl_deep_extend('force', extra_opts or {}, {
-            source = {
-              show = lsp_picker_show, -- your two-line virt_lines show from before
-              preview = split_preview,
-            },
-            window = {
-              config = {
-                relative = 'editor',
-                anchor = 'NW',
-                height = height,
-                -- width = width,
-                width = 5,
-                -- row = math.floor(0.5 * (vim.o.lines - height)),
-                -- col = math.floor(0.5 * (vim.o.columns - width)),
-                row = 0,
-                col = 0,
-                style = 'minimal',
-                border = 'rounded',
-              },
-            },
-          })
-
-          -- Attach stop hook via autocommand on the picker's buffer
-          -- mini.pick fires User MiniPickStop when done
-          local aug = vim.api.nvim_create_augroup('LspPickerCleanup', { clear = true })
-          vim.api.nvim_create_autocmd('User', {
-            pattern = 'MiniPickStop',
-            group = aug,
-            once = true,
-            callback = function()
-              on_stop()
-              vim.api.nvim_del_augroup_by_id(aug)
-            end,
-          })
-
-          local extra = require 'mini.extra'
-          local extra_picker = extra.pickers.lsp(vim.tbl_extend('force', { scope = scope }, opts))
-          print(vim.inspect(extra_picker))
-        end
 
         -- ── LSP pickers ──────────────────────────────────────────────────────
-        vim.ui.picker.lsp_references = function(opts) make_lsp_split_picker 'references' end
-        vim.ui.picker.lsp_document_symbols = function(opts)
-          opts = opts or {}
-          extra.pickers.lsp { scope = 'document_symbol' }
-        end
-
-        vim.ui.picker.lsp_workspace_symbols = function(opts)
-          opts = opts or {}
-          local query = opts.query
-          if query ~= nil then
-            extra.pickers.lsp { scope = 'workspace_symbol_live', symbol_query = query }
-          else
-            vim.ui.input({ prompt = opts.prompt or 'Workspace Symbols: ' }, function(input)
-              if not input then return end
-              extra.pickers.lsp { scope = 'workspace_symbol', symbol_query = input }
-            end)
-          end
-        end
-
-        vim.ui.picker.lsp_implementations = function(opts)
-          opts = opts or {}
-          extra.pickers.lsp { scope = 'implementation' }
-        end
-
-        vim.ui.picker.lsp_type_definitions = function(opts)
-          opts = opts or {}
-          extra.pickers.lsp { scope = 'type_definition' }
-        end
-
-        vim.ui.picker.lsp_incoming_calls = function(opts)
-          opts = opts or {}
-          extra.pickers.lsp { scope = 'incoming_calls' }
-        end
-
-        vim.ui.picker.lsp_outgoing_calls = function(opts)
-          opts = opts or {}
-          extra.pickers.lsp { scope = 'outgoing_calls' }
-        end
+        -- TODO add hook to leverage this
+        -- vim.ui.picker.lsp_references = function(opts) make_lsp_split_picker 'references' end
+        -- vim.ui.picker.lsp_document_symbols = function(opts)
+        --   opts = opts or {}
+        --   extra.pickers.lsp { scope = 'document_symbol' }
+        -- end
+        --
+        -- vim.ui.picker.lsp_workspace_symbols = function(opts)
+        --   opts = opts or {}
+        --   local query = opts.query
+        --   if query ~= nil then
+        --     extra.pickers.lsp { scope = 'workspace_symbol_live', symbol_query = query }
+        --   else
+        --     vim.ui.input({ prompt = opts.prompt or 'Workspace Symbols: ' }, function(input)
+        --       if not input then return end
+        --       extra.pickers.lsp { scope = 'workspace_symbol', symbol_query = input }
+        --     end)
+        --   end
+        -- end
+        --
+        -- vim.ui.picker.lsp_implementations = function(opts)
+        --   opts = opts or {}
+        --   extra.pickers.lsp { scope = 'implementation' }
+        -- end
+        --
+        -- vim.ui.picker.lsp_type_definitions = function(opts)
+        --   opts = opts or {}
+        --   extra.pickers.lsp { scope = 'type_definition' }
+        -- end
+        --
+        -- vim.ui.picker.lsp_incoming_calls = function(opts)
+        --   opts = opts or {}
+        --   extra.pickers.lsp { scope = 'incoming_calls' }
+        -- end
+        --
+        -- vim.ui.picker.lsp_outgoing_calls = function(opts)
+        --   opts = opts or {}
+        --   extra.pickers.lsp { scope = 'outgoing_calls' }
+        -- end
 
         -- ── Introspection pickers ───────────────────────────────────────────────
         -- TODO this should be done in the Introspection module
@@ -668,12 +527,10 @@ return env.module.register {
 
     -- ── Picker capability extensions ───────────────────────────────
     -- Extend the picker with LSP-specific finders.
-    -- vim.ui.picker.lsp_references = function(o) require('snacks').picker.lsp_references(o) end
+    vim.ui.picker.lsp_references = function(o) require('snacks').picker.lsp_references(o) end
     vim.ui.picker.lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end
-    -- vim.ui.picker.lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end
-    -- vim.ui.picker.lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end
-    -- vim.ui.picker.diagnostics = function(o) require('snacks').picker.diagnostics(o) end
-
+    vim.ui.picker.lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end
+    vim.ui.picker.lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end
     -- ── Shared LSP on_attach ───────────────────────────────────────
     local function on_attach(client, bufnr)
       env.state._update('lsp.attached_servers', vim.lsp.get_clients { bufnr = bufnr })
@@ -955,6 +812,26 @@ return env.module.register {
       vim.lsp.enable(server_name)
     end
 
+    -- ── Global LSP articulation (non-buffer-local) ─────────────────
+    -- Actions that operate across buffers or don't require
+    -- an attached LSP client go here rather than in on_attach
+    vim.keymap.set('n', '<leader>lR', '', {
+      desc = 'language.restart_lsp_clients',
+      silent = true,
+      callback = function() vim.cmd 'lsp restart' end,
+    })
+
+    -- ── LspAttach autocmd: clean state on detach ───────────────────
+    vim.api.nvim_create_autocmd('LspDetach', {
+      group = vim.api.nvim_create_augroup('language_lsp_detach', { clear = true }),
+      callback = function(event)
+        -- Refresh server list immediately on detach
+        -- The state provider fires on LspDetach but the client
+        -- may still appear in get_clients() briefly; force an update
+        vim.schedule(function() env.state._update('lsp.attached_servers', vim.lsp.get_clients { bufnr = event.buf }) end)
+      end,
+    })
+
     -- ── State providers ────────────────────────────────────────────
     env.state.register_provider {
       id = 'lsp.attached_servers',
@@ -1004,7 +881,11 @@ return env.module.register {
 
     -- ── Diagnostic display configuration ──────────────────────────
     vim.diagnostic.config {
-      -- Virtual text: show at end of line, abbreviated
+      -- Can switch between these as you prefer
+      virtual_lines = false, -- Teest shows up underneath the line, with virtual lines
+
+      -- Auto open the float, so you can easily read the errors when jumping with `[d` and `]d`
+      jump = { float = true },
       virtual_text = {
         enabled = true,
         spacing = 4,
@@ -1019,35 +900,28 @@ return env.module.register {
         end,
       },
       -- Signs in the sign column
-      underline = true,
+      underline = { severity = vim.diagnostic.severity.ERROR },
       update_in_insert = false, -- only update diagnostics on leaving insert
       severity_sort = true,
       float = {
         border = 'rounded',
-        source = true,
+        source = 'if_many',
         header = '',
         prefix = '',
       },
     }
+    vim.ui.picker.diagnostics = function(o) require('snacks').picker.diagnostics(o) end
 
-    -- ── Global LSP articulation (non-buffer-local) ─────────────────
-    -- Actions that operate across buffers or don't require
-    -- an attached LSP client go here rather than in on_attach
-    vim.keymap.set('n', '<leader>lR', '', {
-      desc = 'language.restart_lsp_clients',
+    vim.keymap.set('n', '<leader>lD', function() vim.ui.picker.diagnostics() end, {
       silent = true,
-      callback = function() vim.cmd 'lsp restart' end,
+      desc = 'language.find_diagnostics',
     })
 
-    -- ── LspAttach autocmd: clean state on detach ───────────────────
-    vim.api.nvim_create_autocmd('LspDetach', {
-      group = vim.api.nvim_create_augroup('language_lsp_detach', { clear = true }),
-      callback = function(event)
-        -- Refresh server list immediately on detach
-        -- The state provider fires on LspDetach but the client
-        -- may still appear in get_clients() briefly; force an update
-        vim.schedule(function() env.state._update('lsp.attached_servers', vim.lsp.get_clients { bufnr = event.buf }) end)
-      end,
-    })
+    vim.keymap.set(
+      'n',
+      '<leader>ud',
+      function() vim.diagnostic.enable(not vim.diagnostic.is_enabled()) end,
+      { desc = 'interface.toggle_diagnostics', silent = true }
+    )
   end,
 }

@@ -52,6 +52,7 @@ local options = {
   -- UI
   list = true,
   listchars = { tab = '» ', trail = '·', nbsp = '␣' },
+  winblend = 50,
   number = false,
   relativenumber = false,
   signcolumn = 'yes',
@@ -60,6 +61,7 @@ local options = {
   splitbelow = true,
   splitright = true,
   pumheight = 10,
+  pumblend = 10,
   -- Don't show the mode, since it's already in the status line
   showmode = false,
 
@@ -81,29 +83,11 @@ for k, v in pairs(options) do
   vim.opt[k] = v
 end
 
-vim.opt.sessionoptions:remove 'folds' -- Don't save folds in sessions
-
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
 --  See `:help 'clipboard'`
 vim.schedule(function() vim.opt.clipboard = 'unnamedplus' end)
-
--- Diagnostic Config & Keymaps
--- See :help vim.diagnostic.Opts
-vim.diagnostic.config {
-  update_in_insert = false,
-  severity_sort = true,
-  float = { border = 'rounded', source = 'if_many' },
-  underline = { severity = vim.diagnostic.severity.ERROR },
-
-  -- Can switch between these as you prefer
-  virtual_text = true, -- Text shows up at the end of the line
-  virtual_lines = false, -- Teest shows up underneath the line, with virtual lines
-
-  -- Auto open the float, so you can easily read the errors when jumping with `[d` and `]d`
-  jump = { float = true },
-}
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -126,17 +110,6 @@ vim.api.nvim_create_autocmd('BufReadPost', {
     if mark[1] > 0 and mark[1] <= line_count then pcall(vim.api.nvim_win_set_cursor, 0, mark) end
   end,
   desc = 'Restore cursor position',
-})
-
--- Trim trailing whitespace on save
-vim.api.nvim_create_autocmd('BufWritePre', {
-  group = augroup 'trim_whitespace',
-  callback = function()
-    local pos = vim.api.nvim_win_get_cursor(0)
-    vim.cmd [[%s/\s\+$//e]]
-    pcall(vim.api.nvim_win_set_cursor, 0, pos)
-  end,
-  desc = 'Trim trailing whitespace on save',
 })
 
 vim.api.nvim_create_autocmd('FileType', {
@@ -208,97 +181,11 @@ vim.filetype.add {
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ';'
 
--- Window zoom toggle (simplified)
-local function toggle_zoom()
-  local function is_zoomed() return vim.t.zoomed or false end
-
-  local function zoom_session_file()
-    if not vim.t.zoom_session_file then
-      vim.t.zoom_session_file = vim.fn.tempname() .. '_' .. vim.api.nvim_tabpage_get_number(0)
-      vim.api.nvim_create_autocmd('TabClosed', {
-        callback = function()
-          if vim.t.zoom_session_file then os.remove(vim.t.zoom_session_file) end
-        end,
-      })
-    end
-    return vim.t.zoom_session_file
-  end
-
-  if is_zoomed() then
-    local cursor_pos = vim.api.nvim_win_get_cursor(0)
-    vim.cmd('silent! source ' .. zoom_session_file())
-    vim.t.zoomed = false
-    vim.api.nvim_win_set_cursor(0, cursor_pos)
-  else
-    if #vim.api.nvim_tabpage_list_wins(0) == 1 then return end
-    local old_sessionoptions = vim.o.sessionoptions
-    vim.o.sessionoptions = 'blank,buffers,curdir,terminal,help'
-    vim.cmd('mksession! ' .. zoom_session_file())
-    vim.cmd 'only'
-    vim.t.zoomed = true
-    vim.o.sessionoptions = old_sessionoptions
-  end
-end
-vim.fn.toggle_zoom = toggle_zoom
-local config_dir = vim.fn.stdpath 'config'
-
-----------------------------------------------------------------
--- Window navigation
-----------------------------------------------------------------
-
-vim.keymap.set('n', '<leader>wf', '', {
-  silent = true,
-  callback = vim.fn.toggle_zoom,
-  desc = 'base.window_zoom',
-})
-
-vim.keymap.set('n', '<leader>wh', '<C-w>h', { silent = true, desc = 'base.window_left' })
-vim.keymap.set('n', '<leader>wj', '<C-w>j', { silent = true, desc = 'base.window_down' })
-vim.keymap.set('n', '<leader>wk', '<C-w>k', { silent = true, desc = 'base.window_up' })
-vim.keymap.set('n', '<leader>wl', '<C-w>l', { silent = true, desc = 'base.window_right' })
-
-vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<cr>', { silent = true, desc = 'base.window_vsplit' })
-vim.keymap.set('n', '<leader>ws', '<cmd>split<cr>', { silent = true, desc = 'base.window_split' })
-
-----------------------------------------------------------------
--- Window repositioning
-----------------------------------------------------------------
-
-vim.keymap.set('n', '<leader>H', '<C-w>H', { silent = true, desc = 'base.window_move_left' })
-vim.keymap.set('n', '<leader>J', '<C-w>J', { silent = true, desc = 'base.window_move_down' })
-vim.keymap.set('n', '<leader>K', '<C-w>K', { silent = true, desc = 'base.window_move_up' })
-vim.keymap.set('n', '<leader>L', '<C-w>L', { silent = true, desc = 'base.window_move_right' })
-
-vim.keymap.set('n', '<leader>wd', '<C-w>c', { silent = true, desc = 'base.window_delete' })
-vim.keymap.set('n', '<leader>wo', '<C-w>o', { silent = true, desc = 'base.window_delete_others' })
-
-----------------------------------------------------------------
--- Buffer
-----------------------------------------------------------------
-
-vim.keymap.set('n', '<S-l>', '<cmd>bnext<cr>', { silent = true, desc = 'base.buffer_next' })
-vim.keymap.set('n', '<S-h>', '<cmd>bprevious<cr>', { silent = true, desc = 'base.buffer_prev' })
-vim.keymap.set('n', '<leader>bd', '<cmd>bdelete<cr>', { silent = true, desc = 'base.buffer_delete' })
-
-----------------------------------------------------------------
--- Quit
-----------------------------------------------------------------
-
-vim.keymap.set('n', '<leader>qq', '<cmd>qa<cr>', { silent = true, desc = 'base.quit_all' })
-vim.keymap.set('n', '<leader>wq', '<cmd>wqa<cr>', { silent = true, desc = 'base.write_quit_all' })
-
-----------------------------------------------------------------
--- Toggles
-----------------------------------------------------------------
-
-vim.keymap.set('n', '<leader>tn', '<cmd>set number!<cr>', { silent = true, desc = 'base.toggle_number' })
-vim.keymap.set('n', '<leader>tr', '<cmd>set relativenumber!<cr>', { silent = true, desc = 'base.toggle_relnumber' })
-vim.keymap.set('n', '<leader>ts', '<cmd>setlocal spell!<cr>', { silent = true, desc = 'base.toggle_spell' })
-vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<cr>', { silent = true, desc = 'base.toggle_wrap' })
-
 ----------------------------------------------------------------
 -- Config
+-- This should get loaded in all cases
 ----------------------------------------------------------------
+local config_dir = vim.fn.stdpath 'config'
 
 vim.keymap.set('n', '<leader>cf', '', {
   silent = true,
@@ -332,12 +219,3 @@ vim.keymap.set('n', '<leader>cs', function() vim.cmd 'ConfigStatus' end, { desc 
 vim.keymap.set('n', '<leader>cS', function() vim.cmd 'ConfigStatus state' end, { desc = 'interface.config_status_state', silent = true })
 
 vim.keymap.set('n', '<leader>cl', function() require('lazy').home() end, { desc = 'interface.lazy', silent = true })
-
-----------------------------------------------------------------
--- Misc
-----------------------------------------------------------------
-
-vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<cr>', {
-  silent = true,
-  desc = 'base.clear_search_highlight',
-})
