@@ -502,3 +502,437 @@ vim.ui.picker.lsp_outgoing_calls = vim.ui.picker.lsp_outgoing_calls
       end,
     }
   end
+
+-- ── Default picker implementations ──────────────────────────────
+
+--- Pick from vim's built-in help tags.
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.fn.getcompletion()| to enumerate all help tags
+---   - |vim.ui.select()| to pick from results
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Help: "
+vim.ui.picker.help = vim.ui.picker.help
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Help: '
+    local tags = vim.fn.getcompletion('', 'help')
+    if vim.tbl_isempty(tags) then
+      vim.notify('picker: no help tags found', vim.log.levels.WARN)
+      return
+    end
+    vim.ui.select(tags, {
+      prompt = string.format('%s (%d)', prompt, #tags),
+      kind = 'help',
+      format_item = function(item) return item end,
+    }, function(choice)
+      if not choice then return end
+      vim.cmd.help(choice)
+    end)
+  end
+
+--- Pick from all current keymaps.
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.api.nvim_get_keymap()| and |vim.api.nvim_buf_get_keymap()|
+---     to enumerate all global and buffer-local keymaps
+---   - |vim.ui.select()| to pick from results
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Keymaps: "
+---   - mode (string): Mode to filter by. Default: shows all modes.
+vim.ui.picker.keymaps = vim.ui.picker.keymaps
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Keymaps: '
+    local modes = opts.mode and { opts.mode } or { 'n', 'v', 'i', 'x', 'o', 's', 't', 'c' }
+    local seen = {}
+    local items = {}
+
+    local function add_maps(maps, scope)
+      for _, map in ipairs(maps) do
+        -- Use lhs+mode as dedup key since buffer maps shadow global ones
+        local key = map.mode .. map.lhs
+        if not seen[key] then
+          seen[key] = true
+          local rhs = map.rhs or (map.callback and '[lua]') or ''
+          table.insert(items, {
+            label = string.format('%-4s  %-20s  %-16s  %s', map.mode, map.lhs, scope, map.desc or rhs),
+            lhs = map.lhs,
+            mode = map.mode,
+            desc = map.desc or rhs,
+          })
+        end
+      end
+    end
+
+    local buf = vim.api.nvim_get_current_buf()
+    for _, mode in ipairs(modes) do
+      add_maps(vim.api.nvim_get_keymap(mode), 'global')
+      add_maps(vim.api.nvim_buf_get_keymap(buf, mode), 'buffer')
+    end
+
+    table.sort(items, function(a, b) return a.label < b.label end)
+
+    vim.ui.select(items, {
+      prompt = string.format('%s (%d)', prompt, #items),
+      kind = 'keymaps',
+      format_item = function(item) return item.label end,
+    }, function(choice)
+      -- Keymaps are informational — navigate to definition if possible,
+      -- otherwise just echo the details to the user.
+      if not choice then return end
+      vim.notify(string.format('mode=%s  lhs=%s\n%s', choice.mode, choice.lhs, choice.desc), vim.log.levels.INFO)
+    end)
+  end
+
+--- Pick from all available Ex commands.
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.fn.getcompletion()| to enumerate all commands
+---   - |vim.api.nvim_get_commands()| to retrieve metadata
+---   - |vim.ui.select()| to pick from results
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Commands: "
+vim.ui.picker.commands = vim.ui.picker.commands
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Commands: '
+
+    -- Merge global and buffer-local user commands, then append all
+    -- built-in completions so nothing is missed.
+    local user_cmds = vim.tbl_extend('force', vim.api.nvim_get_commands {}, vim.api.nvim_buf_get_commands(0, {}))
+
+    -- getcompletion gives us builtins that nvim_get_commands does not
+    local all_names = vim.fn.getcompletion('', 'command')
+    local seen = {}
+    local items = {}
+
+    for _, name in ipairs(all_names) do
+      if not seen[name] then
+        seen[name] = true
+        local meta = user_cmds[name]
+        table.insert(items, {
+          label = string.format('%-30s  %s', name, (meta and meta.definition) or ''),
+          name = name,
+          desc = (meta and meta.definition) or '',
+        })
+      end
+    end
+
+    table.sort(items, function(a, b) return a.label < b.label end)
+
+    vim.ui.select(items, {
+      prompt = string.format('%s (%d)', prompt, #items),
+      kind = 'commands',
+      format_item = function(item) return item.label end,
+    }, function(choice)
+      if not choice then return end
+      -- Pre-fill the command line so the user can inspect or execute it
+      vim.api.nvim_feedkeys(':' .. choice.name .. ' ', 'n', false)
+    end)
+  end
+
+--- Pick from vim's runtime files (scripts, syntax, ftplugins, etc).
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.api.nvim_get_runtime_file()| to enumerate runtime files
+---   - |vim.ui.select()| to pick from results
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Runtime Files: "
+---   - pattern (string): Glob pattern. Default: "**/*"
+vim.ui.picker.runtime_files = vim.ui.picker.runtime_files
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Runtime Files: '
+    local pattern = opts.pattern or '**/*'
+    local paths = vim.api.nvim_get_runtime_file(pattern, true)
+    if vim.tbl_isempty(paths) then
+      vim.notify('picker: no runtime files found', vim.log.levels.WARN)
+      return
+    end
+    local items = vim.tbl_map(function(p)
+      return {
+        label = vim.fn.fnamemodify(p, ':~'),
+        path = p,
+      }
+    end, paths)
+    table.sort(items, function(a, b) return a.label < b.label end)
+    vim.ui.select(items, {
+      prompt = string.format('%s (%d)', prompt, #items),
+      kind = 'runtime_files',
+      format_item = function(item) return item.label end,
+    }, function(choice)
+      if not choice then return end
+      vim.cmd.edit(choice.path)
+    end)
+  end
+
+--- Pick from all loaded and available colorschemes.
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.fn.getcompletion()| to enumerate colorschemes
+---   - |vim.ui.select()| to pick from results
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Colorschemes: "
+vim.ui.picker.colorschemes = vim.ui.picker.colorschemes
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Colorschemes: '
+    local current = vim.g.colors_name
+    local schemes = vim.fn.getcompletion('', 'color')
+    if vim.tbl_isempty(schemes) then
+      vim.notify('picker: no colorschemes found', vim.log.levels.WARN)
+      return
+    end
+    -- Surface the active scheme at the top
+    table.sort(schemes, function(a, b)
+      if a == current then return true end
+      if b == current then return false end
+      return a < b
+    end)
+    vim.ui.select(schemes, {
+      prompt = string.format('%s (%d)', prompt, #schemes),
+      kind = 'colorschemes',
+      format_item = function(s) return s == current and s .. '  [active]' or s end,
+    }, function(choice)
+      if not choice then return end
+      vim.cmd.colorscheme(choice)
+    end)
+  end
+
+--- Pick from all sourced scripts (:scriptnames).
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.fn.execute()| to capture :scriptnames output
+---   - |vim.ui.select()| to pick from results
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Scripts: "
+vim.ui.picker.scripts = vim.ui.picker.scripts
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Scripts: '
+    local raw = vim.fn.execute 'scriptnames'
+    local items = {}
+    for line in raw:gmatch '[^\n]+' do
+      local sid, path = line:match '%s*(%d+):%s+(.+)'
+      if sid and path then
+        table.insert(items, {
+          label = string.format('%4s  %s', sid, vim.fn.fnamemodify(path, ':~')),
+          path = vim.fn.expand(path),
+          sid = tonumber(sid),
+        })
+      end
+    end
+    if vim.tbl_isempty(items) then
+      vim.notify('picker: no scripts found', vim.log.levels.WARN)
+      return
+    end
+    vim.ui.select(items, {
+      prompt = string.format('%s (%d)', prompt, #items),
+      kind = 'scripts',
+      format_item = function(item) return item.label end,
+    }, function(choice)
+      if not choice then return end
+      vim.cmd.edit(choice.path)
+    end)
+  end
+
+--- Pick from all active autocommands.
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.api.nvim_get_autocmds()| to enumerate autocommands
+---   - |vim.ui.select()| to pick from results
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Autocommands: "
+---   - event (string|table): Filter by event name(s).
+---   - group (string|integer): Filter by augroup name or id.
+---   - pattern (string|table): Filter by pattern(s).
+vim.ui.picker.autocmds = vim.ui.picker.autocmds
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Autocommands: '
+    local filter = {}
+    if opts.event then filter.event = opts.event end
+    if opts.group then filter.group = opts.group end
+    if opts.pattern then filter.pattern = opts.pattern end
+    local raw = vim.api.nvim_get_autocmds(filter)
+    if vim.tbl_isempty(raw) then
+      vim.notify('picker: no autocommands found', vim.log.levels.WARN)
+      return
+    end
+    local items = vim.tbl_map(function(au)
+      local group = au.group_name or ''
+      local cb = au.desc or (au.callback and '[lua]') or au.command or ''
+      return {
+        label = string.format('%-30s  %-20s  %-20s  %s', au.event, au.pattern or '', group, cb),
+        autocmd = au,
+      }
+    end, raw)
+    table.sort(items, function(a, b) return a.label < b.label end)
+    vim.ui.select(items, {
+      prompt = string.format('%s (%d)', prompt, #items),
+      kind = 'autocmds',
+      format_item = function(item) return item.label end,
+    }, function(choice)
+      if not choice then return end
+      vim.notify(vim.inspect(choice.autocmd), vim.log.levels.INFO)
+    end)
+  end
+
+--- Pick from all defined highlight groups.
+---
+--- This default implementation requires no external plugins and uses:
+---   - |vim.fn.getcompletion()| to enumerate highlight groups
+---   - |vim.api.nvim_get_hl()| to retrieve definition
+---   - |vim.ui.select()| to pick from results
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Highlights: "
+vim.ui.picker.highlights = vim.ui.picker.highlights
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Highlights: '
+    local names = vim.fn.getcompletion('', 'highlight')
+    if vim.tbl_isempty(names) then
+      vim.notify('picker: no highlight groups found', vim.log.levels.WARN)
+      return
+    end
+    local items = vim.tbl_map(function(name)
+      local def = vim.api.nvim_get_hl(0, { name = name, link = false })
+      local parts = {}
+      if def.fg then table.insert(parts, string.format('fg=#%06x', def.fg)) end
+      if def.bg then table.insert(parts, string.format('bg=#%06x', def.bg)) end
+      if def.bold then table.insert(parts, 'bold') end
+      if def.italic then table.insert(parts, 'italic') end
+      if def.link then table.insert(parts, 'link=' .. def.link) end
+      return {
+        label = string.format('%-40s  %s', name, table.concat(parts, '  ')),
+        name = name,
+        def = def,
+      }
+    end, names)
+    table.sort(items, function(a, b) return a.label < b.label end)
+    vim.ui.select(items, {
+      prompt = string.format('%s (%d)', prompt, #items),
+      kind = 'highlights',
+      format_item = function(item) return item.label end,
+    }, function(choice)
+      if not choice then return end
+      -- Inspect in a scratch buffer so the output is readable
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(vim.inspect(choice.def), '\n'))
+      vim.bo[buf].filetype = 'lua'
+      vim.cmd.sbuffer(buf)
+    end)
+  end
+
+--- Pick from all currently registered vim.ui.picker entries.
+---
+--- Useful as a top-level "meta picker" — equivalent to Emacs M-x for pickers.
+---
+---@param opts table|nil
+---   - prompt (string): Input prompt text. Default: "Pickers: "
+vim.ui.picker.pickers = vim.ui.picker.pickers
+  or function(opts)
+    opts = opts or {}
+    local prompt = opts.prompt or 'Pickers: '
+    local items = {}
+    for name, fn in pairs(vim.ui.picker) do
+      if type(fn) == 'function' then table.insert(items, { label = name, name = name, fn = fn }) end
+    end
+    table.sort(items, function(a, b) return a.label < b.label end)
+    vim.ui.select(items, {
+      prompt = string.format('%s (%d)', prompt, #items),
+      kind = 'pickers',
+      format_item = function(item) return item.label end,
+    }, function(choice)
+      if not choice then return end
+      -- Schedule so we are not opening a picker from inside a picker's callback
+      vim.schedule(function() choice.fn() end)
+    end)
+  end
+
+--- Default buffer picker using the built-in vim.ui.select.
+---
+---@type fun(opts: {show_unlisted: boolean}): nil
+vim.ui.picker.buffers = vim.ui.picker.buffers
+  or function(opts)
+    opts = opts or {} -- guard nil (called from registry.registry)
+    local show_unlisted = opts.show_unlisted or false
+
+    -- Collect buffers
+    local buffers = {}
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      local is_listed = vim.bo[bufnr].buflisted
+      if show_unlisted or is_listed then
+        local name = vim.api.nvim_buf_get_name(bufnr)
+        local display = name ~= '' and vim.fn.fnamemodify(name, ':~:.') or '[No Name]'
+        local modified = vim.bo[bufnr].modified and ' [+]' or ''
+        table.insert(buffers, {
+          bufnr = bufnr,
+          display = display .. modified,
+        })
+      end
+    end
+
+    if #buffers == 0 then
+      vim.notify('vim.ui.picker.buffers: no buffers found', vim.log.levels.WARN)
+      return
+    end
+
+    vim.ui.select(buffers, {
+      prompt = 'Buffers:',
+      kind = 'buffer',
+      format_item = function(item) return item.display end,
+    }, function(choice)
+      if choice then vim.api.nvim_set_current_buf(choice.bufnr) end
+    end)
+  end
+
+--- Default notification picker using the built-in vim.ui.select.
+--- Reads from the built-in :messages command output.
+---
+---@type fun(opts: {}|nil): table|nil
+vim.ui.picker.notifications = vim.ui.picker.notifications
+  or function(opts)
+    opts = opts or {} -- guard nil (called from registry.registry)
+
+    -- Get messages from vim's built-in message history
+    local messages = vim.fn.execute 'messages'
+    if not messages or messages == '' then
+      vim.notify('vim.ui.picker.notifications: no messages found', vim.log.levels.WARN)
+      return
+    end
+
+    -- Split into lines and filter empty ones, preserving order (newest last)
+    local lines = vim.tbl_filter(function(line) return line ~= '' end, vim.split(messages, '\n'))
+
+    if #lines == 0 then
+      vim.notify('vim.ui.picker.notifications: no messages found', vim.log.levels.WARN)
+      return
+    end
+
+    -- Reverse so newest messages appear first
+    local reversed = {}
+    for i = #lines, 1, -1 do
+      table.insert(reversed, lines[i])
+    end
+
+    vim.ui.select(reversed, {
+      prompt = 'Notifications:',
+      kind = 'notification',
+    }, function(choice)
+      -- Copy the selected message to the clipboard on confirm
+      if choice then
+        vim.fn.setreg('+', choice)
+        vim.notify('Copied to clipboard: ' .. choice, vim.log.levels.INFO)
+      end
+    end)
+  end

@@ -21,12 +21,6 @@ return env.module.register {
   -- handles all env surface registrations after plugins are loaded.
 
   plugins = {
-    -- ['https://codeberg.org/comfysage/artio.nvim'] = {
-    --   lazy = false,
-    -- },
-    ['t-troebst/perfanno.nvim'] = {
-      lazy = false,
-    },
     ['stevearc/oil.nvim'] = {
       dependencies = { 'nvim-tree/nvim-web-devicons' },
       opts = {
@@ -181,16 +175,11 @@ return env.module.register {
     -- Helps with mini.pick
     ['nvim-mini/mini.icons'] = {
       version = false,
+      lazy = false,
     },
 
     ['nvim-mini/mini.sessions'] = {
       version = false,
-    },
-    ['s1n7ax/nvim-window-picker'] = {
-      name = 'window-picker',
-      event = 'VeryLazy',
-      version = '2.*',
-      config = function() require('window-picker').setup() end,
     },
     ['folke/tokyonight.nvim'] = {
       priority = 900,
@@ -224,89 +213,149 @@ return env.module.register {
         },
       },
     },
-    ['chrisgrieser/nvim-origami'] = {
-      event = 'VeryLazy',
-      pauseFoldsOnSearch = true,
-      opts = {
-        foldtext = {
-          lineCount = {
-            template = ' %d',
-          },
-        },
-      },
-      -- NOTE this was taken from "The Art of Code Folds (nvim origami)"
-      -- youtube: https://www.youtube.com/watch?v=l6uz_VhP8BU
-      -- gist: https://gist.github.com/AdamFrenzen/497ea55d4c49699d96c3ac0e8c4ea094
-      init = function()
-        -- This sets folds to be open by default
-        -- TODO I'd like to leverage some tree-sitter based heuristics for setting the default fold level
-        vim.opt.foldlevel = 99
-        vim.opt.foldlevelstart = 99
-
-        local fold_util = require 'utils.code_fold'
-        -- Helper to determine if a buffer should have folding applied
-        local function is_code_buffer(buf)
-          local buftype = vim.bo[buf].buftype
-          local filetype = vim.bo[buf].filetype
-
-          -- Only apply to normal file buffers (not terminals, quickfix, etc.)
-          if buftype ~= '' then return false end
-
-          -- Blocklist of filetypes to exclude
-          local excluded_filetypes = {
-            ['NeogitStatus'] = true,
-            ['NeogitCommitMessage'] = true,
-            ['NeogitLogView'] = true,
-            ['NeogitDiffView'] = true,
-            ['gitcommit'] = true,
-            ['help'] = true,
-            ['man'] = true,
-            ['oil'] = true,
-            ['lazy'] = true,
-            ['mason'] = true,
-          }
-
-          if excluded_filetypes[filetype] then return false end
-
-          return true
-        end
-        vim.keymap.set('n', '<CR>', 'za', { noremap = true, silent = true })
-        vim.keymap.set('n', '[[', fold_util.goto_previous_fold, { noremap = true, silent = true })
-        vim.keymap.set('n', ']]', 'zj', { noremap = true, silent = true })
-
-        vim.api.nvim_create_autocmd({ 'TextChanged', 'InsertLeave', 'LspAttach' }, {
-          callback = function(opts)
-            if is_code_buffer(opts.buf) then fold_util.update_ranges(opts.buf) end
-          end,
-        })
-
-        local last_row = nil
-        vim.api.nvim_create_autocmd('CursorMoved', {
-          callback = function(opts)
-            if not is_code_buffer(opts.buf) then return end
-            local row = vim.api.nvim_win_get_cursor(0)[1]
-            if row ~= last_row then
-              last_row = row
-              fold_util.update_current_fold(row, opts.buf)
-            end
-          end,
-        })
-
-        vim.api.nvim_create_autocmd({ 'BufUnload', 'BufWipeout' }, {
-          callback = function(opts) fold_util.clear(opts.buf) end,
-        })
-
-        vim.opt.statuscolumn = '%!v:lua.StatusCol()'
-        function _G.StatusCol() return fold_util.statuscol() end
-      end,
+    -- ['chrisgrieser/nvim-origami'] = {
+    --   event = 'VeryLazy',
+    --   pauseFoldsOnSearch = true,
+    --   opts = {
+    --     foldtext = {
+    --       lineCount = {
+    --         template = ' %d',
+    --       },
+    --     },
+    --   },
+    --   -- NOTE this was taken from "The Art of Code Folds (nvim origami)"
+    --   -- youtube: https://www.youtube.com/watch?v=l6uz_VhP8BU
+    --   -- gist: https://gist.github.com/AdamFrenzen/497ea55d4c49699d96c3ac0e8c4ea094
+    --   init = function()
+    --     -- This sets folds to be open by default
+    --     -- TODO I'd like to leverage some tree-sitter based heuristics for setting the default fold level
+    --     vim.opt.foldlevel = 99
+    --     vim.opt.foldlevelstart = 99
+    --
+    --     local fold_util = require 'utils.code_fold'
+    --     -- Helper to determine if a buffer should have folding applied
+    --     local function is_code_buffer(buf)
+    --       local buftype = vim.bo[buf].buftype
+    --       local filetype = vim.bo[buf].filetype
+    --
+    --       -- Only apply to normal file buffers (not terminals, quickfix, etc.)
+    --       if buftype ~= '' then return false end
+    --
+    --       -- Blocklist of filetypes to exclude
+    --       local excluded_filetypes = {
+    --         ['NeogitStatus'] = true,
+    --         ['NeogitCommitMessage'] = true,
+    --         ['NeogitLogView'] = true,
+    --         ['NeogitDiffView'] = true,
+    --         ['gitcommit'] = true,
+    --         ['help'] = true,
+    --         ['man'] = true,
+    --         ['oil'] = true,
+    --         ['lazy'] = true,
+    --         ['mason'] = true,
+    --       }
+    --
+    --       if excluded_filetypes[filetype] then return false end
+    --
+    --       return true
+    --     end
+    --     vim.keymap.set('n', '<CR>', 'za', { noremap = true, silent = true })
+    --     vim.keymap.set('n', '[[', fold_util.goto_previous_fold, { noremap = true, silent = true })
+    --     vim.keymap.set('n', ']]', 'zj', { noremap = true, silent = true })
+    --
+    --     -- vim.api.nvim_create_autocmd({ 'TextChanged', 'InsertLeave', 'LspAttach' }, {
+    --     --   callback = function(opts)
+    --     --     if is_code_buffer(opts.buf) then fold_util.update_ranges(opts.buf) end
+    --     --   end,
+    --     -- })
+    --     --
+    --     -- local last_row = nil
+    --     -- vim.api.nvim_create_autocmd('CursorMoved', {
+    --     --   callback = function(opts)
+    --     --     if not is_code_buffer(opts.buf) then return end
+    --     --     local row = vim.api.nvim_win_get_cursor(0)[1]
+    --     --     if row ~= last_row then
+    --     --       last_row = row
+    --     --       fold_util.update_current_fold(row, opts.buf)
+    --     --     end
+    --     --   end,
+    --     -- })
+    --     --
+    --     -- vim.api.nvim_create_autocmd({ 'BufUnload', 'BufWipeout' }, {
+    --     --   callback = function(opts) fold_util.clear(opts.buf) end,
+    --     -- })
+    --     --
+    --     -- vim.opt.statuscolumn = '%!v:lua.StatusCol()'
+    --     -- function _G.StatusCol() return fold_util.statuscol() end
+    --   end,
+    -- },
+    -- ['simifalaye/minibuffer.nvim'] = {
+    --   lazy = false,
+    --   init = function()
+    --     local minibuffer = require 'minibuffer'
+    --
+    --     vim.ui.select = require 'minibuffer.builtin.ui_select'
+    --     vim.ui.input = require 'minibuffer.builtin.ui_input'
+    --
+    --     vim.keymap.set('n', '<M-;>', require 'minibuffer.builtin.cmdline')
+    --     vim.keymap.set('n', '<M-.>', function() minibuffer.resume(true) end)
+    --   end,
+    -- },
+    -- ['dmtrKovalenko/fff.nvim'] = {
+    --   build = function()
+    --     -- downloads a prebuilt binary or falls back to cargo build
+    --     require('fff.download').download_or_build_binary()
+    --   end,
+    --   -- for nixos:
+    --   -- build = "nix run .#release",
+    --   opts = {
+    --     debug = {
+    --       enabled = true,
+    --       show_scores = true,
+    --     },
+    --   },
+    --   lazy = false, -- the plugin lazy-initialises itself
+    --   -- keys = {
+    --   --   { 'ff', function() require('fff').find_files() end, desc = 'FFFind files' },
+    --   --   { 'fg', function() require('fff').live_grep() end, desc = 'LiFFFe grep' },
+    --   --   { 'fz', function() require('fff').live_grep { grep = { modes = { 'fuzzy', 'plain' } } } end, desc = 'Live fffuzy grep' },
+    --   --   { 'fc', function() require('fff').live_grep { query = vim.fn.expand '<cword>' } end, desc = 'Search current word' },
+    --   -- },
+    -- },
+    -- ['https://codeberg.org/comfysage/artio.nvim'] = {
+    --   lazy = false,
+    -- },
+    ['t-troebst/perfanno.nvim'] = {
+      lazy = false,
     },
-    -- ['simifalaye/minibuffer.nvim'] = { lazy = false },
-
+    ['rachartier/tiny-cmdline.nvim'] = {
+      init = function() vim.o.cmdheight = 0 end,
+      lazy = false,
+    },
     ['nvim-mini/mini.pick'] = {
       version = false,
-    },
-    ['nvim-mini/mini.files'] = {
-      version = false,
+      -- NOTE this will automatically override vim.ui.select
+      lazy = false,
+      opts = {
+        mappings = {
+          toggle_info = '<C-k>',
+          move_up = '',
+          toggle_preview = '<C-p>',
+        },
+        window = {
+          config = function()
+            local height = math.floor(0.618 * vim.o.lines)
+            local width = math.floor(0.618 * vim.o.columns)
+            return {
+              anchor = 'NW',
+              height = height,
+              width = width,
+              row = math.floor(0.5 * (vim.o.lines - height)),
+              col = math.floor(0.5 * (vim.o.columns - width)),
+            }
+          end,
+        },
+      },
     },
   },
 
@@ -315,6 +364,7 @@ return env.module.register {
   -- All plugin APIs are available. All env surface registrations live here.
   setup = function()
     local snacks = require 'snacks'
+    vim.fn.toggle_zoom = snacks.zen.zoom
 
     -- ── Apply colorscheme ───────────────────────────────────────────
     require('tokyonight').setup(
@@ -322,12 +372,6 @@ return env.module.register {
       -- calling setup again here is a no-op but makes the apply explicit
     )
     vim.cmd.colorscheme 'tokyonight-storm'
-
-    -- ── Picker capability ───────────────────────────────────────────
-    -- Extend picker with interface-level finders
-    vim.ui.picker.notificatons = function(o) snacks.picker.notifications(o) end
-    vim.ui.picker.help = function(o) snacks.picker.help(o) end
-    vim.ui.picker.colorschemes = function(o) snacks.picker.colorschemes(o) end
 
     -- ── State providers ─────────────────────────────────────────────
     env.state.register_provider {
@@ -338,51 +382,12 @@ return env.module.register {
       desc = 'Number of notifications in snacks history',
     }
 
-    -- Default mini.pick capabilities
-    -- Centered on screen
-    require('mini.icons').setup()
-    local mfc = require 'utils.file_browsing.file_search_config'
-    -- Load the autocmd/keymap module after setup so MiniFiles global exists.
-    require 'utils.file_browsing.directory_editor'
-
-    require('mini.files').setup {
-      content = {
-        prefix = mfc.make_prefix,
-        highlight = mfc.make_highlight,
-      },
-      options = {
-        permanent_delete = false,
-        use_as_default_explorer = false,
-      },
-      windows = {
-        preview = true,
-        width_focus = 50,
-        width_nofocus = 20,
-        width_preview = 60,
-      },
-    }
-
-    require('mini.pick').setup {
-      mappings = {
-        toggle_info = '<C-k>',
-        move_up = '',
-        toggle_preview = '<C-p>',
-      },
-      window = {
-        config = function()
-          local height = math.floor(0.618 * vim.o.lines)
-          local width = math.floor(0.618 * vim.o.columns)
-          return {
-            anchor = 'NW',
-            height = height,
-            width = width,
-            row = math.floor(0.5 * (vim.o.lines - height)),
-            col = math.floor(0.5 * (vim.o.columns - width)),
-          }
-        end,
-        -- prompt_prefix = '> ' .. cwd .. '/',
-      },
-    }
+    -- NOTE: after loading plugin
+    -- local pick = require 'mini.pick'
+    -- local pick_mb = require 'minibuffer.integrations.mini-pick'
+    -- pick.is_picker_active = pick_mb.is_picker_active
+    -- pick.set_picker_items = pick_mb.set_picker_items
+    -- pick.start = pick_mb.start
 
     -- Experimental UI2: floating cmdline and messages
     -- No more "hit enter after commands"
@@ -434,6 +439,10 @@ return env.module.register {
         },
       },
     }
+    -- NOTE: after loading plugin
+    -- local picker_ui = require 'fff.picker_ui'
+    -- picker_ui.open = require 'minibuffer.integrations.fff'
+
     -- vim.ui.picker.env.capabilities.register('picker', {
     --   grep = function(o) snacks.picker.grep(o) end,
     --   buffers = function(o) snacks.picker.buffers(o) end,
@@ -470,55 +479,101 @@ return env.module.register {
       end
     end
 
-    require('mini.sessions').setup()
     -- ── Interface keymaps ───────────────────────────────────────────
 
-    -- restart (TODO: relocate later)
-    vim.keymap.set('n', '<leader>R', function() MiniSessions.restart() end, { desc = 'interface.restart', silent = true })
+    -- Window zoom toggle (simplified)
+    local function toggle_zoom()
+      local function is_zoomed() return vim.t.zoomed or false end
+
+      local function zoom_session_file()
+        if not vim.t.zoom_session_file then
+          vim.t.zoom_session_file = vim.fn.tempname() .. '_' .. vim.api.nvim_tabpage_get_number(0)
+          vim.api.nvim_create_autocmd('TabClosed', {
+            callback = function()
+              if vim.t.zoom_session_file then os.remove(vim.t.zoom_session_file) end
+            end,
+          })
+        end
+        return vim.t.zoom_session_file
+      end
+
+      if is_zoomed() then
+        local cursor_pos = vim.api.nvim_win_get_cursor(0)
+        vim.cmd('silent! source ' .. zoom_session_file())
+        vim.t.zoomed = false
+        vim.api.nvim_win_set_cursor(0, cursor_pos)
+      else
+        if #vim.api.nvim_tabpage_list_wins(0) == 1 then return end
+        local old_sessionoptions = vim.o.sessionoptions
+        vim.o.sessionoptions = 'blank,buffers,curdir,terminal,help'
+        vim.cmd('mksession! ' .. zoom_session_file())
+        vim.cmd 'only'
+        vim.t.zoomed = true
+        vim.o.sessionoptions = old_sessionoptions
+      end
+    end
+    vim.fn.toggle_zoom = toggle_zoom
+
+    ----------------------------------------------------------------
+    -- Window navigation
+    ----------------------------------------------------------------
+    vim.keymap.set('n', '<leader>wf', '', {
+      silent = true,
+      callback = function() vim.fn.toggle_zoom() end,
+      desc = 'base.window_zoom',
+    })
+
+    vim.keymap.set('n', '<leader>wh', '<C-w>h', { silent = true, desc = 'base.window_left' })
+    vim.keymap.set('n', '<leader>wj', '<C-w>j', { silent = true, desc = 'base.window_down' })
+    vim.keymap.set('n', '<leader>wk', '<C-w>k', { silent = true, desc = 'base.window_up' })
+    vim.keymap.set('n', '<leader>wl', '<C-w>l', { silent = true, desc = 'base.window_right' })
+
+    vim.keymap.set('n', '<leader>wv', '<cmd>vsplit<cr>', { silent = true, desc = 'base.window_vsplit' })
+    vim.keymap.set('n', '<leader>ws', '<cmd>split<cr>', { silent = true, desc = 'base.window_split' })
+
+    ----------------------------------------------------------------
+    -- Window repositioning
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>H', '<C-w>H', { silent = true, desc = 'base.window_move_left' })
+    vim.keymap.set('n', '<leader>J', '<C-w>J', { silent = true, desc = 'base.window_move_down' })
+    vim.keymap.set('n', '<leader>K', '<C-w>K', { silent = true, desc = 'base.window_move_up' })
+    vim.keymap.set('n', '<leader>L', '<C-w>L', { silent = true, desc = 'base.window_move_right' })
+
+    vim.keymap.set('n', '<leader>wd', '<C-w>c', { silent = true, desc = 'base.window_delete' })
+    vim.keymap.set('n', '<leader>wo', '<C-w>o', { silent = true, desc = 'base.window_delete_others' })
 
     ----------------------------------------------------------------
     -- Buffer management
     ----------------------------------------------------------------
 
-    vim.ui.picker.buffers = function(o) snacks.picker.buffers(o) end
+    -- vim.ui.picker.buffers = function(o) snacks.picker.buffers(o) end
     vim.keymap.set('n', '<leader>bb', function() vim.ui.picker.buffers() end, { desc = 'interface.find_buffers', silent = true })
-
-    -- if env.state.get()['buffer.is_real'] then
-    --   vim.keymap.set('n', '<leader>bd', function() snacks.bufdelete() end, { desc = 'interface.close_buffer', silent = true })
-    -- end
 
     vim.keymap.set('n', '<leader>bo', function() snacks.bufdelete.other() end, { desc = 'interface.close_other_buffers', silent = true })
 
-    vim.keymap.set('n', ']b', function() vim.cmd 'bnext' end, { desc = 'interface.next_buffer', silent = true })
-
-    vim.keymap.set('n', '[b', function() vim.cmd 'bprevious' end, { desc = 'interface.prev_buffer', silent = true })
-
     vim.keymap.set('n', '<leader>bs', function() snacks.scratch() end, { desc = 'interface.scratch_buffer', silent = true })
 
-    ----------------------------------------------------------------
-    -- Basic introspection
-    ----------------------------------------------------------------
-
-    vim.keymap.set('n', '<leader>fk', function() env.use('picker').keymaps() end, { desc = 'interface.find_keymaps', silent = true })
-
-    vim.keymap.set('n', '<leader>fC', function() env.use('picker').commands() end, { desc = 'interface.find_commands', silent = true })
-
-    vim.keymap.set('n', '<leader>fh', function() env.use('picker').help() end, { desc = 'interface.find_help', silent = true })
-
-    vim.keymap.set('n', '<leader>fn', function() env.use('picker').notifications() end, { desc = 'interface.find_notifications', silent = true })
+    vim.keymap.set('n', '<S-l>', '<cmd>bnext<cr>', { silent = true, desc = 'base.buffer_next' })
+    vim.keymap.set('n', '<S-h>', '<cmd>bprevious<cr>', { silent = true, desc = 'base.buffer_prev' })
+    vim.keymap.set('n', '<leader>bd', '<cmd>bdelete<cr>', { silent = true, desc = 'base.buffer_delete' })
 
     ----------------------------------------------------------------
-    -- UI toggles
+    -- Quit
     ----------------------------------------------------------------
 
-    vim.keymap.set(
-      'n',
-      '<leader>ud',
-      function() vim.diagnostic.enable(not vim.diagnostic.is_enabled()) end,
-      { desc = 'interface.toggle_diagnostics', silent = true }
-    )
+    vim.keymap.set('n', '<leader>qq', '<cmd>qa<cr>', { silent = true, desc = 'base.quit_all' })
+    vim.keymap.set('n', '<leader>wq', '<cmd>wqa<cr>', { silent = true, desc = 'base.write_quit_all' })
 
-    ---Toggle absolute + relative line numbers
+    ----------------------------------------------------------------
+    -- Toggles
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>tn', '<cmd>set number!<cr>', { silent = true, desc = 'base.toggle_number' })
+    vim.keymap.set('n', '<leader>tr', '<cmd>set relativenumber!<cr>', { silent = true, desc = 'base.toggle_relnumber' })
+    vim.keymap.set('n', '<leader>ts', '<cmd>setlocal spell!<cr>', { silent = true, desc = 'base.toggle_spell' })
+    vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<cr>', { silent = true, desc = 'base.toggle_wrap' })
+
     local function toggle_line_numbers()
       vim.opt.number = not vim.opt.number:get()
       vim.opt.relativenumber = not vim.opt.relativenumber:get()
@@ -530,16 +585,9 @@ return env.module.register {
 
     vim.keymap.set('n', '<leader>ui', function() snacks.indent.toggle() end, { desc = 'interface.toggle_indent_guides', silent = true })
 
-    vim.keymap.set('n', '<leader>uz', function() snacks.zen.zoom() end, { desc = 'interface.zoom_window', silent = true })
-
-    ----------------------------------------------------------------
-    -- Config inspection
-    ----------------------------------------------------------------
-
-    vim.keymap.set('n', '<leader>cs', function() vim.cmd 'ConfigStatus' end, { desc = 'interface.config_status', silent = true })
-
-    vim.keymap.set('n', '<leader>cS', function() vim.cmd 'ConfigStatus state' end, { desc = 'interface.config_status_state', silent = true })
-
-    vim.keymap.set('n', '<leader>cl', function() require('lazy').home() end, { desc = 'interface.lazy', silent = true })
+    vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<cr>', {
+      silent = true,
+      desc = 'base.clear_search_highlight',
+    })
   end,
 }
