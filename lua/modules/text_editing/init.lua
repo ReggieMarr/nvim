@@ -289,42 +289,40 @@ return env.module.register {
     -- Buffer search (Snacks picker)
     ----------------------------------------------------------------
 
-    -- vim.ui.pickers.buffer_lines = function()
-    --     local current_buf = vim.api.nvim_get_current_buf()
-    --     local current_win = vim.api.nvim_get_current_win()
-    --
-    --     require('snacks').picker.lines {
-    --       buf = current_buf,
-    --       layout = {
-    --         preset = 'dropdown',
-    --         preview = false,
-    --         layout = { height = 0.4 },
-    --       },
-    --
-    --       on_change = function(_, item)
-    --         if item and vim.api.nvim_win_is_valid(current_win) then
-    --           vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
-    --           vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
-    --         end
-    --       end,
-    --
-    --       confirm = function(picker, item)
-    --         picker:close()
-    --
-    --         if item and vim.api.nvim_win_is_valid(current_win) then
-    --           vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
-    --           vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
-    --         end
-    --      end,
-    --     }
-    -- end
-    -- vim.keymap.set('n', '<leader>sb', '', {
-    --   silent = true,
-    --   desc = 'text_editing.search_in_buffer',
-    --   callback = function()
-    --     vim.ui.pickers.buffer_lines()
-    --   end,
-    -- })
+    vim.ui.picker.buffer_lines = function()
+      local current_buf = vim.api.nvim_get_current_buf()
+      local current_win = vim.api.nvim_get_current_win()
+
+      require('snacks').picker.lines {
+        buf = current_buf,
+        layout = {
+          preset = 'dropdown',
+          preview = false,
+          layout = { height = 0.4 },
+        },
+
+        on_change = function(_, item)
+          if item and vim.api.nvim_win_is_valid(current_win) then
+            vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
+            vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
+          end
+        end,
+
+        confirm = function(picker, item)
+          picker:close()
+
+          if item and vim.api.nvim_win_is_valid(current_win) then
+            vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
+            vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
+          end
+        end,
+      }
+    end
+    vim.keymap.set('n', '<leader>sb', '', {
+      silent = true,
+      desc = 'text_editing.search_in_buffer',
+      callback = function() vim.ui.picker.buffer_lines() end,
+    })
 
     ----------------------------------------------------------------
     -- Emacs-style navigation

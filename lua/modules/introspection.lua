@@ -29,10 +29,10 @@ return env.module.register {
         -- ── LSP pickers ──────────────────────────────────────────────────────
         -- TODO add hook to leverage this
         -- vim.ui.picker.lsp_references = function(opts) make_lsp_split_picker 'references' end
-        -- vim.ui.picker.lsp_document_symbols = function(opts)
-        --   opts = opts or {}
-        --   extra.pickers.lsp { scope = 'document_symbol' }
-        -- end
+        vim.ui.picker.lsp_document_symbols = function(opts)
+          opts = opts or {}
+          extra.pickers.lsp { scope = 'document_symbol' }
+        end
         --
         -- vim.ui.picker.lsp_workspace_symbols = function(opts)
         --   opts = opts or {}

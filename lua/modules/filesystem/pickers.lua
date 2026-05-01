@@ -20,7 +20,14 @@ function M.find_file_at(local_opts)
     current_opts.source.name = 'Find: ' .. vim.fn.fnamemodify(dir, ':~')
     current_opts.source.cwd = dir
     MiniPick.set_picker_opts(current_opts)
-    MiniPick.set_picker_items(fs_utils.get_files_in_dir(dir, show_hidden), { do_match = false, querytick = nil })
+    local items = fs_utils.get_files_in_dir(dir, show_hidden)
+    MiniPick.set_picker_items(items, { do_match = false, querytick = nil })
+    -- Build a full index array [1, 2, ..., n] so all items are shown
+    local all_inds = {}
+    for i = 1, #items do
+      all_inds[i] = i
+    end
+    MiniPick.set_picker_match_inds(all_inds, 'all')
     MiniPick.refresh()
   end
 
@@ -60,7 +67,7 @@ function M.find_file_at(local_opts)
       cwd = cwd,
       items = fs_utils.get_files_in_dir(cwd, show_hidden),
       show = fs_utils.custom_show,
-      -- don't set this but we also don't call 
+      -- don't set this but we also don't call
       -- choose = nil
 
       preview = function(buf_id, item)
@@ -104,28 +111,27 @@ function M.find_file_at(local_opts)
       choose = '',
       dwim_choose = {
         char = '<CR>',
-        func = function() 
-            local matches = MiniPick.get_picker_matches()
-            item = matches and matches.current
+        func = function()
+          local matches = MiniPick.get_picker_matches()
+          item = matches and matches.current
 
-            if item then
-              -- Delegate to your normal choose logic (extracted to a function)
-              return select_dwim(item)
-            end
+          if item then
+            -- Delegate to your normal choose logic (extracted to a function)
+            return select_dwim(item)
+          end
 
-            -- No item matched → create from query
-            local file_query = table.concat(MiniPick.get_picker_query())
-            if file_query == '' then return end
-            local path = MiniPick.get_picker_opts().source.cwd .. '/' .. file_query
-            fs_utils.create_dwim(path, M.find_file_at, local_opts)
-            MiniPick.stop()
+          -- No item matched → create from query
+          local file_query = table.concat(MiniPick.get_picker_query())
+          if file_query == '' then return end
+          local path = MiniPick.get_picker_opts().source.cwd .. '/' .. file_query
+          fs_utils.create_dwim(path, M.find_file_at, local_opts)
+          MiniPick.stop()
         end,
       },
       -- Tab: navigate into selected dir (or open file)
       navigate_in = {
         char = '<Tab>',
         func = function()
-
           local matches = MiniPick.get_picker_matches()
           item = matches and matches.current
 
@@ -158,8 +164,7 @@ function M.find_file_at(local_opts)
         char = '<C-d>',
         func = function()
           local matches = MiniPick.get_picker_matches()
-          if #matches.all == 0 then return end
-          local path = matches.all[1].path
+          local path = matches.current.path
 
           fs_utils.delete_path(path)
 
@@ -194,6 +199,5 @@ function M.find_file_at(local_opts)
     },
   }
 end
-
 
 return M

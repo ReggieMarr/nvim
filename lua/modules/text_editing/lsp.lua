@@ -253,33 +253,29 @@ function M.setup()
   vim.ui.picker.lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end
   vim.ui.picker.lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end
   vim.ui.picker.lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end
-      -- ── Shared capabilities ───────────────────────────────────────
-      local capabilities = vim.tbl_deep_extend(
-        'force',
-        vim.lsp.protocol.make_client_capabilities(),
-        require('blink.cmp').get_lsp_capabilities()
-      )
+  -- ── Shared capabilities ───────────────────────────────────────
+  local capabilities = vim.tbl_deep_extend('force', vim.lsp.protocol.make_client_capabilities(), require('blink.cmp').get_lsp_capabilities())
 
-local languages = require 'modules.text_editing.languages'
-      -- ── Per-server setup ──────────────────────────────────────────
-      for server_name, lsp in languages.iter_lsp_servers() do
-        local config = vim.tbl_deep_extend('force', {
-          capabilities = capabilities,
-          on_attach = on_attach,
-        }, lsp.config or {})
+  local languages = require 'modules.text_editing.languages'
+  -- ── Per-server setup ──────────────────────────────────────────
+  for server_name, lsp in languages.iter_lsp_servers() do
+    local config = vim.tbl_deep_extend('force', {
+      capabilities = capabilities,
+      on_attach = on_attach,
+    }, lsp.config or {})
 
-        -- Chain server-specific on_attach after shared one
-        if lsp.config and lsp.config.on_attach then
-          local server_on_attach = lsp.config.on_attach
-          config.on_attach = function(client, bufnr)
-            on_attach(client, bufnr)
-            server_on_attach(client, bufnr)
-          end
-        end
+    -- Chain server-specific on_attach after shared one
+    if lsp.config and lsp.config.on_attach then
+      local server_on_attach = lsp.config.on_attach
+      config.on_attach = function(client, bufnr)
+        on_attach(client, bufnr)
+        server_on_attach(client, bufnr)
+      end
+    end
 
-        vim.lsp.config(server_name, config)
-        vim.lsp.enable(server_name)
-        end
+    vim.lsp.config(server_name, config)
+    vim.lsp.enable(server_name)
+  end
   -- ── Global LSP articulation (non-buffer-local) ─────────────────
   -- Actions that operate across buffers or don't require
   -- an attached LSP client go here rather than in on_attach
