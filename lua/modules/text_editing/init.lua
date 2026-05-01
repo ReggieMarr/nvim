@@ -285,38 +285,63 @@ return env.module.register {
       { desc = 'interface.toggle_diagnostics', silent = true }
     )
 
-    ----------------------------------------------------------------
-    -- Buffer search (Snacks picker)
-    ----------------------------------------------------------------
+    -- local current_buf = vim.api.nvim_get_current_buf()
+    -- local current_win = vim.api.nvim_get_current_win()
+    --
+    -- require('snacks').picker.lines {
+    --   buf = current_buf,
+    --   layout = {
+    --     preset = 'dropdown',
+    --     preview = false,
+    --     layout = { height = 0.4 },
+    --   },
+    --
+    --   on_change = function(_, item)
+    --     if item and vim.api.nvim_win_is_valid(current_win) then
+    --       vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
+    --       vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
+    --     end
+    --   end,
+    --
+    --   confirm = function(picker, item)
+    --     picker:close()
+    --
+    --     if item and vim.api.nvim_win_is_valid(current_win) then
+    --       vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
+    --       vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
+    --     end
+    --   end,
+    -- }
 
     vim.ui.picker.buffer_lines = function()
-      local current_buf = vim.api.nvim_get_current_buf()
-      local current_win = vim.api.nvim_get_current_win()
-
-      require('snacks').picker.lines {
-        buf = current_buf,
-        layout = {
-          preset = 'dropdown',
-          preview = false,
-          layout = { height = 0.4 },
-        },
-
-        on_change = function(_, item)
-          if item and vim.api.nvim_win_is_valid(current_win) then
-            vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
-            vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
-          end
-        end,
-
-        confirm = function(picker, item)
-          picker:close()
-
-          if item and vim.api.nvim_win_is_valid(current_win) then
-            vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
-            vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
-          end
-        end,
-      }
+      local extra = require 'mini.extra'
+      -- Capture source buffer before the picker opens
+      local source_buf = vim.api.nvim_get_current_buf()
+      local source_win = vim.api.nvim_get_current_win()
+      extra.pickers.buf_lines(
+        { scope = 'current' },
+        { source = { show = require('modules.text_editing.pickers').make_buf_lines_show(source_buf, source_win) } }
+      )
+      -- extra.pickers.buf_lines { scope = 'current' }
+      -- extra.pickers.buf_lines({ scope = 'current' }, {
+      --   source = {
+      --     show = function(buf_id, items_to_show)
+      --       if items_to_show and items_to_show[1] then
+      --         -- Inspect both the text field and any other fields
+      --         local item = items_to_show[1]
+      --         vim.notify(
+      --           string.format(
+      --             'text: %q\nlnum: %s\nbufnr: %s\nkeys: %s',
+      --             item.text or 'nil',
+      --             tostring(item.lnum),
+      --             tostring(item.bufnr),
+      --             table.concat(vim.tbl_keys(item), ', ')
+      --           )
+      --         )
+      --       end
+      --     end,
+      --   },
+      -- })
     end
     vim.keymap.set('n', '<leader>sb', '', {
       silent = true,

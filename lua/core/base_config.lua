@@ -52,7 +52,7 @@ local options = {
   -- UI
   list = true,
   listchars = { tab = '» ', trail = '·', nbsp = '␣' },
-  winblend = 50,
+  --winblend = 50,
   number = false,
   relativenumber = false,
   signcolumn = 'yes',
@@ -61,7 +61,7 @@ local options = {
   splitbelow = true,
   splitright = true,
   pumheight = 10,
-  pumblend = 10,
+  --pumblend = 10,
   -- Don't show the mode, since it's already in the status line
   showmode = false,
 
