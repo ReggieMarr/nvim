@@ -360,36 +360,56 @@ function BufLinesShow:_render_placeholder(buf_id)
 end
 
 function BufLinesShow:show(buf_id, items_to_show, query)
+  local timings = {}
+  local function checkpoint(label, start) timings[#timings + 1] = string.format('%-30s %.3fms', label, (vim.uv.hrtime() - start) / 1e6) end
+
+  local t0 = vim.uv.hrtime()
+
   vim.api.nvim_buf_clear_namespace(buf_id, self.ns, 0, -1)
+  checkpoint('clear_namespace', t0)
 
   if not items_to_show or #items_to_show == 0 then
     self:_render_placeholder(buf_id)
     return
   end
 
-  -- Set header in the picker window's winbar
-  -- NOTE it would be nice to do this with virtual text
-  -- but it seems there's a fundamental constraint around setting
-  -- virtual text above the first line in a mini-picker buffer
-  -- TODO revist if using minibuffer
-  local win = vim.fn.bufwinid(buf_id)
-  if win ~= -1 then
-    local header = self:_get_buf_header()
-    vim.wo[win].winbar = '%#DiagnosticWarn#' .. header .. '%*'
-  end
-  -- Insert a blank first line as a dedicated header row
-  local lines = {} -- blank placeholder for header
+  local t1 = vim.uv.hrtime()
+  local lines = {}
   for _, item in ipairs(items_to_show) do
     local lnum, content = parse_item(item)
     lines[#lines + 1] = string.format('  %4d: %s', lnum, content)
   end
+  checkpoint('build_lines', t1)
+
+  local t2 = vim.uv.hrtime()
   vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
+  checkpoint('set_lines', t2)
 
-  -- Line number prefix highlight (offset by 1 for header)
-  vim.hl.range(buf_id, self.ns, 'LineNr', { 0, 0 }, { #items_to_show, self.content_col })
+  local t3 = vim.uv.hrtime()
+  -- extmark / winbar header
+  local win = vim.fn.bufwinid(buf_id)
+  if win ~= -1 then vim.wo[win].winbar = '%#DiagnosticWarn#' .. self:_get_buf_header() .. '%*' end
+  checkpoint('header', t3)
 
+  local t4 = vim.uv.hrtime()
+  vim.hl.range(buf_id, self.ns, 'LineNr', { 0, 0 }, { #items_to_show - 1, self.content_col })
+  checkpoint('linernr_hl', t4)
+
+  local t5 = vim.uv.hrtime()
   self:_apply_ts_highlights(buf_id, items_to_show, 0)
+  checkpoint('ts_highlights', t5)
+
+  local t6 = vim.uv.hrtime()
   self:_apply_query_highlights(buf_id, lines, query)
+  checkpoint('query_highlights', t6)
+
+  checkpoint('TOTAL', t0)
+
+  -- Output: only log if slow to avoid spam on every keypress
+  local total_ms = (vim.uv.hrtime() - t0) / 1e6
+  if total_ms > 5 then -- threshold in ms, tune as needed
+    vim.notify(string.format('BufLinesShow:show [%d items]\n', #items_to_show) .. table.concat(timings, '\n'), vim.log.levels.WARN)
+  end
 end
 
 -- Returns the bound show function that MiniPick expects
