@@ -10,6 +10,9 @@
 local env = require 'env'
 local languages = require 'modules.text_editing.languages'
 
+require 'modules.text_editing.pickers'
+local shared_ts_cache = TsCache.new()
+
 return env.module.register {
   name = 'text_editing',
   domain = 'text_editing',
@@ -302,8 +305,7 @@ return env.module.register {
           vim.api.nvim_win_call(source_win, function() vim.cmd 'normal! zz' end)
         end
       end
-      require 'modules.text_editing.pickers'
-      local shower = BufLinesShow.new(display_callback)
+      local shower = BufLinesShow.new(display_callback, shared_ts_cache)
       extra.pickers.buf_lines({ scope = 'current' }, { source = { show = shower:as_fn() } })
     end
     vim.keymap.set('n', '<leader>sb', '', {
