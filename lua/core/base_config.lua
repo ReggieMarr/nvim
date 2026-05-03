@@ -52,7 +52,7 @@ local options = {
   -- UI
   list = true,
   listchars = { tab = '» ', trail = '·', nbsp = '␣' },
-  winblend = 50,
+  winblend = 25,
   number = false,
   relativenumber = false,
   signcolumn = 'yes',

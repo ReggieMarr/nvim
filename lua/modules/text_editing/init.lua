@@ -313,7 +313,6 @@ return env.module.register {
     --   end,
     -- }
 
-    -- require 'modules.text_editing.pickers'
     vim.ui.picker.buffer_lines = function()
       local extra = require 'mini.extra'
       -- Capture source buffer before the picker opens
@@ -322,26 +321,6 @@ return env.module.register {
       require 'modules.text_editing.pickers'
       local shower = BufLinesShow.new(source_buf, source_win)
       extra.pickers.buf_lines({ scope = 'current' }, { source = { show = shower:as_fn() } })
-      -- extra.pickers.buf_lines { scope = 'current' }
-      -- extra.pickers.buf_lines({ scope = 'current' }, {
-      --   source = {
-      --     show = function(buf_id, items_to_show)
-      --       if items_to_show and items_to_show[1] then
-      --         -- Inspect both the text field and any other fields
-      --         local item = items_to_show[1]
-      --         vim.notify(
-      --           string.format(
-      --             'text: %q\nlnum: %s\nbufnr: %s\nkeys: %s',
-      --             item.text or 'nil',
-      --             tostring(item.lnum),
-      --             tostring(item.bufnr),
-      --             table.concat(vim.tbl_keys(item), ', ')
-      --           )
-      --         )
-      --       end
-      --     end,
-      --   },
-      -- })
     end
     vim.keymap.set('n', '<leader>sb', '', {
       silent = true,
