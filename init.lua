@@ -31,7 +31,7 @@ local module_files = {
   'modules.text_editing',
   -- 'modules.workspace',
   -- 'modules.version_control',
-  -- "modules.project",
+  -- 'modules.external_operations'
 }
 
 for _, mod in ipairs(module_files) do

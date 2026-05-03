@@ -41,7 +41,6 @@ M.universal_parsers = {
   'markdown_inline',
   'bash',
   'json',
-  'jsonc',
   'toml',
   'yaml',
   'regex',

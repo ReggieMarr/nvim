@@ -313,15 +313,15 @@ return env.module.register {
     --   end,
     -- }
 
+    -- require 'modules.text_editing.pickers'
     vim.ui.picker.buffer_lines = function()
       local extra = require 'mini.extra'
       -- Capture source buffer before the picker opens
       local source_buf = vim.api.nvim_get_current_buf()
       local source_win = vim.api.nvim_get_current_win()
-      extra.pickers.buf_lines(
-        { scope = 'current' },
-        { source = { show = require('modules.text_editing.pickers').make_buf_lines_show(source_buf, source_win) } }
-      )
+      require 'modules.text_editing.pickers'
+      local shower = BufLinesShow.new(source_buf, source_win)
+      extra.pickers.buf_lines({ scope = 'current' }, { source = { show = shower:as_fn() } })
       -- extra.pickers.buf_lines { scope = 'current' }
       -- extra.pickers.buf_lines({ scope = 'current' }, {
       --   source = {

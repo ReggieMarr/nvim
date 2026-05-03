@@ -52,7 +52,7 @@ local options = {
   -- UI
   list = true,
   listchars = { tab = '» ', trail = '·', nbsp = '␣' },
-  --winblend = 50,
+  winblend = 50,
   number = false,
   relativenumber = false,
   signcolumn = 'yes',
@@ -61,6 +61,7 @@ local options = {
   splitbelow = true,
   splitright = true,
   pumheight = 10,
+  cmdheight = 1,
   --pumblend = 10,
   -- Don't show the mode, since it's already in the status line
   showmode = false,
@@ -180,6 +181,62 @@ vim.filetype.add {
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ';'
+-- NOTE: after loading plugin
+-- local pick = require 'mini.pick'
+-- local pick_mb = require 'minibuffer.integrations.mini-pick'
+-- pick.is_picker_active = pick_mb.is_picker_active
+-- pick.set_picker_items = pick_mb.set_picker_items
+-- pick.start = pick_mb.start
+
+-- Experimental UI2: floating cmdline and messages
+-- No more "hit enter after commands"
+require('vim._core.ui2').enable {
+  enable = true,
+  msg = {
+    targets = {
+      [''] = 'msg',
+      empty = 'cmd',
+      bufwrite = 'msg',
+      confirm = 'cmd',
+      emsg = 'pager',
+      echo = 'msg',
+      echomsg = 'msg',
+      echoerr = 'pager',
+      completion = 'cmd',
+      list_cmd = 'pager',
+      lua_error = 'pager',
+      lua_print = 'msg',
+      progress = 'pager',
+      rpc_error = 'pager',
+      quickfix = 'msg',
+      search_cmd = 'cmd',
+      search_count = 'cmd',
+      shell_cmd = 'pager',
+      shell_err = 'pager',
+      shell_out = 'pager',
+      shell_ret = 'msg',
+      undo = 'msg',
+      verbose = 'pager',
+      wildlist = 'cmd',
+      wmsg = 'msg',
+      typed_cmd = 'cmd',
+    },
+    cmd = {
+      height = 0.5,
+    },
+    dialog = {
+      height = 0.5,
+    },
+    msg = {
+      height = 0.3,
+      timeout = 5000,
+      target = 'msg',
+    },
+    pager = {
+      height = 0.5,
+    },
+  },
+}
 
 ----------------------------------------------------------------
 -- Config
