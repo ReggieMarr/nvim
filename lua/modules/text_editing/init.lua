@@ -285,41 +285,25 @@ return env.module.register {
       { desc = 'interface.toggle_diagnostics', silent = true }
     )
 
-    -- local current_buf = vim.api.nvim_get_current_buf()
-    -- local current_win = vim.api.nvim_get_current_win()
-    --
-    -- require('snacks').picker.lines {
-    --   buf = current_buf,
-    --   layout = {
-    --     preset = 'dropdown',
-    --     preview = false,
-    --     layout = { height = 0.4 },
-    --   },
-    --
-    --   on_change = function(_, item)
-    --     if item and vim.api.nvim_win_is_valid(current_win) then
-    --       vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
-    --       vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
-    --     end
-    --   end,
-    --
-    --   confirm = function(picker, item)
-    --     picker:close()
-    --
-    --     if item and vim.api.nvim_win_is_valid(current_win) then
-    --       vim.api.nvim_win_set_cursor(current_win, { item.pos[1], 0 })
-    --       vim.api.nvim_win_call(current_win, function() vim.cmd 'normal! zz' end)
-    --     end
-    --   end,
-    -- }
-
     vim.ui.picker.buffer_lines = function()
       local extra = require 'mini.extra'
       -- Capture source buffer before the picker opens
-      local source_buf = vim.api.nvim_get_current_buf()
       local source_win = vim.api.nvim_get_current_win()
+      if not vim.api.nvim_win_is_valid(source_win) then
+        vim.notify(string.format('Cannot follow picker selection with invalid source_win id: %d \n', source_win), vim.log.levels.ERROR)
+        return
+      end
+
+      local display_callback = function()
+        local matches = MiniPick.get_picker_matches()
+        local item = matches and matches.current
+        if item then
+          vim.api.nvim_win_set_cursor(source_win, { item.lnum, 0 })
+          vim.api.nvim_win_call(source_win, function() vim.cmd 'normal! zz' end)
+        end
+      end
       require 'modules.text_editing.pickers'
-      local shower = BufLinesShow.new(source_buf, source_win)
+      local shower = BufLinesShow.new(display_callback)
       extra.pickers.buf_lines({ scope = 'current' }, { source = { show = shower:as_fn() } })
     end
     vim.keymap.set('n', '<leader>sb', '', {
