@@ -293,29 +293,29 @@ return env.module.register {
     -- end
 
     -- overrides vim.ui.picker to leverage mini-picker and make things update live
-    vim.ui.picker.grep = function(o)
-      require('mini.pick').builtin.grep_live(
-        { globs = vim.fn.resolve(o.cwd or vim.fn.getcwd()) },
-        vim.tbl_extend('force', {
-          -- NOTE this is meant to make a centered window
-          -- TODO pull this from the same source and utils.file_browsing.mini_picker
-          window = {
-            config = function()
-              local height = math.floor(0.618 * vim.o.lines)
-              local width = math.floor(0.618 * vim.o.columns)
-              return {
-                anchor = 'NW',
-                height = height,
-                width = width,
-                row = math.floor(0.5 * (vim.o.lines - height)),
-                col = math.floor(0.5 * (vim.o.columns - width)),
-              }
-            end,
-          },
-        }, o or {})
-      )
-    end
-    vim.keymap.set('n', '<leader>sd', function() vim.ui.picker.grep { cwd = vim.fn.getcwd() } end, { desc = 'filesystem.search_cwd', silent = true })
+    -- vim.ui.picker.grep = function(o)
+    --   require('mini.pick').builtin.grep_live(
+    --     { globs = vim.fn.resolve(o.cwd or vim.fn.getcwd()) },
+    --     vim.tbl_extend('force', {
+    --       -- NOTE this is meant to make a centered window
+    --       -- TODO pull this from the same source and utils.file_browsing.mini_picker
+    --       window = {
+    --         config = function()
+    --           local height = math.floor(0.618 * vim.o.lines)
+    --           local width = math.floor(0.618 * vim.o.columns)
+    --           return {
+    --             anchor = 'NW',
+    --             height = height,
+    --             width = width,
+    --             row = math.floor(0.5 * (vim.o.lines - height)),
+    --             col = math.floor(0.5 * (vim.o.columns - width)),
+    --           }
+    --         end,
+    --       },
+    --     }, o or {})
+    --   )
+    -- end
+    -- vim.keymap.set('n', '<leader>sd', function() vim.ui.picker.grep { cwd = vim.fn.getcwd() } end, { desc = 'filesystem.search_cwd', silent = true })
 
     ----------------------------------------------------------------
     -- Copy path utilities

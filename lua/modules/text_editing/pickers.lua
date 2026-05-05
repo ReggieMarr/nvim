@@ -104,6 +104,41 @@ BufLinesShow.__index = BufLinesShow
 
 _G.BufLinesShow = BufLinesShow
 
+local function parse_item(item)
+  local text = type(item) == 'string' and item or (item.text or '')
+
+  -- buf_lines format: item is a table with lnum and "\0content" in text
+  if type(item) == 'table' and item.lnum then
+    local content = text:match '%z(.*)$'
+    return {
+      filename = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(item.bufnr or 0), ':~:.'),
+      lnum = item.lnum,
+      -- col = 1,
+      content = content or text,
+      path = vim.api.nvim_buf_get_name(item.bufnr or 0),
+      bufnr = item.bufnr,
+    }
+  end
+
+  -- grep_live format: "filename\0lnum\0col\0content"
+  if text:find '^[^%z]+%z%d+%z%d+%z' then
+    local filename, lnum, col, content = text:match '^([^%z]+)%z(%d+)%z(%d+)%z(.*)$'
+    return {
+      filename = filename,
+      lnum = tonumber(lnum),
+      -- col = tonumber(col),
+      content = content,
+      path = vim.fn.fnamemodify(filename, ':p'),
+      -- bufnr may not exist yet since grep results can be unloaded files
+      -- Note if a buffer is unloaded it may return a small positive number.
+      -- That's why we perform the check and set it to negative if the buffer
+      -- doesn't exist/has been unloaded
+      bufnr = (vim.fn.bufexists(vim.fn.bufnr(filename)) and vim.fn.bufnr(filename) or -1),
+    }
+  end
+
+  return nil
+end
 -- ts_cache should be a shared TsCache instance passed in from outside
 -- so multiple pickers don't duplicate parse work.
 function BufLinesShow.new(display_callback, ts_cache)
@@ -195,9 +230,11 @@ end
 function BufLinesShow:show(buf_id, items_to_show, query)
   vim.api.nvim_buf_clear_namespace(buf_id, self.ns, 0, -1)
 
+  print(string.format('showing %d items', #items_to_show))
   -- If nothing to show then just return
   -- NOTE we could display some message here but that'd likely be a nusance
   if not items_to_show or #items_to_show == 0 then return end
+  print(vim.inspect(items_to_show[1]))
   -- NOTE items_to_show is assumed to come from a single buffer
   -- so we just take the bufnr from the first item (later we'll ensure this is true)
   local items_bufnr = items_to_show[1].bufnr
@@ -284,7 +321,7 @@ function BufLinesShow:show(buf_id, items_to_show, query)
   -- Query match highlights (applied last so they sit on top)
   self:_apply_query_highlights(buf_id, lines, query)
 
-  self.display_callback()
+  if self.display_callback then self.display_callback() end
 end
 
 -- Returns the bound show function that MiniPick expects

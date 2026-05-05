@@ -314,6 +314,12 @@ return env.module.register {
       callback = function() vim.ui.picker.buffer_lines() end,
     })
 
+    vim.ui.picker.grep = function(o)
+      local shower = BufLinesShow.new(nil, shared_ts_cache)
+      require('mini.pick').builtin.grep_live({ globs = vim.fn.resolve(o.cwd or vim.fn.getcwd()) }, { source = { show = shower:as_fn() } })
+    end
+    vim.keymap.set('n', '<leader>sd', function() vim.ui.picker.grep { cwd = vim.fn.getcwd() } end, { desc = 'filesystem.search_cwd', silent = true })
+
     ----------------------------------------------------------------
     -- Emacs-style navigation
     ----------------------------------------------------------------
