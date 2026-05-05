@@ -155,35 +155,47 @@ function BufLinesShow.new(display_callback, ts_cache)
   return self
 end
 
-function BufLinesShow:_apply_ts_highlights(buf_id, items_to_show, items_bufrn)
-  local lang = vim.treesitter.language.get_lang(vim.bo[items_bufrn].filetype)
+function BufLinesShow:_apply_ts_highlights(buf_id, item_positions)
+  local current_item_source = nil
+  for _, pos in ipairs(item_positions) do
+    if pos.filename ~= current_item_source then
+      -- First item uses the win_buf
+      if current_item_source == nil then
+        -- Set header in the picker window's winbar
+        -- NOTE it would be nice to do this with virtual text
+        -- but it seems there's a fundamental constraint around setting
+        -- virtual text above the first line in a mini-picker buffer
+        -- TODO revist if using minibuffer
+        local win = vim.fn.bufwinid(buf_id)
+        if win ~= -1 then vim.wo[win].winbar = '%#DiagnosticWarn#' .. pos.filename .. '%*' end
+      else
+        -- Set virtual text headers for all others
+        local virt_line = {
+          { pos.filename, 'DiagnosticWarn' },
+        }
 
-  local ok, parser = pcall(vim.treesitter.get_parser, items_bufrn, lang)
-  if not ok or not parser then return end
+        vim.api.nvim_buf_set_extmark(buf_id, self.ns, pos.pick_lnum_0, 0, {
+          virt_lines = { virt_line },
+          virt_lines_above = true,
+          virt_text_pos = 'overlay',
+          -- Ensure it covers the whole line visually
+          virt_text_hide = false,
+        })
+      end
+      current_item_source = pos.filename
+    end
 
-  local tree = parser:parse()[1]
-  if not tree then return end
-
-  local root = tree:root()
-  local query_ok, query = pcall(vim.treesitter.query.get, lang, 'highlights')
-  if not query_ok or not query then return end
-
-  for i, item in ipairs(items_to_show) do
-    local lnum_0 = (i - 1)
-    local src_lnum_0 = item.lnum - 1
-
-    for id, node in query:iter_captures(root, items_bufrn, src_lnum_0, src_lnum_0 + 1) do
-      local capture_name = query.captures[id]
-      local hl_group = '@' .. capture_name .. '.' .. lang
-      if vim.fn.hlexists(hl_group) == 0 then hl_group = '@' .. capture_name end
-
-      local sr, sc, er, ec = node:range()
-      if sr == src_lnum_0 then
-        local pick_sc = self.content_col + sc
-        local pick_ec = self.content_col + ec
-        local pick_er = lnum_0
-        if er > src_lnum_0 then pick_ec = -1 end
-        vim.hl.range(buf_id, self.ns, hl_group, { lnum_0, pick_sc }, { pick_er, pick_ec })
+    -- TODO load in buffers for treesitter capture on a deferred basis
+    if pos.bufnr ~= -1 then
+      local captures = self.ts_cache:get_line_highlights(pos.bufnr, pos.src_lnum_0)
+      for _, cap in ipairs(captures) do
+        vim.hl.range(
+          buf_id,
+          self.ns,
+          cap.hl_group,
+          { pos.pick_lnum_0, self.content_col + cap.sc },
+          { pos.pick_lnum_0, cap.ec == -1 and -1 or self.content_col + cap.ec }
+        )
       end
     end
   end
@@ -205,52 +217,13 @@ function BufLinesShow:_apply_query_highlights(buf_id, lines, query)
   end
 end
 
--- Groups items by bufnr, preserving order of first appearance.
--- Returns { { bufnr, header, items } }
-function BufLinesShow:_group_by_buf(items_to_show)
-  local groups = {}
-  local seen = {}
-  for _, item in ipairs(items_to_show) do
-    local bufnr = item.bufnr
-    local buf_name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ':p')
-    if not seen[bufnr] then
-      seen[bufnr] = #groups + 1
-      groups[#groups + 1] = {
-        bufnr = bufnr,
-        header = buf_name,
-        items = {},
-      }
-    end
-    local g = groups[seen[bufnr]]
-    g.items[#g.items + 1] = item
-  end
-  return groups
-end
-
 function BufLinesShow:show(buf_id, items_to_show, query)
   vim.api.nvim_buf_clear_namespace(buf_id, self.ns, 0, -1)
 
-  print(string.format('showing %d items', #items_to_show))
   -- If nothing to show then just return
   -- NOTE we could display some message here but that'd likely be a nusance
   if not items_to_show or #items_to_show == 0 then return end
-  print(vim.inspect(items_to_show[1]))
-  -- NOTE items_to_show is assumed to come from a single buffer
-  -- so we just take the bufnr from the first item (later we'll ensure this is true)
-  local items_bufnr = items_to_show[1].bufnr
 
-  -- Set header in the picker window's winbar
-  -- NOTE it would be nice to do this with virtual text
-  -- but it seems there's a fundamental constraint around setting
-  -- virtual text above the first line in a mini-picker buffer
-  -- TODO revist if using minibuffer
-  local win = vim.fn.bufwinid(buf_id)
-  if win ~= -1 then
-    local buf_name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(items_bufnr), ':p')
-    vim.wo[win].winbar = '%#DiagnosticWarn#' .. buf_name .. '%*'
-  end
-
-  local groups = self:_group_by_buf(items_to_show)
   -- Track where each item lands in the pick buffer for highlight mapping.
   -- { pick_lnum_0, bufnr, src_lnum_0 }
   local item_positions = {}
@@ -258,67 +231,33 @@ function BufLinesShow:show(buf_id, items_to_show, query)
   -- Insert a blank first line as a dedicated header row
   local lines = {} -- blank placeholder for header
 
-  for _, group in ipairs(groups) do
-    -- In multi-file mode each group gets a header line.
-    -- In single-file mode we still emit it (consistent behaviour, callers
-    -- can style it differently via opts later).
-    local header_pick_lnum = #lines -- 0-indexed position this header will be at
-    -- lines[#lines + 1] = '' -- placeholder: header is virtual text, real line is blank
-    for _, item in ipairs(items_to_show) do
-      local content = (item.text or ''):match '%z(.*)$'
-      local src_lnum_0 = item.lnum - 1
-      local pick_lnum_0 = #lines
-      lines[#lines + 1] = string.format('  %4d: %s', item.lnum, content)
-      item_positions[#item_positions + 1] = {
-        pick_lnum_0 = pick_lnum_0,
-        bufnr = group.bufnr,
-        src_lnum_0 = src_lnum_0,
-      }
-    end
-    -- Attach virtual text header above the blank separator line.
-    -- We defer extmark setting until after buf_set_lines.
-    group._header_pick_lnum = header_pick_lnum
-    group._header_text = group.header
+  -- TODO we should figure out how many items are actually displayed
+  -- and defer higlighting/rendering those that wouldn't be displayed anyways
+  for _, item in ipairs(items_to_show) do
+    local parsed_item = parse_item(item)
+
+    local content = parsed_item.content
+    local src_lnum_0 = parsed_item.lnum - 1
+    local pick_lnum_0 = #lines
+    lines[#lines + 1] = string.format('  %4d: %s', parsed_item.lnum, content)
+    item_positions[#item_positions + 1] = {
+      pick_lnum_0 = pick_lnum_0,
+      bufnr = parsed_item.bufnr,
+      src_lnum_0 = src_lnum_0,
+      filename = parsed_item.filename,
+    }
   end
+
+  -- Populate the display buffer
   vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
 
-  -- Set virtual text headers now that lines exist
-  -- for _, group in ipairs(groups) do
-  --   vim.api.nvim_buf_set_extmark(buf_id, self.ns, group._header_pick_lnum, 0, {
-  --     virt_text = { { group._header_text, 'DiagnosticWarn' } },
-  --     virt_text_pos = 'overlay',
-  --     -- Ensure it covers the whole line visually
-  --     virt_text_hide = false,
-  --   })
-  -- end
-
-  -- Line number prefix highlights
-  for _, pos in ipairs(item_positions) do
-    vim.hl.range(buf_id, self.ns, 'LineNr', { pos.pick_lnum_0, 0 }, { pos.pick_lnum_0, self.content_col })
-  end
+  -- Highlight the line number prefix
+  vim.hl.range(buf_id, self.ns, 'LineNr', { 0, 0 }, { #items_to_show, self.content_col })
 
   -- Treesitter highlights
-  for _, pos in ipairs(item_positions) do
-    local captures = self.ts_cache:get_line_highlights(pos.bufnr, pos.src_lnum_0)
-    for _, cap in ipairs(captures) do
-      vim.hl.range(
-        buf_id,
-        self.ns,
-        cap.hl_group,
-        { pos.pick_lnum_0, self.content_col + cap.sc },
-        { pos.pick_lnum_0, cap.ec == -1 and -1 or self.content_col + cap.ec }
-      )
-    end
-  end
+  self:_apply_ts_highlights(buf_id, item_positions)
 
-  -- vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
-  --
-  -- -- Line number prefix highlight (offset by 1 for header)
-  -- vim.hl.range(buf_id, self.ns, 'LineNr', { 0, 0 }, { #items_to_show, self.content_col })
-  --
-  -- self:_apply_ts_highlights(buf_id, items_to_show, items_bufnr)
-
-  -- Query match highlights (applied last so they sit on top)
+  -- Highlight query matches (applied last so they sit on top)
   self:_apply_query_highlights(buf_id, lines, query)
 
   if self.display_callback then self.display_callback() end
