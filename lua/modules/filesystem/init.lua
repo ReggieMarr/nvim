@@ -270,11 +270,21 @@ return env.module.register {
     -- File finding
     ----------------------------------------------------------------
 
+    -- TODO might replace this with fff
     require 'modules.filesystem.pickers'
-    vim.ui.picker.files_at = function(opts) require('modules.filesystem.pickers').find_file_at(opts) end
+    -- TODO this should actually leverage the explorer type
+    vim.ui.picker.explorer = function(opts) require('modules.filesystem.pickers').explorer(opts) end
     vim.keymap.set(
       'n',
       '<leader>ff',
+      '',
+      { desc = 'filesystem.explorer_files', callback = function() vim.ui.picker.explorer { cwd = vim.fn.getcwd() } end, silent = true }
+    )
+
+    vim.ui.picker.files_at = function(opts) require('modules.filesystem.pickers').find_files_at(opts) end
+    vim.keymap.set(
+      'n',
+      '<leader>sf',
       '',
       { desc = 'filesystem.find_files_at', callback = function() vim.ui.picker.files_at { cwd = vim.fn.getcwd() } end, silent = true }
     )

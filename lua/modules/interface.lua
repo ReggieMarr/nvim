@@ -458,37 +458,37 @@ return env.module.register {
     -- ── Interface keymaps ───────────────────────────────────────────
 
     -- Window zoom toggle (simplified)
-    local function toggle_zoom()
-      local function is_zoomed() return vim.t.zoomed or false end
-
-      local function zoom_session_file()
-        if not vim.t.zoom_session_file then
-          vim.t.zoom_session_file = vim.fn.tempname() .. '_' .. vim.api.nvim_tabpage_get_number(0)
-          vim.api.nvim_create_autocmd('TabClosed', {
-            callback = function()
-              if vim.t.zoom_session_file then os.remove(vim.t.zoom_session_file) end
-            end,
-          })
-        end
-        return vim.t.zoom_session_file
-      end
-
-      if is_zoomed() then
-        local cursor_pos = vim.api.nvim_win_get_cursor(0)
-        vim.cmd('silent! source ' .. zoom_session_file())
-        vim.t.zoomed = false
-        vim.api.nvim_win_set_cursor(0, cursor_pos)
-      else
-        if #vim.api.nvim_tabpage_list_wins(0) == 1 then return end
-        local old_sessionoptions = vim.o.sessionoptions
-        vim.o.sessionoptions = 'blank,buffers,curdir,terminal,help'
-        vim.cmd('mksession! ' .. zoom_session_file())
-        vim.cmd 'only'
-        vim.t.zoomed = true
-        vim.o.sessionoptions = old_sessionoptions
-      end
-    end
-    vim.fn.toggle_zoom = toggle_zoom
+    -- local function toggle_zoom()
+    --   local function is_zoomed() return vim.t.zoomed or false end
+    --
+    --   local function zoom_session_file()
+    --     if not vim.t.zoom_session_file then
+    --       vim.t.zoom_session_file = vim.fn.tempname() .. '_' .. vim.api.nvim_tabpage_get_number(0)
+    --       vim.api.nvim_create_autocmd('TabClosed', {
+    --         callback = function()
+    --           if vim.t.zoom_session_file then os.remove(vim.t.zoom_session_file) end
+    --         end,
+    --       })
+    --     end
+    --     return vim.t.zoom_session_file
+    --   end
+    --
+    --   if is_zoomed() then
+    --     local cursor_pos = vim.api.nvim_win_get_cursor(0)
+    --     vim.cmd('silent! source ' .. zoom_session_file())
+    --     vim.t.zoomed = false
+    --     vim.api.nvim_win_set_cursor(0, cursor_pos)
+    --   else
+    --     if #vim.api.nvim_tabpage_list_wins(0) == 1 then return end
+    --     local old_sessionoptions = vim.o.sessionoptions
+    --     vim.o.sessionoptions = 'blank,buffers,curdir,terminal,help'
+    --     vim.cmd('mksession! ' .. zoom_session_file())
+    --     vim.cmd 'only'
+    --     vim.t.zoomed = true
+    --     vim.o.sessionoptions = old_sessionoptions
+    --   end
+    -- end
+    vim.fn.toggle_zoom = snacks.zen.zoom
 
     ----------------------------------------------------------------
     -- Window navigation

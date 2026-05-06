@@ -69,10 +69,12 @@ end
 ---@field value   string   the exact substring written to the buffer
 ---@field gap     integer  number of space chars appended AFTER this segment
 
+local M = {}
 -- Returns both the formatted line and an ordered list of ColumnSpecs so
 -- that highlight ranges can be derived purely from segment lengths, with
 -- no hardcoded magic offsets.
-local function format_item_line(item)
+-- TODO we should get this from the cli instead
+function M.format_item_line(item)
   local icon = item.icon or ''
   local perms = item.permissions or '---------'
   local size = item.size_str or '-'
@@ -101,9 +103,7 @@ local function format_item_line(item)
   return line, cols
 end
 
-local M = {}
-
-function M.custom_show(buf_id, items_to_show, query)
+function M.explorer_show(buf_id, items_to_show, query)
   local ns = vim.api.nvim_create_namespace 'mini_pick_filebrowser'
   vim.api.nvim_buf_clear_namespace(buf_id, ns, 0, -1)
 
@@ -112,7 +112,7 @@ function M.custom_show(buf_id, items_to_show, query)
   local all_cols = {} -- parallel array of ColumnSpec[] per item
 
   for _, item in ipairs(items_to_show) do
-    local line, cols = format_item_line(item)
+    local line, cols = M.format_item_line(item)
     table.insert(lines, line)
     table.insert(all_cols, cols)
   end
@@ -146,6 +146,160 @@ function M.custom_show(buf_id, items_to_show, query)
       cursor = seg_end + seg.gap
     end
   end
+end
+
+function M.find_files_at_show(buf_id, items_to_show, query)
+  local ns = vim.api.nvim_create_namespace 'mini_pick_filebrowser'
+  vim.api.nvim_buf_clear_namespace(buf_id, ns, 0, -1)
+
+  local lines = {}
+  local all_cols = {}
+
+  for _, item in ipairs(items_to_show) do
+    -- if item.is_header then
+    --   -- Headers get their own simple line, no column formatting
+    --   table.insert(lines, item.text)
+    --   table.insert(all_cols, nil) -- placeholder so indices stay aligned
+    -- else
+    local line, cols = M.format_item_line(item)
+    table.insert(lines, line)
+    table.insert(all_cols, cols)
+    -- end
+  end
+
+  vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
+
+  for i, item in ipairs(items_to_show) do
+    local row = i - 1
+
+    -- if item.is_header then
+    --   -- Apply a single highlight across the whole header line
+    --   vim.hl.range(
+    --     buf_id,
+    --     ns,
+    --     'MiniPickHeader', -- define this in your colorscheme / highlights setup
+    --     { row, 0 },
+    --     { row, #item.text }
+    --   )
+    -- else
+    local cols = all_cols[i]
+    local cursor = 0
+
+    for col_idx, seg in ipairs(cols) do
+      local seg_len = #seg.value
+      local seg_end = cursor + seg_len
+
+      vim.hl.range(buf_id, ns, seg.hl, { row, cursor }, { row, seg_end })
+
+      local is_name_col = col_idx == #cols
+      if is_name_col then
+        local name_start = cursor
+        local display = item.display or item.text or ''
+
+        for _, query_char in ipairs(query) do
+          local s, e = display:find(vim.pesc(query_char), 1, true)
+          if s then vim.hl.range(buf_id, ns, 'MiniPickMatchCurrent', { row, name_start + s - 1 }, { row, name_start + e }) end
+        end
+      end
+
+      cursor = seg_end + seg.gap
+    end
+    -- end
+  end
+end
+
+-- Recursively collect all files (not dirs) under a root path
+function M.get_files_recursive(root, show_hidden)
+  local results = {}
+
+  local function walk(dir)
+    local entries = vim.fn.readdir(dir)
+    local dirs = {}
+    local files = {}
+
+    for _, name in ipairs(entries) do
+      if show_hidden or name:sub(1, 1) ~= '.' then
+        local full_path = dir .. '/' .. name
+        local is_dir = vim.fn.isdirectory(full_path) == 1
+        if is_dir then
+          table.insert(dirs, { name = name, path = full_path })
+        else
+          table.insert(files, { name = name, path = full_path })
+        end
+      end
+    end
+
+    local alpha = function(a, b) return a.name:lower() < b.name:lower() end
+    table.sort(dirs, alpha)
+    table.sort(files, alpha)
+
+    for _, f in ipairs(files) do
+      table.insert(
+        results,
+        enrich_item {
+          text = f.name,
+          path = f.path,
+          is_dir = false,
+          is_cwd = false,
+        }
+      )
+    end
+
+    for _, d in ipairs(dirs) do
+      walk(d.path)
+    end
+  end
+
+  walk(root)
+  return results
+end
+
+-- Takes a flat list of file items and groups them under directory header items.
+-- Headers are inserted whenever the parent directory changes.
+-- root is stripped from the front of paths for display brevity.
+function M.group_files_as_tree(items, root)
+  local grouped = {}
+  local current_dir = nil
+
+  -- Normalise root so we can strip it cleanly
+  local root_prefix = root:gsub('/$', '') .. '/'
+
+  for _, item in ipairs(items) do
+    -- Derive the parent directory of this file
+    local parent = item.path:match '(.+)/[^/]+$' or item.path
+
+    if parent ~= current_dir then
+      current_dir = parent
+
+      -- Build a display path relative to root, fallback to full path
+      local rel = parent:gsub('^' .. vim.pesc(root_prefix), '')
+      if rel == parent then
+        rel = parent -- nothing was stripped, keep full path
+      end
+
+      -- Insert a header item for this directory
+      table.insert(
+        grouped,
+        enrich_item {
+          text = rel .. '/',
+          path = parent,
+          is_dir = true,
+          is_cwd = false,
+          -- is_header = true, -- extra flag so the shower can style it differently
+        }
+      )
+    end
+
+    table.insert(grouped, item)
+  end
+
+  return grouped
+end
+
+function M.get_files_recursive_grouped(cwd, show_hidden)
+  local flat = M.get_files_recursive(cwd, show_hidden)
+  local grouped = M.group_files_as_tree(flat, cwd)
+  return grouped
 end
 
 -- Get directory entries, injecting './' as first item

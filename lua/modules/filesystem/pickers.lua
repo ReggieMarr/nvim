@@ -5,7 +5,7 @@ local M = {}
 
 ---@param local_opts {cwd: string, show_hidden: boolean}|nil
 ---@return nil
-function M.find_file_at(local_opts)
+function M.explorer(local_opts)
   local MiniPick = require 'mini.pick'
   local fs_utils = require 'modules.filesystem.utils'
 
@@ -17,7 +17,7 @@ function M.find_file_at(local_opts)
   local function navigate_to(dir)
     MiniPick.set_picker_query { '' }
     local current_opts = MiniPick.get_picker_opts()
-    current_opts.source.name = 'Find: ' .. vim.fn.fnamemodify(dir, ':~')
+    current_opts.source.name = 'Explor: ' .. vim.fn.fnamemodify(dir, ':~')
     current_opts.source.cwd = dir
     MiniPick.set_picker_opts(current_opts)
     local items = fs_utils.get_files_in_dir(dir, show_hidden)
@@ -66,7 +66,7 @@ function M.find_file_at(local_opts)
       name = 'Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
       cwd = cwd,
       items = fs_utils.get_files_in_dir(cwd, show_hidden),
-      show = fs_utils.custom_show,
+      show = fs_utils.explorer_show,
       -- don't set this but we also don't call
       -- choose = nil
 
@@ -124,7 +124,7 @@ function M.find_file_at(local_opts)
           local file_query = table.concat(MiniPick.get_picker_query())
           if file_query == '' then return end
           local path = MiniPick.get_picker_opts().source.cwd .. '/' .. file_query
-          fs_utils.create_dwim(path, M.find_file_at, local_opts)
+          fs_utils.create_dwim(path, M.explorer, local_opts)
           MiniPick.stop()
         end,
       },
@@ -182,7 +182,7 @@ function M.find_file_at(local_opts)
           if file_query == '' then return end
           local path = MiniPick.get_picker_opts().source.cwd .. '/' .. file_query
 
-          fs_utils.create_dwim(path, M.find_file_at, local_opts)
+          fs_utils.create_dwim(path, M.explorer, local_opts)
           MiniPick.stop()
         end,
       },
@@ -196,6 +196,29 @@ function M.find_file_at(local_opts)
           MiniPick.set_picker_items(fs_utils.get_files_in_dir(cwd, show_hidden))
         end,
       },
+    },
+  }
+end
+
+function M.find_files_at(local_opts)
+  local MiniPick = require 'mini.pick'
+  local fs_utils = require 'modules.filesystem.utils'
+
+  local_opts = local_opts or {} -- guard nil
+  local cwd = vim.fn.resolve(vim.fn.expand(local_opts.cwd or vim.fn.getcwd()))
+  local show_hidden = local_opts.show_hidden or false
+  vim.api.nvim_set_hl(0, 'MiniPickHeader', {
+    fg = '#7aa2f7', -- or link to something you already have
+    bold = true,
+    italic = true,
+  })
+
+  MiniPick.start {
+    source = {
+      name = 'Find: ' .. vim.fn.fnamemodify(cwd, ':~'),
+      cwd = cwd,
+      items = fs_utils.get_files_recursive_grouped(cwd, show_hidden),
+      show = fs_utils.find_files_at_show,
     },
   }
 end
