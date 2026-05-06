@@ -21,24 +21,38 @@ function TsCache:_ensure(bufnr)
 
   local lang = vim.treesitter.language.get_lang(vim.bo[bufnr].filetype)
   if not lang then
+    vim.notify(
+      string.format(
+        'Failed to retrieve lang for %d:%s\nlang: %s\nfiletype: %s\nbufloaded %d',
+        bufnr,
+        vim.api.nvim_buf_get_name(bufnr),
+        lang,
+        vim.bo[bufnr].filetype,
+        vim.fn.bufloaded(bufnr)
+      ),
+      vim.log.levels.ERROR
+    )
     self._cache[bufnr] = false -- negative cache: don't retry
     return false
   end
 
   local ok, parser = pcall(vim.treesitter.get_parser, bufnr, lang)
   if not ok or not parser then
+    vim.notify(string.format('Failed to retrieve parser for %d:%s ', bufnr, vim.api.nvim_buf_get_name(bufnr)), vim.log.levels.ERROR)
     self._cache[bufnr] = false
     return false
   end
 
   local tree = parser:parse()[1]
   if not tree then
+    vim.notify(string.format('Failed to retrieve tree for %d:%s ', bufnr, vim.api.nvim_buf_get_name(bufnr)), vim.log.levels.ERROR)
     self._cache[bufnr] = false
     return false
   end
 
   local query_ok, query = pcall(vim.treesitter.query.get, lang, 'highlights')
   if not query_ok or not query then
+    vim.notify(string.format('Failed to retrieve highlights for %d:%s ', bufnr, vim.api.nvim_buf_get_name(bufnr)), vim.log.levels.ERROR)
     self._cache[bufnr] = false
     return false
   end
@@ -65,6 +79,9 @@ function TsCache:get_line_highlights(bufnr, src_lnum_0)
   local results = {}
   local root = entry.tree:root()
 
+  -- TODO review this logic, it seems we could combine it with more intelligent parsing
+  -- to get better performance
+  -- TODO we should also leverage tree parsing to get better contextualized results
   for id, node in entry.query:iter_captures(root, bufnr, src_lnum_0, src_lnum_0 + 1) do
     local sr, sc, er, ec = node:range()
     if sr == src_lnum_0 then
@@ -185,18 +202,29 @@ function BufLinesShow:_apply_ts_highlights(buf_id, item_positions)
       current_item_source = pos.filename
     end
 
-    -- TODO load in buffers for treesitter capture on a deferred basis
-    if pos.bufnr ~= -1 then
-      local captures = self.ts_cache:get_line_highlights(pos.bufnr, pos.src_lnum_0)
-      for _, cap in ipairs(captures) do
-        vim.hl.range(
-          buf_id,
-          self.ns,
-          cap.hl_group,
-          { pos.pick_lnum_0, self.content_col + cap.sc },
-          { pos.pick_lnum_0, cap.ec == -1 and -1 or self.content_col + cap.ec }
-        )
+    -- TODO use a queue to handle this async
+    if pos.bufnr == -1 then
+      pos.bufnr = vim.fn.bufadd(pos.filename)
+      if pos.bufnr == 0 then
+        vim.notify(string.format('Could not add buf for %s', pos.filename), vim.log.levels.ERROR)
+        return
       end
+      vim.fn.bufload(pos.bufnr)
+      if not vim.fn.bufload(pos.bufnr) then
+        vim.notify(string.format('Could not load buf for %s %d', pos.filename, pos.bufnr), vim.log.levels.ERROR)
+        return
+      end
+    end
+
+    local captures = self.ts_cache:get_line_highlights(pos.bufnr, pos.src_lnum_0)
+    for _, cap in ipairs(captures) do
+      vim.hl.range(
+        buf_id,
+        self.ns,
+        cap.hl_group,
+        { pos.pick_lnum_0, self.content_col + cap.sc },
+        { pos.pick_lnum_0, cap.ec == -1 and -1 or self.content_col + cap.ec }
+      )
     end
   end
 end
