@@ -15,7 +15,7 @@ function M.explorer(local_opts)
 
   -- Restart picker at a new directory
   local function navigate_to(dir)
-    MiniPick.set_picker_query { '' }
+    MiniPick.set_picker_query {}
     local current_opts = MiniPick.get_picker_opts()
     current_opts.source.name = 'Explor: ' .. vim.fn.fnamemodify(dir, ':~')
     current_opts.source.cwd = dir
