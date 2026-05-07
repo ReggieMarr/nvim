@@ -26,7 +26,7 @@ return env.module.register {
 
   plugins = {
     -- Mason: LSP/formatter/linter installer
-    ['williamboman/mason.nvim'] = {
+    ['mason-org/mason.nvim'] = {
       build = ':MasonUpdate',
       lazy = false,
       opts = {
@@ -36,8 +36,8 @@ return env.module.register {
 
     -- mason-lspconfig: bridges mason and lspconfig
     -- Ensures servers listed in ensure_installed are present
-    ['williamboman/mason-lspconfig.nvim'] = {
-      dependencies = { 'williamboman/mason.nvim', 'neovim/nvim-lspconfig' },
+    ['mason-org/mason-lspconfig.nvim'] = {
+      dependencies = { 'mason-org/mason.nvim', 'neovim/nvim-lspconfig' },
       lazy = false,
       opts = {
         -- Query is deferred: languages module is loaded once at plugin
@@ -50,7 +50,7 @@ return env.module.register {
     -- mason-tool-installer: installs formatters/linters via mason
     -- Separate from mason-lspconfig which only handles LSPs
     ['WhoIsSethDaniel/mason-tool-installer.nvim'] = {
-      dependencies = { 'williamboman/mason.nvim' },
+      dependencies = { 'mason-org/mason.nvim' },
       lazy = false,
       opts = {
         ensure_installed = languages.get_mason_tool_packages(),
@@ -300,7 +300,7 @@ return env.module.register {
       local display_callback = function()
         local matches = MiniPick.get_picker_matches()
         local item = matches and matches.current
-        if item then
+        if item and item.content then
           vim.api.nvim_win_set_cursor(source_win, { item.lnum, 0 })
           vim.api.nvim_win_call(source_win, function() vim.cmd 'normal! zz' end)
         end
@@ -314,10 +314,15 @@ return env.module.register {
       callback = function() vim.ui.picker.buffer_lines() end,
     })
 
-    vim.ui.picker.grep = function(o)
-      local shower = BufLinesShow.new(nil, shared_ts_cache)
-      require('mini.pick').builtin.grep_live({ globs = vim.fn.resolve(o.cwd or vim.fn.getcwd()) }, { source = { show = shower:as_fn() } })
-    end
+    -- vim.ui.picker.grep = function(o)
+    --   local shower = BufLinesShow.new(nil, shared_ts_cache)
+    --   require('mini.pick').builtin.grep_live({ globs = vim.fn.resolve(o.cwd or vim.fn.getcwd()) }, { source = { show = shower:as_fn() } })
+    -- end
+    -- vim.ui.picker.grep = function(o)
+    --   local shower = BufLinesShow.new(nil, shared_ts_cache)
+    --   require('mini.pick').builtin.grep_live({ globs = vim.fn.resolve(o.cwd or vim.fn.getcwd()) }, { source = { show = shower:as_fn() } })
+    -- end
+    vim.ui.picker.grep = function(opts) require('fff').live_grep(opts) end
     vim.keymap.set('n', '<leader>sd', function() vim.ui.picker.grep { cwd = vim.fn.getcwd() } end, { desc = 'filesystem.search_cwd', silent = true })
 
     ----------------------------------------------------------------

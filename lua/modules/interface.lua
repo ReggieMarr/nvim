@@ -103,8 +103,8 @@ return env.module.register {
         -- Float configuration mirrors your picker's window sizing
         float = {
           padding = 2,
-          max_width = math.floor(vim.o.columns * 0.618),
-          max_height = math.floor(vim.o.lines * 0.618),
+          max_width = math.floor(vim.o.columns * 0.8),
+          max_height = math.floor(vim.o.lines * 0.8),
           border = 'rounded',
           win_options = {
             winblend = 0,
@@ -301,30 +301,37 @@ return env.module.register {
     --     vim.keymap.set('n', '<M-.>', function() minibuffer.resume(true) end)
     --   end,
     -- },
-    -- ['dmtrKovalenko/fff.nvim'] = {
-    --   build = function()
-    --     -- downloads a prebuilt binary or falls back to cargo build
-    --     require('fff.download').download_or_build_binary()
-    --   end,
-    --   -- for nixos:
-    --   -- build = "nix run .#release",
-    --   opts = {
-    --     debug = {
-    --       enabled = true,
-    --       show_scores = true,
-    --     },
-    --   },
-    --   lazy = false, -- the plugin lazy-initialises itself
-    --   -- keys = {
-    --   --   { 'ff', function() require('fff').find_files() end, desc = 'FFFind files' },
-    --   --   { 'fg', function() require('fff').live_grep() end, desc = 'LiFFFe grep' },
-    --   --   { 'fz', function() require('fff').live_grep { grep = { modes = { 'fuzzy', 'plain' } } } end, desc = 'Live fffuzy grep' },
-    --   --   { 'fc', function() require('fff').live_grep { query = vim.fn.expand '<cword>' } end, desc = 'Search current word' },
-    --   -- },
-    -- },
-    -- ['https://codeberg.org/comfysage/artio.nvim'] = {
-    --   lazy = false,
-    -- },
+    ['folke/zen-mode.nvim'] = {
+      lazy = false, -- the plugin lazy-initialises itself
+    },
+
+    ['dmtrKovalenko/fff.nvim'] = {
+      build = function()
+        -- downloads a prebuilt binary or falls back to cargo build
+        require('fff.download').download_or_build_binary()
+      end,
+      opts = {
+        preview = {
+          enabled = false,
+        },
+        git = {
+          status_text_color = true,
+        },
+        layout = {
+          height = 0.8,
+          width = 0.8,
+          prompt_position = 'top', -- or 'top'
+          flex = { size = 130, wrap = 'top' },
+          show_scrollbar = true,
+          path_shorten_strategy = 'middle_number', -- 'middle_number' | 'middle' | 'end'
+          anchor = 'center',
+        },
+      },
+      lazy = false, -- the plugin lazy-initialises itself
+    },
+    ['https://codeberg.org/comfysage/artio.nvim'] = {
+      lazy = false,
+    },
     ['t-troebst/perfanno.nvim'] = {
       lazy = false,
     },
@@ -458,37 +465,37 @@ return env.module.register {
     -- ── Interface keymaps ───────────────────────────────────────────
 
     -- Window zoom toggle (simplified)
-    -- local function toggle_zoom()
-    --   local function is_zoomed() return vim.t.zoomed or false end
-    --
-    --   local function zoom_session_file()
-    --     if not vim.t.zoom_session_file then
-    --       vim.t.zoom_session_file = vim.fn.tempname() .. '_' .. vim.api.nvim_tabpage_get_number(0)
-    --       vim.api.nvim_create_autocmd('TabClosed', {
-    --         callback = function()
-    --           if vim.t.zoom_session_file then os.remove(vim.t.zoom_session_file) end
-    --         end,
-    --       })
-    --     end
-    --     return vim.t.zoom_session_file
-    --   end
-    --
-    --   if is_zoomed() then
-    --     local cursor_pos = vim.api.nvim_win_get_cursor(0)
-    --     vim.cmd('silent! source ' .. zoom_session_file())
-    --     vim.t.zoomed = false
-    --     vim.api.nvim_win_set_cursor(0, cursor_pos)
-    --   else
-    --     if #vim.api.nvim_tabpage_list_wins(0) == 1 then return end
-    --     local old_sessionoptions = vim.o.sessionoptions
-    --     vim.o.sessionoptions = 'blank,buffers,curdir,terminal,help'
-    --     vim.cmd('mksession! ' .. zoom_session_file())
-    --     vim.cmd 'only'
-    --     vim.t.zoomed = true
-    --     vim.o.sessionoptions = old_sessionoptions
-    --   end
-    -- end
-    vim.fn.toggle_zoom = snacks.zen.zoom
+    local function toggle_zoom()
+      local function is_zoomed() return vim.t.zoomed or false end
+
+      local function zoom_session_file()
+        if not vim.t.zoom_session_file then
+          vim.t.zoom_session_file = vim.fn.tempname() .. '_' .. vim.api.nvim_tabpage_get_number(0)
+          vim.api.nvim_create_autocmd('TabClosed', {
+            callback = function()
+              if vim.t.zoom_session_file then os.remove(vim.t.zoom_session_file) end
+            end,
+          })
+        end
+        return vim.t.zoom_session_file
+      end
+
+      if is_zoomed() then
+        local cursor_pos = vim.api.nvim_win_get_cursor(0)
+        vim.cmd('silent! source ' .. zoom_session_file())
+        vim.t.zoomed = false
+        vim.api.nvim_win_set_cursor(0, cursor_pos)
+      else
+        if #vim.api.nvim_tabpage_list_wins(0) == 1 then return end
+        local old_sessionoptions = vim.o.sessionoptions
+        vim.o.sessionoptions = 'blank,buffers,curdir,terminal,help'
+        vim.cmd('mksession! ' .. zoom_session_file())
+        vim.cmd 'only'
+        vim.t.zoomed = true
+        vim.o.sessionoptions = old_sessionoptions
+      end
+    end
+    vim.fn.toggle_zoom = toggle_zoom
 
     ----------------------------------------------------------------
     -- Window navigation

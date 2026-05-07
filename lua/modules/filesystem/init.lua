@@ -281,12 +281,12 @@ return env.module.register {
       { desc = 'filesystem.explorer_files', callback = function() vim.ui.picker.explorer { cwd = vim.fn.getcwd() } end, silent = true }
     )
 
-    vim.ui.picker.files_at = function(opts) require('modules.filesystem.pickers').find_files_at(opts) end
+    vim.ui.picker.files = function(opts) require('fff').find_files_in_dir(opts.cwd) end
     vim.keymap.set(
       'n',
       '<leader>sf',
       '',
-      { desc = 'filesystem.find_files_at', callback = function() vim.ui.picker.files_at { cwd = vim.fn.getcwd() } end, silent = true }
+      { desc = 'filesystem.find_files_at', callback = function() vim.ui.picker.files { cwd = vim.fn.getcwd() } end, silent = true }
     )
 
     -- if state['workspace.root'] ~= nil then

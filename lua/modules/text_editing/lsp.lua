@@ -1,6 +1,8 @@
 -- lua/modules/text_editing/lsp.lua
 -- Lsp capabilities
 
+local env = require 'env'
+
 -- ── Shared LSP on_attach ───────────────────────────────────────
 local function on_attach(client, bufnr)
   -- env.state._update('lsp.attached_servers', vim.lsp.get_clients { bufnr = bufnr })
