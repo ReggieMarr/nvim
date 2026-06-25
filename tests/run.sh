@@ -68,7 +68,9 @@ else
 		"$SPECS_DIR/state_spec.lua" \
 		"$SPECS_DIR/articulation_spec.lua" \
 		"$SPECS_DIR/language_spec.lua" \
-		"$SPECS_DIR/plugin_deps_spec.lua"; do
+		"$SPECS_DIR/plugin_deps_spec.lua" \
+		"$SPECS_DIR/module_registration_spec.lua" \
+		"$SPECS_DIR/keymap_spec.lua"; do
 		if [ -f "$spec" ]; then
 			run_spec "$spec"
 		fi

@@ -48,23 +48,6 @@ local function lua_files(dir)
   return result
 end
 
----Collect all non-commented require('x') and require "x" calls from a file
----Returns a list of module name strings
-local function extract_requires(path)
-  local content = io.open(path, 'r')
-  if not content then return {} end
-  local text = content:read '*a'
-  content:close()
-
-  local reqs = {}
-  -- Strip line comments first to avoid false positives
-  text = text:gsub('%-%-[^\n]*', '')
-  for name in text:gmatch "require%s*['\"]([^'\"]+)['\"]" do
-    table.insert(reqs, name)
-  end
-  return reqs
-end
-
 ---Collect all plugin spec keys from module files.
 ---Returns a set: plugin_short_name → true
 local function collect_declared_plugins()
@@ -95,7 +78,6 @@ end
 local declared = collect_declared_plugins()
 
 -- Plugins that are intentionally provided by a meta-package or known alias
--- (e.g., 'mini.icons' is loaded via 'nvim-mini/mini.icons' in interface.lua).
 -- Add entries here when the require name differs from the spec key.
 local KNOWN_ALIASES = {
   -- mini.* from nvim-mini/* or echasnovski/*
@@ -129,50 +111,90 @@ local KNOWN_ALIASES = {
   ['core.pickers']      = true,
 }
 
--- Plugins referenced by require() that must have a matching spec
--- These are the ones we explicitly want to assert on
+-- ── Exhaustive plugin spec assertions ────────────────────────────────────
+-- Every plugin we require() must have a spec declared somewhere.
+-- Grouped by module for clarity.
+
 local MUST_HAVE_SPEC = {
-  ['mini.pick']  = 'echasnovski/mini.pick',
-  ['mini.extra'] = 'echasnovski/mini.extra',
-  ['mini.icons'] = 'nvim-mini/mini.icons',
-  ['mini.files'] = 'nvim-mini/mini.files',
-  ['mini.sessions'] = 'nvim-mini/mini.sessions',
-  ['snacks']     = 'folke/snacks.nvim',
-  ['oil']        = 'stevearc/oil.nvim',
-  ['conform']    = 'stevearc/conform.nvim',
+  -- interface module
+  { require_name = 'snacks',     spec = 'folke/snacks.nvim' },
+  { require_name = 'oil',        spec = 'stevearc/oil.nvim' },
+  { require_name = 'which-key',  spec = 'folke/which-key.nvim' },
+  { require_name = 'lualine',    spec = 'nvim-lualine/lualine.nvim' },
+  { require_name = 'tokyonight', spec = 'folke/tokyonight.nvim' },
+
+  -- filesystem module
+  { require_name = 'mini.pick',     spec = 'echasnovski/mini.pick' },
+  { require_name = 'mini.extra',    spec = 'echasnovski/mini.extra' },
+  { require_name = 'mini.files',    spec = 'nvim-mini/mini.files' },
+  { require_name = 'mini.icons',    spec = 'nvim-mini/mini.icons' },
+  { require_name = 'mini.sessions', spec = 'nvim-mini/mini.sessions' },
+
+  -- text_editing module
+  { require_name = 'conform',        spec = 'stevearc/conform.nvim' },
+  { require_name = 'blink.cmp',      spec = 'saghen/blink.cmp' },
+  { require_name = 'mason',          spec = 'mason-org/mason.nvim' },
+  { require_name = 'mason-lspconfig', spec = 'mason-org/mason-lspconfig.nvim' },
+  { require_name = 'mason-tool-installer', spec = 'WhoIsSethDaniel/mason-tool-installer.nvim' },
+  { require_name = 'nvim-treesitter', spec = 'nvim-treesitter/nvim-treesitter' },
+  { require_name = 'treesitter-context', spec = 'nvim-treesitter/nvim-treesitter-context' },
+
+  -- version_control module
+  { require_name = 'neogit',    spec = 'NeogitOrg/neogit' },
+  { require_name = 'gitsigns',  spec = 'lewis6991/gitsigns.nvim' },
+
+  -- orgmode module
+  { require_name = 'orgmode',      spec = 'nvim-orgmode/orgmode' },
+  { require_name = 'org-bullets',   spec = 'nvim-orgmode/org-bullets.nvim' },
+  { require_name = 'headlines',     spec = 'lukas-reineke/headlines.nvim' },
+
+  -- terminal module
+  { require_name = 'overseer',  spec = 'stevearc/overseer.nvim' },
 }
 
-for require_name, spec_name in pairs(MUST_HAVE_SPEC) do
-  local short = spec_name:match '/(.+)$' or spec_name
-  it(require_name .. ' has plugin spec (' .. spec_name .. ')', function()
+for _, entry in ipairs(MUST_HAVE_SPEC) do
+  local short = entry.spec:match '/(.+)$' or entry.spec
+  it(entry.require_name .. ' has plugin spec (' .. entry.spec .. ')', function()
     assert(
-      declared[short] or declared[spec_name],
+      declared[short] or declared[entry.spec],
       string.format(
         "require('%s') is used in module files but '%s' is not declared in any plugins table.\n" ..
         "    Add it to the appropriate module's plugins spec.",
-        require_name, spec_name
+        entry.require_name, entry.spec
       )
     )
   end)
 end
 
--- Verify mini.pick is specifically in filesystem module (not just anywhere)
-it('mini.pick spec is in filesystem module', function()
-  local f = io.open(config_root .. '/lua/modules/filesystem/init.lua', 'r')
-  assert(f, 'could not open filesystem/init.lua')
-  local text = f:read '*a'
-  f:close()
-  assert(text:find "echasnovski/mini.pick", "mini.pick spec not found in filesystem/init.lua")
-end)
+-- ── Module-specific location assertions ──────────────────────────────────
+-- Ensure plugins are declared in the correct module (not just anywhere).
 
--- Verify mini.extra spec is in text_editing module
-it('mini.extra spec is in text_editing module', function()
-  local f = io.open(config_root .. '/lua/modules/text_editing/init.lua', 'r')
-  assert(f, 'could not open text_editing/init.lua')
-  local text = f:read '*a'
-  f:close()
-  assert(text:find "echasnovski/mini.extra", "mini.extra spec not found in text_editing/init.lua")
-end)
+local MODULE_LOCATION_CHECKS = {
+  { file = 'filesystem/init.lua',     plugin = 'echasnovski/mini.pick', label = 'mini.pick in filesystem' },
+  { file = 'text_editing/init.lua',   plugin = 'echasnovski/mini.extra', label = 'mini.extra in text_editing' },
+  { file = 'version_control.lua',     plugin = 'NeogitOrg/neogit', label = 'neogit in version_control' },
+  { file = 'version_control.lua',     plugin = 'lewis6991/gitsigns.nvim', label = 'gitsigns in version_control' },
+  { file = 'orgmode.lua',             plugin = 'nvim-orgmode/orgmode', label = 'orgmode in orgmode module' },
+  { file = 'orgmode.lua',             plugin = 'nvim-orgmode/org-bullets.nvim', label = 'org-bullets in orgmode module' },
+  { file = 'orgmode.lua',             plugin = 'lukas-reineke/headlines.nvim', label = 'headlines in orgmode module' },
+  { file = 'terminal.lua',            plugin = 'stevearc/overseer.nvim', label = 'overseer in terminal module' },
+  { file = 'interface.lua',           plugin = 'folke/snacks.nvim', label = 'snacks in interface module' },
+  { file = 'interface.lua',           plugin = 'stevearc/oil.nvim', label = 'oil in interface module' },
+  { file = 'interface.lua',           plugin = 'folke/which-key.nvim', label = 'which-key in interface module' },
+}
+
+for _, check in ipairs(MODULE_LOCATION_CHECKS) do
+  it(check.label, function()
+    local f = io.open(config_root .. '/lua/modules/' .. check.file, 'r')
+    assert(f, 'could not open modules/' .. check.file)
+    local text = f:read '*a'
+    f:close()
+    assert(text:find(check.plugin, 1, true),
+      check.plugin .. ' not found in modules/' .. check.file)
+  end)
+end
+
+-- ── Specific require-before-use assertions ───────────────────────────────
 
 -- Verify MiniPick is always required explicitly before use (no implicit global)
 it('text_editing buffer_lines requires mini.pick explicitly', function()
@@ -180,7 +202,6 @@ it('text_editing buffer_lines requires mini.pick explicitly', function()
   assert(f, 'could not open text_editing/init.lua')
   local text = f:read '*a'
   f:close()
-  -- The buffer_lines function should have a local MiniPick = require 'mini.pick' before MiniPick.*
   local fn_body = text:match "vim%.ui%.picker%.buffer_lines%s*=%s*function(.-)end"
   assert(fn_body, 'could not find buffer_lines function body')
   assert(

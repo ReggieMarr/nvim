@@ -182,6 +182,38 @@ return env.module.register {
         words = { enabled = true },
         bigfile = { enabled = true, size = 1.5 * 1024 * 1024 },
         scratch = { enabled = true },
+        image = {
+          enabled = true,
+          doc = {
+            -- Render images inline in the buffer (org links, markdown images).
+            -- Ghostty supports the kitty graphics protocol natively.
+            enabled = true,
+            inline = true,
+            float = true,
+            max_width = 80,
+            max_height = 40,
+            conceal = function(lang, type)
+              -- Conceal math expressions but keep image link text visible
+              return type == 'math'
+            end,
+          },
+          -- Resolve relative image paths for org-mode files
+          resolve = function(file, src)
+            -- Strip org-mode file: prefix
+            if src:match '^file:' then
+              src = src:gsub('^file:', '')
+            end
+            -- Expand ~ to home directory
+            if src:match '^~' then
+              src = src:gsub('^~', vim.env.HOME or os.getenv 'HOME' or '~')
+            end
+            -- If absolute, return as-is
+            if src:match '^/' then return src end
+            -- Otherwise resolve relative to the file's directory
+            local dir = vim.fn.fnamemodify(file, ':h')
+            return dir .. '/' .. src
+          end,
+        },
         dashboard = { enabled = false },
         -- Explicitly disable snacks modules owned by other modules
         terminal = { enabled = false }, -- execution module

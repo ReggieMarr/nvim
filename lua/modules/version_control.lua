@@ -47,7 +47,7 @@ return env.module.register {
   name = 'version_control',
   domain = 'version_control',
   depends_on = { 'interface' },
-  optional_deps = { 'filesystem', 'language' },
+  optional_deps = { 'filesystem', 'text_editing' },
 
   -- ── Plugin option contributions ──────────────────────────────────────
 
