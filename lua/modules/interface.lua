@@ -250,6 +250,8 @@ return env.module.register {
           { '<leader><Tab>', group = 'tabs' },
           -- Quit (aligns with Doom SPC q)
           { '<leader>q', group = 'quit' },
+          -- AI agents
+          { '<leader>a', group = 'agents' },
         },
       },
     },

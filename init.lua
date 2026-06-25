@@ -32,6 +32,7 @@ local module_files = {
   'modules.version_control',
   'modules.workspace',
   'modules.orgmode',
+  'modules.agents',
   -- 'modules.external_operations'
 }
 
