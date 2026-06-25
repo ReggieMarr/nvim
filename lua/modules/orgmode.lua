@@ -240,7 +240,7 @@ return env.module.register {
 
         -- Spell checking on by default in org files
         vim.wo.spell = true
-        vim.wo.spelllang = 'en'
+        vim.bo.spelllang = 'en'
 
         -- Conceal for clean rendering
         vim.wo.conceallevel = 2
