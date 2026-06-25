@@ -240,8 +240,10 @@ Leader: `SPC` · Local leader: `;` (org-mode buffer keymaps)
 | Key | Action |
 |-----|--------|
 | `SPC d p` | Start preview server (auto-detects backend) |
-| `SPC d P` | Stop preview server |
-| `SPC d o` | Open browser to preview (starts server if needed) |
+| `SPC d P` | Stop preview server / detach external |
+| `SPC d o` | Open browser to preview |
+| `SPC d s` | Sync browser to current file + heading |
+| `SPC d S` | Toggle auto-sync (BufEnter + CursorHold) |
 | `SPC d c` | Add review comment block below cursor |
 | `SPC d c` | Comment on selection (visual mode) |
 | `SPC d i` | Add inline review comment at end of line |
@@ -526,11 +528,17 @@ Auto-detected in priority order:
 | Backend | Detected By | Use Case |
 |---------|-------------|----------|
 | **Quartz** (pages-preview.sh) | `tools/pages-preview.sh` | x7-forge org→md pipeline |
+| **x7-tools pages preview** | `tools/x7-forge/implementation/x7-tools/run.sh` | x7-forge submodule (system repos) |
+| **x7-forge tools** | `tools/x7-forge/tools/run.sh` | x7-forge nested layout |
 | **grip** | `grip` in PATH | GitHub-flavored markdown |
 | **python3 http.server** | `docs/` directory | Static HTML fallback |
 
 The preview server runs as an overseer task — visible in `SPC t l`,
 stoppable with `SPC d P`, output captured in the task list.
+
+**External server:** If you start the preview externally, attach with
+`:ReviewAttach <port>` (e.g. `:ReviewAttach 8080`). Neovim will sync
+the browser without owning the server lifecycle. `:ReviewDetach` disconnects.
 
 ### Review Comments
 
@@ -558,12 +566,34 @@ The system shall...  # REVIEW(Reg Marr 2026-06-25 14:30): verify against SRS
 Comments are highlighted with a warm background. Navigate with `]r`/`[r`,
 grep across the project with `SPC d g`, resolve (delete) with `SPC d r`.
 
+### Browser Sync
+
+`SPC d s` navigates the browser to the page matching your current file,
+scrolled to the nearest heading. The file→URL mapping works automatically
+for Quartz projects (strips `documentation/`, `content/`, `docs/` prefixes,
+uses filename as page slug).
+
+For custom mappings, set in your `.nvim.lua`:
+```lua
+vim.g.review_path_map = function(file)
+  -- custom file → URL path logic
+  return '/my-custom-path'
+end
+```
+
+`SPC d S` enables auto-sync: the browser follows your buffer switches
+(on `BufEnter`) and scrolls to headings (on `CursorHold`).
+
 ### Commands
 
 | Command | Description |
 |---------|-------------|
 | `:ReviewPreview` | Start the preview server |
 | `:ReviewPreview!` | Stop the preview server |
+| `:ReviewAttach <port>` | Attach to external server on `<port>` |
+| `:ReviewDetach` | Detach (stop sync, keep server running) |
+| `:ReviewSync` | Sync browser to current file + heading |
+| `:ReviewPort [port]` | Get or set the preview port (default: 8080) |
 | `:ReviewComment [text]` | Insert a review comment |
 
 ---
