@@ -238,8 +238,8 @@ return env.module.register {
           { '<leader>i', group = 'inspect' },
           -- UI toggles (aligns with Doom SPC t)
           { '<leader>u', group = 'ui' },
-          -- Files (oil)
-          { '<leader>x', group = 'files' },
+          -- Files / dired (oil, mini.files)
+          { '<leader>x', group = 'files/dired' },
           -- Windows (aligns with Doom SPC w)
           { '<leader>w', group = 'windows' },
           -- Open / Org-mode (aligns with Doom SPC o)

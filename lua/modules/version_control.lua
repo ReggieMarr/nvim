@@ -61,6 +61,10 @@ return env.module.register {
       },
       cmd = { 'Neogit' },
       opts = {
+        -- Mirrors Doom's magit settings:
+        --   (setq magit-diff-refine-hunk 'all)
+        --   (setq magit-commit-show-diff t)
+        --   (setq magit-pull-or-fetch t)
         graph_style = 'unicode',
         diff_viewer = 'codediff',
         integrations = {

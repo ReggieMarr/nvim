@@ -347,5 +347,31 @@ return env.module.register {
     --
     --   vim.keymap.set('n', '<leader>fY', copy_absolute_path, { desc = 'filesystem.copy_absolute_path', silent = true })
     -- end
+
+    ----------------------------------------------------------------
+    -- Dired-style keymaps (SPC x — mirrors Doom's SPC x d / SPC x D)
+    ----------------------------------------------------------------
+
+    -- SPC x d — open oil at current file's directory (Doom: dired here)
+    vim.keymap.set('n', '<leader>xd', function()
+      require('oil').open()
+    end, { desc = 'files.dired_here', silent = true })
+
+    -- SPC x D — open oil at project root (Doom: dired project)
+    vim.keymap.set('n', '<leader>xD', function()
+      local root = env.state.get 'workspace.root' or vim.fn.getcwd()
+      require('oil').open(root)
+    end, { desc = 'files.dired_root', silent = true })
+
+    -- SPC x f — open mini.files explorer at current file
+    vim.keymap.set('n', '<leader>xf', function()
+      local MiniFiles = require 'mini.files'
+      if not MiniFiles.close() then
+        MiniFiles.open(vim.api.nvim_buf_get_name(0))
+      end
+    end, { desc = 'files.explorer', silent = true })
+
+    -- - (normal mode) — oil opens at current file's parent (oil default)
+    -- This is handled by oil's default_file_explorer = true
   end,
 }
