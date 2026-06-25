@@ -183,11 +183,12 @@ return env.module.register {
         bigfile = { enabled = true, size = 1.5 * 1024 * 1024 },
         scratch = { enabled = true },
         image = {
+          -- Image viewer is enabled (can open image files, hover to preview)
+          -- but doc-level inline rendering is OFF by default to avoid
+          -- scroll performance impact.  Toggle with SPC u I.
           enabled = true,
           doc = {
-            -- Render images inline in the buffer (org links, markdown images).
-            -- Ghostty supports the kitty graphics protocol natively.
-            enabled = true,
+            enabled = false,
             inline = true,
             float = true,
             max_width = 80,
@@ -733,6 +734,30 @@ return env.module.register {
     vim.keymap.set('n', '<leader>uw', function() snacks.words.toggle() end, { desc = 'interface.toggle_word_highlights', silent = true })
 
     vim.keymap.set('n', '<leader>ui', function() snacks.indent.toggle() end, { desc = 'interface.toggle_indent_guides', silent = true })
+
+    vim.keymap.set('n', '<leader>ud', function()
+      vim.diagnostic.enable(not vim.diagnostic.is_enabled())
+    end, { desc = 'interface.toggle_diagnostics_inline', silent = true })
+
+    vim.keymap.set('n', '<leader>uI', function()
+      -- Toggle doc-level inline image rendering on/off
+      local cfg = Snacks.config.image or {}
+      cfg.doc = cfg.doc or {}
+      cfg.doc.enabled = not cfg.doc.enabled
+      local buf = vim.api.nvim_get_current_buf()
+      if cfg.doc.enabled then
+        -- Attach to current buffer to start rendering
+        Snacks.image.doc.attach(buf)
+        vim.notify('Inline images: ON', vim.log.levels.INFO)
+      else
+        -- Clear all image placements and detach
+        vim.b[buf].snacks_image_attached = nil
+        Snacks.image.placement.clean(buf)
+        -- Clean up the doc autocmd group if it exists
+        pcall(vim.api.nvim_del_augroup_by_name, 'snacks.image.doc.' .. buf)
+        vim.notify('Inline images: OFF', vim.log.levels.INFO)
+      end
+    end, { desc = 'interface.toggle_inline_images', silent = true })
 
     vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<cr>', {
       silent = true,
