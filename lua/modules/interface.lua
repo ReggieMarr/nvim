@@ -135,18 +135,33 @@ return env.module.register {
         },
         picker = {
           ui_select = true,
-          -- Centered float matching Doom's vertico+childframe UX.
-          -- "vertical" is a single centered column: input -> list -> preview.
-          -- Cycle allows toggling between layout variants with <C-w>H/J/K/L.
-          layout = { preset = 'vertical', cycle = true },
+          -- No preview by default — keep the picker minimal and
+          -- non-distracting.  Preview can be toggled with <C-p>
+          -- in any picker, and specific pickers that benefit from
+          -- preview (grep, references, diagnostics) opt-in below.
+          layout = { preset = 'select', cycle = true },
+          preview = false,
           formatters = { file = { filename_first = true } },
           matcher = { frecency = true },
           win = {
             input = {
               keys = {
                 ['<Esc>'] = { 'close', mode = { 'n', 'i' } },
+                -- Toggle preview on demand
+                ['<C-p>'] = { 'toggle_preview', mode = { 'n', 'i' } },
               },
             },
+          },
+          -- Per-source preview opt-ins: pickers where context is
+          -- genuinely useful get preview enabled by default.
+          sources = {
+            grep         = { preview = true, layout = { preset = 'vertical', cycle = true } },
+            grep_word    = { preview = true, layout = { preset = 'vertical', cycle = true } },
+            lsp_references      = { preview = true, layout = { preset = 'vertical', cycle = true } },
+            lsp_definitions     = { preview = true, layout = { preset = 'vertical', cycle = true } },
+            lsp_implementations = { preview = true, layout = { preset = 'vertical', cycle = true } },
+            lsp_type_definitions = { preview = true, layout = { preset = 'vertical', cycle = true } },
+            diagnostics  = { preview = true, layout = { preset = 'vertical', cycle = true } },
           },
         },
         notifier = {
