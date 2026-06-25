@@ -38,6 +38,7 @@ local EXPECTED_MODULES = {
   'modules.orgmode',
   'modules.agents',
   'modules.terminal',
+  'modules.review',
 }
 
 -- ── Each module file can be required without error ───────────────────────

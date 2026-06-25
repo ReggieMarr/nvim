@@ -34,6 +34,7 @@ local module_files = {
   'modules.orgmode',
   'modules.agents',
   'modules.terminal',
+  'modules.review',
   -- 'modules.external_operations'
 }
 

@@ -83,6 +83,7 @@ lazy.nvim call, then runs each module's `setup()` in dependency order.
 | `orgmode` | orgmode | Org-mode: agenda, capture, TODO workflow |
 | `agents` | agents | AI coding agents (pi, claude code) |
 | `terminal` | terminal | Terminal UX, overseer task runner |
+| `review` | review | Document review: live preview + inline comments |
 
 ---
 
@@ -233,6 +234,21 @@ Leader: `SPC` · Local leader: `;` (org-mode buffer keymaps)
 | `SPC a a` | Toggle last-used agent |
 | `SPC a s` | Send selection to agent (visual) |
 | `` C-` `` | Global agent/terminal toggle |
+
+#### `SPC d` — Document Review
+
+| Key | Action |
+|-----|--------|
+| `SPC d p` | Start preview server (auto-detects backend) |
+| `SPC d P` | Stop preview server |
+| `SPC d o` | Open browser to preview (starts server if needed) |
+| `SPC d c` | Add review comment block below cursor |
+| `SPC d c` | Comment on selection (visual mode) |
+| `SPC d i` | Add inline review comment at end of line |
+| `SPC d r` | Resolve (delete) review comment at cursor |
+| `SPC d l` | List all review comments in buffer (loclist) |
+| `SPC d g` | Grep all review comments across project |
+| `]r` / `[r` | Next / previous review comment |
 
 #### `SPC x` — Files / Dired
 
@@ -495,6 +511,60 @@ The lualine statusline shows overseer task status (running/success/failure).
 
 Watch mode (`SPC t s`) restarts the most recent task on file save —
 replaces manual re-running and tools like `entr`/`watchexec`.
+
+---
+
+## Document Review
+
+The review module provides a split-desktop workflow for document review:
+editor on one side, live-reloading preview in a browser on the other.
+
+### Preview Backends
+
+Auto-detected in priority order:
+
+| Backend | Detected By | Use Case |
+|---------|-------------|----------|
+| **Quartz** (pages-preview.sh) | `tools/pages-preview.sh` | x7-forge org→md pipeline |
+| **grip** | `grip` in PATH | GitHub-flavored markdown |
+| **python3 http.server** | `docs/` directory | Static HTML fallback |
+
+The preview server runs as an overseer task — visible in `SPC t l`,
+stoppable with `SPC d P`, output captured in the task list.
+
+### Review Comments
+
+File-type-aware comment format:
+
+**Org-mode:**
+```org
+#+begin_review Reg Marr 2026-06-25 14:30
+This section needs a reference to the SDP.
+#+end_review
+```
+
+**Markdown:**
+```markdown
+<!-- REVIEW Reg Marr 2026-06-25 14:30
+This section needs a reference to the SDP.
+-->
+```
+
+**Inline comments** (appended to end of line):
+```org
+The system shall...  # REVIEW(Reg Marr 2026-06-25 14:30): verify against SRS
+```
+
+Comments are highlighted with a warm background. Navigate with `]r`/`[r`,
+grep across the project with `SPC d g`, resolve (delete) with `SPC d r`.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `:ReviewPreview` | Start the preview server |
+| `:ReviewPreview!` | Stop the preview server |
+| `:ReviewComment [text]` | Insert a review comment |
 
 ---
 

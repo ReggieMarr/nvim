@@ -285,6 +285,8 @@ return env.module.register {
           { '<leader>q', group = 'quit' },
           -- AI agents
           { '<leader>a', group = 'agents' },
+          -- Document review
+          { '<leader>d', group = 'review' },
         },
       },
     },
