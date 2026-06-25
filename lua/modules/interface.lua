@@ -242,8 +242,8 @@ return env.module.register {
           { '<leader>x', group = 'files' },
           -- Windows (aligns with Doom SPC w)
           { '<leader>w', group = 'windows' },
-          -- Org-mode (aligns with Doom SPC o)
-          { '<leader>o', group = 'org' },
+          -- Open / Org-mode (aligns with Doom SPC o)
+          { '<leader>o', group = 'open/org' },
           -- Narrowing (aligns with Doom SPC n)
           { '<leader>n', group = 'narrow' },
           -- Tabs / workspaces (aligns with Doom SPC TAB)
@@ -474,6 +474,11 @@ return env.module.register {
               },
             },
             lualine_x = {
+              { 'overseer',
+                label   = '',
+                colored = true,
+                unique  = true,
+              },
               { 'diagnostics',
                 sources  = { 'nvim_lsp', 'nvim_diagnostic' },
                 symbols  = { error = ' ', warn = ' ', info = ' ', hint = '󰌶 ' },
@@ -680,10 +685,11 @@ return env.module.register {
     -- Toggles
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>tn', '<cmd>set number!<cr>', { silent = true, desc = 'base.toggle_number' })
-    vim.keymap.set('n', '<leader>tr', '<cmd>set relativenumber!<cr>', { silent = true, desc = 'base.toggle_relnumber' })
-    vim.keymap.set('n', '<leader>ts', '<cmd>setlocal spell!<cr>', { silent = true, desc = 'base.toggle_spell' })
-    vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<cr>', { silent = true, desc = 'base.toggle_wrap' })
+    -- Toggles moved to SPC u (SPC t is now tasks/overseer)
+    vim.keymap.set('n', '<leader>un', '<cmd>set number!<cr>', { silent = true, desc = 'ui.toggle_number' })
+    vim.keymap.set('n', '<leader>ur', '<cmd>set relativenumber!<cr>', { silent = true, desc = 'ui.toggle_relnumber' })
+    vim.keymap.set('n', '<leader>us', '<cmd>setlocal spell!<cr>', { silent = true, desc = 'ui.toggle_spell' })
+    vim.keymap.set('n', '<leader>ux', '<cmd>set wrap!<cr>', { silent = true, desc = 'ui.toggle_wrap' })
 
     local function toggle_line_numbers()
       vim.opt.number = not vim.opt.number:get()

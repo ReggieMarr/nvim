@@ -363,11 +363,7 @@ return env.module.register {
       desc = 'version_control.status',
     })
 
-    vim.keymap.set('n', '<leader>gG', '', {
-      silent = true,
-      callback = function() require('neogit').open() end,
-      desc = 'version_control.status',
-    })
+    -- SPC g G is lazygit (terminal module)
 
     vim.keymap.set('n', '<leader>gc', '', {
       silent = true,

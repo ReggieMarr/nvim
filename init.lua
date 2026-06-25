@@ -33,6 +33,7 @@ local module_files = {
   'modules.workspace',
   'modules.orgmode',
   'modules.agents',
+  'modules.terminal',
   -- 'modules.external_operations'
 }
 
