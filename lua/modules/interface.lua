@@ -227,6 +227,14 @@ return env.module.register {
           { '<leader>x', group = 'files' },
           -- Windows (aligns with Doom SPC w)
           { '<leader>w', group = 'windows' },
+          -- Org-mode (aligns with Doom SPC o)
+          { '<leader>o', group = 'org' },
+          -- Narrowing (aligns with Doom SPC n)
+          { '<leader>n', group = 'narrow' },
+          -- Tabs / workspaces (aligns with Doom SPC TAB)
+          { '<leader><Tab>', group = 'tabs' },
+          -- Quit (aligns with Doom SPC q)
+          { '<leader>q', group = 'quit' },
         },
       },
     },
@@ -675,5 +683,86 @@ return env.module.register {
       silent = true,
       desc = 'base.clear_search_highlight',
     })
+
+    ----------------------------------------------------------------
+    -- Narrowing (Doom: SPC n — narrow-to-region / widen)
+    -- Neovim doesn't have built-in narrowing, so we use fold-based
+    -- narrowing: fold everything except the selected region/function.
+    ----------------------------------------------------------------
+
+    --- Narrow to visual selection: fold everything outside the selection.
+    local function narrow_to_region()
+      local start_line = vim.fn.line "'<"
+      local end_line   = vim.fn.line "'>"
+      -- Save current fold settings
+      vim.b.narrow_saved_foldmethod = vim.wo.foldmethod
+      vim.b.narrow_saved_foldenable = vim.wo.foldenable
+      vim.b.narrow_saved_foldlevel  = vim.wo.foldlevel
+      -- Switch to manual folding
+      vim.wo.foldmethod = 'manual'
+      vim.wo.foldenable = true
+      -- Remove existing folds
+      vim.cmd 'normal! zE'
+      -- Fold before selection
+      if start_line > 1 then
+        vim.cmd(string.format('1,%dfold', start_line - 1))
+      end
+      -- Fold after selection
+      local total = vim.api.nvim_buf_line_count(0)
+      if end_line < total then
+        vim.cmd(string.format('%d,%dfold', end_line + 1, total))
+      end
+      vim.b.is_narrowed = true
+    end
+
+    --- Widen: remove all folds and restore fold settings.
+    local function widen()
+      vim.cmd 'normal! zE'
+      if vim.b.narrow_saved_foldmethod then
+        vim.wo.foldmethod = vim.b.narrow_saved_foldmethod
+        vim.wo.foldenable = vim.b.narrow_saved_foldenable
+        vim.wo.foldlevel  = vim.b.narrow_saved_foldlevel
+      end
+      vim.b.is_narrowed = false
+    end
+
+    --- Narrow to function: use treesitter to find the enclosing function.
+    local function narrow_to_defun()
+      local node = vim.treesitter.get_node()
+      if not node then
+        vim.notify('No treesitter node at cursor', vim.log.levels.WARN)
+        return
+      end
+      -- Walk up to find function node
+      while node do
+        local t = node:type()
+        if t:match 'function' or t:match 'method' then break end
+        node = node:parent()
+      end
+      if not node then
+        vim.notify('No enclosing function found', vim.log.levels.WARN)
+        return
+      end
+      local sr, _, er, _ = node:range()
+      -- Use the same fold-based narrowing
+      vim.b.narrow_saved_foldmethod = vim.wo.foldmethod
+      vim.b.narrow_saved_foldenable = vim.wo.foldenable
+      vim.b.narrow_saved_foldlevel  = vim.wo.foldlevel
+      vim.wo.foldmethod = 'manual'
+      vim.wo.foldenable = true
+      vim.cmd 'normal! zE'
+      if sr > 0 then
+        vim.cmd(string.format('1,%dfold', sr))
+      end
+      local total = vim.api.nvim_buf_line_count(0)
+      if (er + 1) < total then
+        vim.cmd(string.format('%d,%dfold', er + 2, total))
+      end
+      vim.b.is_narrowed = true
+    end
+
+    vim.keymap.set('v', '<leader>nr', narrow_to_region, { desc = 'narrow.region', silent = true })
+    vim.keymap.set('n', '<leader>nd', narrow_to_defun,  { desc = 'narrow.defun', silent = true })
+    vim.keymap.set('n', '<leader>nw', widen,            { desc = 'narrow.widen', silent = true })
   end,
 }

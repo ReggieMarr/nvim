@@ -331,16 +331,7 @@ return env.module.register {
     vim.keymap.set('n', '<leader>sd', function() vim.ui.picker.grep { cwd = vim.fn.getcwd() } end, { desc = 'filesystem.search_cwd', silent = true })
 
     ----------------------------------------------------------------
-    -- Emacs-style navigation
-    ----------------------------------------------------------------
-
-    vim.keymap.set('n', '<C-a>', '^', {
-      silent = true,
-      desc = 'text_editing.emacs_beginning_of_line',
-    })
-
-    ----------------------------------------------------------------
-    -- Emacs-style save
+    -- Save (leader key variant alongside C-s in base_config)
     ----------------------------------------------------------------
 
     vim.keymap.set('n', '<leader>fs', '<cmd>write<cr>', {

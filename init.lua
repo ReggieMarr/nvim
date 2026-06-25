@@ -31,6 +31,7 @@ local module_files = {
   'modules.text_editing',
   'modules.version_control',
   'modules.workspace',
+  'modules.orgmode',
   -- 'modules.external_operations'
 }
 

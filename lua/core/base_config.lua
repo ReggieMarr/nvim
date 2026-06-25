@@ -181,6 +181,63 @@ vim.filetype.add {
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ';'
+
+-- ─── Emacs-style keybindings ─────────────────────────────────────────────────
+-- These provide the muscle-memory compatibility layer for Emacs/Doom users.
+-- They work across normal, insert, visual, and command-line modes where
+-- appropriate, mirroring Emacs behaviour without breaking vim idioms.
+
+-- C-g — universal escape (Emacs muscle memory)
+vim.keymap.set({ 'i', 'n', 'v', 'c' }, '<C-g>', '<Esc>', { silent = true, desc = 'emacs.escape' })
+
+-- C-s — save (Doom/Emacs standard)
+vim.keymap.set({ 'n', 'i' }, '<C-s>', '<cmd>write<cr>', { silent = true, desc = 'emacs.save' })
+
+-- ── Cursor movement (insert mode) ───────────────────────────────────────────
+-- Emacs C-f/C-b/C-n/C-p in insert mode for single-char/line movement
+vim.keymap.set('i', '<C-f>', '<Right>', { silent = true, desc = 'emacs.forward_char' })
+vim.keymap.set('i', '<C-b>', '<Left>',  { silent = true, desc = 'emacs.backward_char' })
+vim.keymap.set('i', '<C-n>', '<Down>',  { silent = true, desc = 'emacs.next_line' })
+vim.keymap.set('i', '<C-p>', '<Up>',    { silent = true, desc = 'emacs.previous_line' })
+
+-- C-a / C-e — beginning/end of line (all modes)
+vim.keymap.set('n', '<C-a>', '^', { silent = true, desc = 'emacs.beginning_of_line' })
+vim.keymap.set('n', '<C-e>', '$', { silent = true, desc = 'emacs.end_of_line' })
+vim.keymap.set('i', '<C-a>', '<Home>',  { silent = true, desc = 'emacs.beginning_of_line' })
+vim.keymap.set('i', '<C-e>', '<End>',   { silent = true, desc = 'emacs.end_of_line' })
+vim.keymap.set('c', '<C-a>', '<Home>',  { desc = 'emacs.beginning_of_line' })
+vim.keymap.set('c', '<C-e>', '<End>',   { desc = 'emacs.end_of_line' })
+
+-- ── Word-level movement (Alt/Meta key — Emacs standard) ─────────────────────
+vim.keymap.set('n', '<M-f>', 'w',  { silent = true, desc = 'emacs.forward_word' })
+vim.keymap.set('n', '<M-b>', 'b',  { silent = true, desc = 'emacs.backward_word' })
+vim.keymap.set('i', '<M-f>', '<C-Right>', { silent = true, desc = 'emacs.forward_word' })
+vim.keymap.set('i', '<M-b>', '<C-Left>',  { silent = true, desc = 'emacs.backward_word' })
+vim.keymap.set('c', '<M-f>', '<C-Right>', { desc = 'emacs.forward_word' })
+vim.keymap.set('c', '<M-b>', '<C-Left>',  { desc = 'emacs.backward_word' })
+
+-- ── Editing (insert mode) ───────────────────────────────────────────────────
+-- C-d — delete forward char (Emacs)
+vim.keymap.set('i', '<C-d>', '<Del>', { silent = true, desc = 'emacs.delete_forward_char' })
+
+-- C-k — kill to end of line (Emacs)
+vim.keymap.set('i', '<C-k>', '<C-o>D', { silent = true, desc = 'emacs.kill_line' })
+vim.keymap.set('n', '<C-k>', 'D',      { silent = true, desc = 'emacs.kill_line' })
+
+-- M-d — delete word forward (Emacs)
+vim.keymap.set('i', '<M-d>', '<C-o>dw', { silent = true, desc = 'emacs.kill_word' })
+
+-- C-y — yank/paste (Emacs; in insert mode)
+vim.keymap.set('i', '<C-y>', '<C-r>+', { silent = true, desc = 'emacs.yank' })
+
+-- M-w — copy selection (Emacs kill-ring-save equivalent)
+vim.keymap.set('v', '<M-w>', 'y', { silent = true, desc = 'emacs.copy_region' })
+
+-- C-w — kill region (Emacs); visual mode only to avoid conflicting with C-w window prefix
+vim.keymap.set('v', '<C-w>', 'd', { silent = true, desc = 'emacs.kill_region' })
+
+-- C-/ — undo (Emacs)
+vim.keymap.set('n', '<C-/>', 'u', { silent = true, desc = 'emacs.undo' })
 -- NOTE: after loading plugin
 -- local pick = require 'mini.pick'
 -- local pick_mb = require 'minibuffer.integrations.mini-pick'
@@ -276,3 +333,67 @@ vim.keymap.set('n', '<leader>cs', function() vim.cmd 'ConfigStatus' end, { desc 
 vim.keymap.set('n', '<leader>cS', function() vim.cmd 'ConfigStatus state' end, { desc = 'interface.config_status_state', silent = true })
 
 vim.keymap.set('n', '<leader>cl', function() require('lazy').home() end, { desc = 'interface.lazy', silent = true })
+
+-- ─── Doom-style top-level shortcuts ──────────────────────────────────────────
+-- These are the most-used Doom keybindings that live outside any module's scope.
+-- They provide quick access without navigating through which-key menus.
+
+-- SPC . — find file from cwd (Doom: find-file)
+vim.keymap.set('n', '<leader>.', '', {
+  silent = true,
+  desc = 'base.find_file',
+  callback = function() vim.ui.picker.files { cwd = vim.fn.getcwd() } end,
+})
+
+-- SPC , — switch buffer (Doom: switch-buffer)
+vim.keymap.set('n', '<leader>,', '', {
+  silent = true,
+  desc = 'base.switch_buffer',
+  callback = function() vim.ui.picker.buffers() end,
+})
+
+-- SPC / — search project (Doom: +default/search-project)
+vim.keymap.set('n', '<leader>/', '', {
+  silent = true,
+  desc = 'base.search_project',
+  callback = function()
+    local root = vim.fn.systemlist('git rev-parse --show-toplevel')[1]
+    if vim.v.shell_error ~= 0 or not root then root = vim.fn.getcwd() end
+    vim.ui.picker.grep { cwd = root }
+  end,
+})
+
+-- SPC : — command palette (Doom: M-x)
+vim.keymap.set('n', '<leader>:', '', {
+  silent = true,
+  desc = 'base.command_palette',
+  callback = function() vim.ui.picker.commands() end,
+})
+
+-- SPC SPC — project find file (Doom: projectile-find-file)
+vim.keymap.set('n', '<leader><space>', '', {
+  silent = true,
+  desc = 'base.project_find_file',
+  callback = function()
+    local root = vim.fn.systemlist('git rev-parse --show-toplevel')[1]
+    if vim.v.shell_error ~= 0 or not root then root = vim.fn.getcwd() end
+    vim.ui.picker.files { cwd = root }
+  end,
+})
+
+-- M-x — command palette (Emacs standard, works in all modes)
+vim.keymap.set({ 'n', 'v' }, '<M-x>', '', {
+  silent = true,
+  desc = 'emacs.execute_command',
+  callback = function() vim.ui.picker.commands() end,
+})
+
+-- ─── Tab/workspace management (SPC TAB — Doom standard) ─────────────────────
+vim.keymap.set('n', '<leader><Tab><Tab>', '<cmd>tabnew<cr>',   { silent = true, desc = 'tab.new' })
+vim.keymap.set('n', '<leader><Tab>d',     '<cmd>tabclose<cr>', { silent = true, desc = 'tab.close' })
+vim.keymap.set('n', '<leader><Tab>n',     '<cmd>tabnext<cr>',  { silent = true, desc = 'tab.next' })
+vim.keymap.set('n', '<leader><Tab>p',     '<cmd>tabprev<cr>',  { silent = true, desc = 'tab.prev' })
+vim.keymap.set('n', '<leader><Tab>l',     '<cmd>tablast<cr>',  { silent = true, desc = 'tab.last' })
+vim.keymap.set('n', '<leader><Tab>f',     '<cmd>tabfirst<cr>', { silent = true, desc = 'tab.first' })
+vim.keymap.set('n', '<leader><Tab>]',     '<cmd>tabnext<cr>',  { silent = true, desc = 'tab.next' })
+vim.keymap.set('n', '<leader><Tab>[',     '<cmd>tabprev<cr>',  { silent = true, desc = 'tab.prev' })
