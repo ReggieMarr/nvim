@@ -323,49 +323,9 @@ return env.module.register {
     )
 
     ----------------------------------------------------------------
-    -- Project-scoped navigation (Doom: SPC p f / SPC s p)
-    -- workspace module provides workspace.root via LSP or marker detection
-    ----------------------------------------------------------------
-
-    --- Resolve the project root: workspace.root > git root > cwd
-    local function project_root()
-      local root = env.state.get 'workspace.root'
-      if root then return root end
-      -- Fallback: git toplevel
-      local git_root = vim.fn.systemlist('git rev-parse --show-toplevel')[1]
-      if vim.v.shell_error == 0 and git_root and git_root ~= '' then return git_root end
-      return vim.fn.getcwd()
-    end
-
-    -- SPC p f — find file in project (Doom: projectile-find-file)
-    vim.keymap.set('n', '<leader>pf', function()
-      local root = project_root()
-      snacks.picker.files {
-        cwd   = root,
-        title = 'Project Files — ' .. vim.fn.fnamemodify(root, ':t'),
-      }
-    end, { desc = 'project.find_file', silent = true })
-
-    -- SPC p g — grep in project (Doom: +default/search-project)
-    vim.keymap.set('n', '<leader>pg', function()
-      local root = project_root()
-      snacks.picker.grep {
-        cwd   = root,
-        title = 'Project Grep — ' .. vim.fn.fnamemodify(root, ':t'),
-      }
-    end, { desc = 'project.grep', silent = true })
-
-    -- SPC s p — alias for project grep (Doom: +default/search-project)
-    vim.keymap.set('n', '<leader>sp', function()
-      local root = project_root()
-      snacks.picker.grep {
-        cwd   = root,
-        title = 'Search Project — ' .. vim.fn.fnamemodify(root, ':t'),
-      }
-    end, { desc = 'project.search_project', silent = true })
-
-    ----------------------------------------------------------------
     -- Copy path utilities
+    -- NOTE: Project-scoped keymaps (SPC p f/g, SPC s p) have moved
+    -- to modules/workspace.lua which owns the full SPC p prefix.
     ----------------------------------------------------------------
 
     -- if state['buffer.is_real'] then
