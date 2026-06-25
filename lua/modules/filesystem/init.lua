@@ -206,6 +206,39 @@ return env.module.register {
         })
       end,
     },
+    -- mini.pick: custom file browser in pickers.lua uses the low-level mutation
+    -- API (set_picker_query, set_picker_items, set_picker_match_inds, etc.)
+    -- that snacks.picker does not expose — keep this alongside snacks.
+    ['echasnovski/mini.pick'] = {
+      version = false,
+      lazy = false, -- used as vim.ui.select backend too
+      config = function()
+        require('mini.pick').setup {
+          mappings = {
+            toggle_info    = '<C-k>',
+            move_up        = '',
+            toggle_preview = '<C-p>',
+            scroll_up      = '<C-b>',
+            scroll_down    = '<C-f>',
+          },
+          -- Centered golden-ratio float — matches Doom's vertico+childframe
+          window = {
+            config = function()
+              local height = math.floor(0.618 * vim.o.lines)
+              local width  = math.floor(0.618 * vim.o.columns)
+              return {
+                anchor = 'NW',
+                height = height,
+                width  = width,
+                row = math.floor(0.5 * (vim.o.lines - height)),
+                col = math.floor(0.5 * (vim.o.columns - width)),
+              }
+            end,
+          },
+        }
+      end,
+    },
+
     ['nvim-mini/mini.files'] = {
       -- dependencies = { 'nvim-mini/mini.pick' },
       version = false,
@@ -289,43 +322,47 @@ return env.module.register {
       { desc = 'filesystem.find_files_at', callback = function() vim.ui.picker.files { cwd = vim.fn.getcwd() } end, silent = true }
     )
 
-    -- if state['workspace.root'] ~= nil then
-    --   vim.keymap.set(
-    --     'n',
-    --     '<leader>pf',
-    --     function()
-    --       env.use('picker').files {
-    --         title = 'Files — ' .. (env.state.get 'workspace.project_name' or ''),
-    --       }
-    --     end,
-    --     { desc = 'filesystem.find_project_files', silent = true }
-    --   )
-    -- end
+    ----------------------------------------------------------------
+    -- Project-scoped navigation (Doom: SPC p f / SPC s p)
+    -- workspace module provides workspace.root via LSP or marker detection
+    ----------------------------------------------------------------
 
-    -- overrides vim.ui.picker to leverage mini-picker and make things update live
-    -- vim.ui.picker.grep = function(o)
-    --   require('mini.pick').builtin.grep_live(
-    --     { globs = vim.fn.resolve(o.cwd or vim.fn.getcwd()) },
-    --     vim.tbl_extend('force', {
-    --       -- NOTE this is meant to make a centered window
-    --       -- TODO pull this from the same source and utils.file_browsing.mini_picker
-    --       window = {
-    --         config = function()
-    --           local height = math.floor(0.618 * vim.o.lines)
-    --           local width = math.floor(0.618 * vim.o.columns)
-    --           return {
-    --             anchor = 'NW',
-    --             height = height,
-    --             width = width,
-    --             row = math.floor(0.5 * (vim.o.lines - height)),
-    --             col = math.floor(0.5 * (vim.o.columns - width)),
-    --           }
-    --         end,
-    --       },
-    --     }, o or {})
-    --   )
-    -- end
-    -- vim.keymap.set('n', '<leader>sd', function() vim.ui.picker.grep { cwd = vim.fn.getcwd() } end, { desc = 'filesystem.search_cwd', silent = true })
+    --- Resolve the project root: workspace.root > git root > cwd
+    local function project_root()
+      local root = env.state.get 'workspace.root'
+      if root then return root end
+      -- Fallback: git toplevel
+      local git_root = vim.fn.systemlist('git rev-parse --show-toplevel')[1]
+      if vim.v.shell_error == 0 and git_root and git_root ~= '' then return git_root end
+      return vim.fn.getcwd()
+    end
+
+    -- SPC p f — find file in project (Doom: projectile-find-file)
+    vim.keymap.set('n', '<leader>pf', function()
+      local root = project_root()
+      snacks.picker.files {
+        cwd   = root,
+        title = 'Project Files — ' .. vim.fn.fnamemodify(root, ':t'),
+      }
+    end, { desc = 'project.find_file', silent = true })
+
+    -- SPC p g — grep in project (Doom: +default/search-project)
+    vim.keymap.set('n', '<leader>pg', function()
+      local root = project_root()
+      snacks.picker.grep {
+        cwd   = root,
+        title = 'Project Grep — ' .. vim.fn.fnamemodify(root, ':t'),
+      }
+    end, { desc = 'project.grep', silent = true })
+
+    -- SPC s p — alias for project grep (Doom: +default/search-project)
+    vim.keymap.set('n', '<leader>sp', function()
+      local root = project_root()
+      snacks.picker.grep {
+        cwd   = root,
+        title = 'Search Project — ' .. vim.fn.fnamemodify(root, ':t'),
+      }
+    end, { desc = 'project.search_project', silent = true })
 
     ----------------------------------------------------------------
     -- Copy path utilities

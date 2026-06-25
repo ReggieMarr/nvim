@@ -135,7 +135,10 @@ return env.module.register {
         },
         picker = {
           ui_select = true,
-          layout = { preset = 'default', cycle = true },
+          -- Centered float matching Doom's vertico+childframe UX.
+          -- "vertical" is a single centered column: input -> list -> preview.
+          -- Cycle allows toggling between layout variants with <C-w>H/J/K/L.
+          layout = { preset = 'vertical', cycle = true },
           formatters = { file = { filename_first = true } },
           matcher = { frecency = true },
           win = {
@@ -172,7 +175,6 @@ return env.module.register {
       },
     },
 
-    -- Helps with mini.pick
     ['nvim-mini/mini.icons'] = {
       version = false,
       lazy = false,
@@ -201,15 +203,30 @@ return env.module.register {
         -- Top-level group labels: the keymap grammar skeleton.
         -- Domain modules add entries within these groups.
         spec = {
+          -- Navigation & finding (aligns with Doom SPC f / SPC s)
           { '<leader>f', group = 'find' },
           { '<leader>b', group = 'buffers' },
+          -- Git (aligns with Doom SPC g)
           { '<leader>g', group = 'git' },
-          { '<leader>l', group = 'lsp' },
+          -- Language / LSP (aligns with Doom SPC l)
+          { '<leader>l',  group = 'lsp' },
+          { '<leader>lc', group = 'calls' },
+          -- Tasks / build (aligns with Doom transient compile)
           { '<leader>t', group = 'tasks' },
+          -- Project
           { '<leader>p', group = 'project' },
+          -- Search (aligns with Doom SPC s)
+          { '<leader>s', group = 'search' },
+          -- Config / introspection
           { '<leader>c', group = 'config' },
+          { '<leader>h', group = 'help/describe' },
+          { '<leader>i', group = 'inspect' },
+          -- UI toggles (aligns with Doom SPC t)
           { '<leader>u', group = 'ui' },
+          -- Files (oil)
           { '<leader>x', group = 'files' },
+          -- Windows (aligns with Doom SPC w)
+          { '<leader>w', group = 'windows' },
         },
       },
     },
@@ -342,61 +359,121 @@ return env.module.register {
     ['stevearc/conform.nvim'] = {
       event = { 'BufWritePre' },
       cmd = { 'ConformInfo' },
-      opts = {
-        formatters_by_ft = {
-          lua = { 'stylua' },
-          python = {
-            'ruff_format', -- fast, uv-aware
-            'ruff_organize_imports',
+      -- opts is a function so language specs are resolved lazily at setup time
+      opts = function()
+        local languages = require 'modules.text_editing.languages'
+        return {
+          -- Formatter list per filetype is driven entirely by language specs.
+          -- Merge in the universal trim_whitespace fallback last.
+          formatters_by_ft = vim.tbl_extend(
+            'keep',
+            languages.get_formatters_by_ft(),
+            { ['_'] = { 'trim_whitespace' } }
+          ),
+          format_on_save = {
+            timeout_ms = 500,
+            lsp_format  = 'fallback', -- use LSP formatting when no conform formatter matches
           },
-          -- Fallback for any filetype with an LSP that can format
-          ['_'] = { 'trim_whitespace' },
-        },
-        format_on_save = {
-          timeout_ms = 500,
-          lsp_format = 'fallback', -- use LSP if no conform formatter
-        },
-        formatters = {
-          stylua = {
-            -- stylua reads StyLua.toml from the project root
-            -- no extra config needed; uv projects have pyproject.toml
-            -- stylua has its own config discovery
-          },
-          ruff_format = {
-            -- ruff respects pyproject.toml [tool.ruff] automatically
-            condition = function(_, ctx)
-              -- only run ruff in python projects
-              return vim.fs.find({ 'pyproject.toml', 'ruff.toml', '.ruff.toml' }, { path = ctx.filename, upward = true })[1] ~= nil
-            end,
-          },
-        },
-      },
+          -- Per-formatter config (condition fns, arg overrides, etc.) from language specs.
+          formatters = languages.get_conform_formatter_configs(),
+        }
+      end,
     },
-    ['nvim-mini/mini.pick'] = {
-      version = false,
-      -- NOTE this will automatically override vim.ui.select
+    -- Statusline: mirrors doom-modeline layout
+    -- Left:  mode | branch | diff | filename
+    -- Right: diagnostics | LSP clients | filetype | encoding (non-UTF8 only) | position
+    ['nvim-lualine/lualine.nvim'] = {
       lazy = false,
-      opts = {
-        mappings = {
-          toggle_info = '<C-k>',
-          move_up = '',
-          toggle_preview = '<C-p>',
-        },
-        window = {
-          config = function()
-            local height = math.floor(0.618 * vim.o.lines)
-            local width = math.floor(0.618 * vim.o.columns)
-            return {
-              anchor = 'NW',
-              height = height,
-              width = width,
-              row = math.floor(0.5 * (vim.o.lines - height)),
-              col = math.floor(0.5 * (vim.o.columns - width)),
-            }
-          end,
-        },
-      },
+      dependencies = { 'nvim-tree/nvim-web-devicons' },
+      opts = function()
+        -- Show attached LSP server names (mirrors doom-modeline lsp segment)
+        local function lsp_clients()
+          local clients = vim.lsp.get_clients { bufnr = 0 }
+          if #clients == 0 then return '' end
+          local names = vim.tbl_map(function(c) return c.name end, clients)
+          return '󰒋 ' .. table.concat(names, ' ')
+        end
+
+        -- Show encoding only when non-UTF-8 (mirrors buffer-encoding-simple segment)
+        local function encoding()
+          local enc = (vim.bo.fenc ~= '' and vim.bo.fenc) or vim.o.enc
+          if enc == 'utf-8' then return '' end
+          -- Also show line-ending type if not Unix
+          local eol = vim.bo.fileformat
+          local eol_flag = eol == 'dos' and ' CRLF' or (eol == 'mac' and ' CR' or '')
+          return enc:upper() .. eol_flag
+        end
+
+        -- Show selection info when in visual mode
+        local function selection()
+          local mode = vim.fn.mode()
+          if mode ~= 'v' and mode ~= 'V' and mode ~= '\22' then return '' end
+          local start = vim.fn.getpos 'v'
+          local stop  = vim.fn.getpos '.'
+          local lines  = math.abs(stop[2] - start[2]) + 1
+          local chars  = math.abs(stop[3] - start[3]) + 1
+          return string.format('%dL %dC', lines, chars)
+        end
+
+        return {
+          options = {
+            theme                = 'tokyonight',
+            globalstatus         = true,
+            component_separators = { left = '', right = '' },
+            section_separators   = { left = '', right = '' },
+          },
+          sections = {
+            lualine_a = { 'mode' },
+            lualine_b = {
+              { 'branch',
+                icon = '',
+                on_click = function() vim.cmd 'Neogit' end,
+              },
+              { 'diff',
+                symbols = { added = ' ', modified = '󰝤 ', removed = ' ' },
+                source = function()
+                  -- Read from env.state if available (avoids spawning git on every render)
+                  local ok, env = pcall(require, 'env')
+                  if ok then
+                    local s = env.state.get 'vcs.status'
+                    if s then return { added = s.staged, modified = s.unstaged, removed = 0 } end
+                  end
+                  return nil  -- fall back to lualine's built-in git diff
+                end,
+              },
+            },
+            lualine_c = {
+              { 'filename',
+                path    = 1,  -- relative path
+                symbols = { modified = ' ●', readonly = ' ', unnamed = '[No Name]' },
+              },
+            },
+            lualine_x = {
+              { 'diagnostics',
+                sources  = { 'nvim_lsp', 'nvim_diagnostic' },
+                symbols  = { error = ' ', warn = ' ', info = ' ', hint = '󰌶 ' },
+                on_click = function() vim.diagnostic.setloclist() end,
+              },
+              lsp_clients,
+              selection,
+            },
+            lualine_y = {
+              'filetype',
+              encoding,
+            },
+            lualine_z = {
+              { 'location' },
+              { 'progress' },
+            },
+          },
+          inactive_sections = {
+            lualine_c = { { 'filename', path = 1 } },
+            lualine_x = { 'location' },
+          },
+        }
+      end,
     },
+
   },
 
   -- ── Setup ─────────────────────────────────────────────────────────────
@@ -407,20 +484,46 @@ return env.module.register {
     vim.fn.toggle_zoom = snacks.zen.zoom
 
     -- ── Apply colorscheme ───────────────────────────────────────────
-    require('tokyonight').setup(
-      -- opts already applied by lazy via plugins["folke/tokyonight.nvim"].opts
-      -- calling setup again here is a no-op but makes the apply explicit
-    )
+    require('tokyonight').setup()
     vim.cmd.colorscheme 'tokyonight-storm'
 
     -- ── State providers ─────────────────────────────────────────────
     env.state.register_provider {
-      id = 'interface.notification_count',
-      events = { 'User' },
+      id      = 'interface.notification_count',
+      events  = { 'User' },
       pattern = 'SnacksNotifierUpdated',
       collect = function() return #snacks.notifier.get_history() end,
-      desc = 'Number of notifications in snacks history',
+      desc    = 'Number of notifications in snacks history',
     }
+
+    -- ── Capability registrations ────────────────────────────────────
+    -- Core picker methods via snacks.picker.
+    -- Domain modules extend this table further (filesystem, lsp, version_control).
+    -- All vim.ui.picker.xxx call-sites work transparently via env.capabilities.
+    env.capabilities.extend('picker', {
+      files         = function(o) snacks.picker.files(o) end,
+      grep          = function(o) snacks.picker.grep(o) end,
+      grep_word     = function(o) snacks.picker.grep_word(o) end,
+      buffers       = function(o) snacks.picker.buffers(o) end,
+      help          = function(o) snacks.picker.help(o) end,
+      keymaps       = function(o) snacks.picker.keymaps(o) end,
+      commands      = function(o) snacks.picker.commands(o) end,
+      colorschemes  = function(o) snacks.picker.colorschemes(o) end,
+      diagnostics   = function(o) snacks.picker.diagnostics(o) end,
+      notifications = function(o) snacks.picker.notifications(o) end,
+      highlights    = function(o) snacks.picker.highlights(o) end,
+      autocmds      = function(o) snacks.picker.autocmds(o) end,
+      pickers       = function(o) snacks.picker.pickers(o) end,
+      scripts       = function(o) snacks.picker.scripts(o) end,
+      runtime_files = function(o) snacks.picker.runtime_files(o) end,
+      -- LSP pickers registered by text_editing module in lsp.lua
+      -- Git pickers registered by version_control module
+    }, 'interface')
+
+    -- ── Display registrations ────────────────────────────────────────
+    env.display.register { id = 'interface.statusline',    kind = 'statusline',    module = 'interface',    desc = 'lualine — mode, branch, diff, filename, LSP, position' }
+    env.display.register { id = 'interface.notifications', kind = 'notification',  module = 'interface',    desc = 'snacks.notifier — floating notification history' }
+    env.display.register { id = 'interface.indent_scope',  kind = 'virtual_text',  module = 'interface',    desc = 'snacks.scope — indent scope highlight' }
 
     -- NOTE: after loading plugin
     -- local picker_ui = require 'fff.picker_ui'

@@ -137,11 +137,21 @@ function M.collect_plugin_specs()
         merged[plugin_string][1] = plugin_string
       else
         -- Subsequent modules extend the existing entry.
-        -- opts is deep merged so both modules' options survive.
-        if plugin_spec.opts then merged[plugin_string].opts = vim.tbl_deep_extend('force', merged[plugin_string].opts or {}, plugin_spec.opts) end
-        -- Non-opts fields: extend the spec but don't overwrite
-        -- fields already set (first declaration takes precedence
-        -- for things like event, cmd, priority, lazy)
+        -- opts: deep merge only when both sides are tables.
+        -- If either is a function (opts = function() ... end) the first
+        -- declaration wins — functions cannot be merged.
+        if plugin_spec.opts then
+          local existing = merged[plugin_string].opts
+          if type(existing) == 'table' and type(plugin_spec.opts) == 'table' then
+            merged[plugin_string].opts = vim.tbl_deep_extend('force', existing, plugin_spec.opts)
+          elseif existing == nil then
+            -- No prior opts — accept whatever shape the newcomer provides
+            merged[plugin_string].opts = plugin_spec.opts
+          end
+          -- existing is a function or new is a function: first-writer keeps theirs
+        end
+        -- Non-opts fields: first declaration takes precedence
+        -- (event, cmd, priority, lazy, build, etc.)
         for k, v in pairs(plugin_spec) do
           if k ~= 'opts' and merged[plugin_string][k] == nil then merged[plugin_string][k] = v end
         end

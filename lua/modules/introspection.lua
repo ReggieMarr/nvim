@@ -16,70 +16,11 @@ return env.module.register {
   -- before being passed to lazy. No config functions here: setup() below
   -- handles all env surface registrations after plugins are loaded.
 
-  plugins = {
-    ['nvim-mini/mini.extra'] = {
-      version = false,
-      dependencies = { 'nvim-mini/mini.pick' },
-      event = 'VeryLazy',
-      config = function()
-        local extra = require 'mini.extra'
-
-        extra.setup()
-
-        -- ── LSP pickers ──────────────────────────────────────────────────────
-        -- TODO add hook to leverage this
-        -- vim.ui.picker.lsp_references = function(opts) make_lsp_split_picker 'references' end
-        vim.ui.picker.lsp_document_symbols = function(opts)
-          opts = opts or {}
-          extra.pickers.lsp { scope = 'document_symbol' }
-        end
-        --
-        -- vim.ui.picker.lsp_workspace_symbols = function(opts)
-        --   opts = opts or {}
-        --   local query = opts.query
-        --   if query ~= nil then
-        --     extra.pickers.lsp { scope = 'workspace_symbol_live', symbol_query = query }
-        --   else
-        --     vim.ui.input({ prompt = opts.prompt or 'Workspace Symbols: ' }, function(input)
-        --       if not input then return end
-        --       extra.pickers.lsp { scope = 'workspace_symbol', symbol_query = input }
-        --     end)
-        --   end
-        -- end
-        --
-        -- vim.ui.picker.lsp_implementations = function(opts)
-        --   opts = opts or {}
-        --   extra.pickers.lsp { scope = 'implementation' }
-        -- end
-        --
-        -- vim.ui.picker.lsp_type_definitions = function(opts)
-        --   opts = opts or {}
-        --   extra.pickers.lsp { scope = 'type_definition' }
-        -- end
-        --
-        -- vim.ui.picker.lsp_incoming_calls = function(opts)
-        --   opts = opts or {}
-        --   extra.pickers.lsp { scope = 'incoming_calls' }
-        -- end
-        --
-        -- vim.ui.picker.lsp_outgoing_calls = function(opts)
-        --   opts = opts or {}
-        --   extra.pickers.lsp { scope = 'outgoing_calls' }
-        -- end
-
-        -- ── Introspection pickers ───────────────────────────────────────────────
-        -- TODO this should be done in the Introspection module
-
-        local pick = require 'mini.pick'
-        vim.ui.picker.help = pick.builtin.help
-        vim.ui.picker.buffers = pick.builtin.buffers
-        vim.ui.picker.keymaps = extra.pickers.keymaps
-        vim.ui.picker.commands = extra.pickers.commands
-        vim.ui.picker.colorschemes = extra.pickers.colorschemes
-        vim.ui.picker.diagnostics = extra.pickers.diagnostic
-      end,
-    },
-  },
+  -- All pickers provided by snacks.picker via the capabilities system.
+  -- The interface module registers core pickers in its setup() via env.capabilities.extend.
+  -- The text_editing/lsp module extends with LSP pickers.
+  -- No plugin declarations needed here — introspection keymaps wired in setup() below.
+  plugins = {},
 
   -- ── Setup ─────────────────────────────────────────────────────────────
   -- Called by module_lib.run_setup() after lazy has loaded plugins.

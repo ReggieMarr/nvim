@@ -29,8 +29,8 @@ local module_files = {
   'modules.introspection',
   'modules.filesystem',
   'modules.text_editing',
-  -- 'modules.workspace',
-  -- 'modules.version_control',
+  'modules.version_control',
+  'modules.workspace',
   -- 'modules.external_operations'
 }
 
@@ -90,27 +90,38 @@ end
 module_lib.run_setup()
 
 -- Introspection commands
+-- Each sub-command maps to a real lib/* implementation:
+--   modules      — module dependency graph and load status
+--   state        — registered state providers and current values
+--   keys         — buffer-local actions registered via articulation
+--   display      — display contributions (statusline, signs, virtual text)
+--   capabilities — capability slots (picker methods, LSP snapshot)
 vim.api.nvim_create_user_command('ConfigStatus', function(opts)
   local handlers = {
-    modules = function() require('lib.module').status() end,
-    state = function() require('lib.state').status() end,
-    articulation = function() require('lib.articulation').status() end,
-    display = function() require('lib.display').status() end,
+    modules      = function() require('lib.module').status() end,
+    state        = function() require('lib.state').status() end,
+    keys         = function() require('lib.articulation').status() end,
+    display      = function() require('lib.display').status() end,
     capabilities = function() require('lib.capabilities').status() end,
   }
 
   local target = opts.args
   if target == '' then
-    for _, h in pairs(handlers) do
-      h()
+    -- Run all in a predictable order
+    for _, name in ipairs { 'modules', 'state', 'capabilities', 'display', 'keys' } do
+      handlers[name]()
     end
   elseif handlers[target] then
     handlers[target]()
   else
-    vim.notify('Unknown target: ' .. target, vim.log.levels.WARN)
+    vim.notify(
+      string.format("ConfigStatus: unknown target '%s'. Options: %s",
+        target, table.concat(vim.tbl_keys(handlers), ', ')),
+      vim.log.levels.WARN
+    )
   end
 end, {
   nargs = '?',
-  complete = function() return { 'modules', 'state', 'articulation', 'display', 'capabilities' } end,
+  complete = function() return { 'modules', 'state', 'keys', 'display', 'capabilities' } end,
   desc = 'Inspect environment state',
 })

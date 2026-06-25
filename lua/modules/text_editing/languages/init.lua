@@ -26,14 +26,16 @@
 local specs = {
   require 'modules.text_editing.languages.lua',
   require 'modules.text_editing.languages.python',
-  -- require 'languages.go',
-  -- require 'languages.rust',
+  require 'modules.text_editing.languages.c',
+  -- require 'modules.text_editing.languages.go',
+  -- require 'modules.text_editing.languages.rust',
 }
 
 local M = {}
 
 -- Parsers not tied to a specific language workflow:
 -- tooling, markup, config formats that every project uses.
+-- Includes formats common in the x7 aerospace project (yaml, toml, org, d2).
 M.universal_parsers = {
   'vim',
   'vimdoc',
@@ -44,6 +46,8 @@ M.universal_parsers = {
   'toml',
   'yaml',
   'regex',
+  'org',
+  'dockerfile',
 }
 -- ── Internal helpers ────────────────────────────────────────────────
 
@@ -106,6 +110,7 @@ end
 
 --- Returns conform.nvim formatters_by_ft table.
 --- Keys are filetypes, values are ordered lists of formatter names.
+--- The caller should merge { ['_'] = { 'trim_whitespace' } } as a fallback.
 ---@return table<string, string[]>
 function M.get_formatters_by_ft()
   local by_ft = {}

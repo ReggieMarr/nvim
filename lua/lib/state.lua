@@ -73,9 +73,13 @@ end
 
 ---Read a state value by id.
 ---Returns nil if the provider is not registered or hasn't collected yet.
----@param id string
+---When called with no argument, returns a shallow copy of the full state store.
+---@param id? string
 ---@return StateValue
-function M.get(id) return M._store[id] end
+function M.get(id)
+  if id == nil then return vim.tbl_extend('keep', {}, M._store) end
+  return M._store[id]
+end
 
 ---Write a state value directly, bypassing the provider system.
 ---Used by providers that collect asynchronously and push results in a callback.

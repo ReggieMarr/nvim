@@ -232,6 +232,10 @@ return env.module.register {
         },
       },
     },
+
+    -- mini.extra: buf_lines picker for <leader>sb (in-buffer fuzzy line search).
+    -- Uses mini.pick internally; both must be loaded together.
+    ['echasnovski/mini.extra'] = { version = false },
   },
 
   -- ── Setup ─────────────────────────────────────────────────────────────
@@ -289,6 +293,7 @@ return env.module.register {
     )
 
     vim.ui.picker.buffer_lines = function()
+      local MiniPick = require 'mini.pick'
       local extra = require 'mini.extra'
       -- Capture source buffer before the picker opens
       local source_win = vim.api.nvim_get_current_win()

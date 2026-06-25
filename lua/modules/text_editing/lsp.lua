@@ -250,11 +250,18 @@ local M = {}
 
 function M.setup()
   -- ── Picker capability extensions ───────────────────────────────
-  -- Extend the picker with LSP-specific finders.
-  vim.ui.picker.lsp_references = function(o) require('snacks').picker.lsp_references(o) end
-  vim.ui.picker.lsp_definitions = function(o) require('snacks').picker.lsp_definitions(o) end
-  vim.ui.picker.lsp_implementations = function(o) require('snacks').picker.lsp_implementations(o) end
-  vim.ui.picker.lsp_type_definitions = function(o) require('snacks').picker.lsp_type_definitions(o) end
+  -- Extend the 'picker' slot with LSP-specific finders via the capabilities system.
+  -- These are added to vim.ui.picker.* automatically by env.capabilities.extend.
+  env.capabilities.extend('picker', {
+    lsp_references        = function(o) require('snacks').picker.lsp_references(o) end,
+    lsp_definitions       = function(o) require('snacks').picker.lsp_definitions(o) end,
+    lsp_implementations   = function(o) require('snacks').picker.lsp_implementations(o) end,
+    lsp_type_definitions  = function(o) require('snacks').picker.lsp_type_definitions(o) end,
+    lsp_document_symbols  = function(o) require('snacks').picker.lsp_symbols(o) end,
+    lsp_workspace_symbols = function(o) require('snacks').picker.lsp_workspace_symbols(o) end,
+    lsp_incoming_calls    = function(o) require('snacks').picker.lsp_incoming_calls(o) end,
+    lsp_outgoing_calls    = function(o) require('snacks').picker.lsp_outgoing_calls(o) end,
+  }, 'text_editing')
   -- ── Shared capabilities ───────────────────────────────────────
   local capabilities = vim.tbl_deep_extend('force', vim.lsp.protocol.make_client_capabilities(), require('blink.cmp').get_lsp_capabilities())
 
@@ -299,51 +306,49 @@ function M.setup()
   })
 
   -- ── State providers ────────────────────────────────────────────
-  -- env.state.register_provider {
-  --   id = 'lsp.attached_servers',
-  --   events = { 'LspAttach', 'LspDetach', 'BufEnter' },
-  --   collect = function() return vim.lsp.get_clients { bufnr = 0 } end,
-  --   desc = 'LSP clients attached to the current buffer',
-  -- }
-  --
-  -- env.state.register_provider {
-  --   id = 'lsp.diagnostics',
-  --   events = { 'DiagnosticChanged', 'BufEnter' },
-  --   collect = function() return vim.diagnostic.get(0) end,
-  --   desc = 'Diagnostics for the current buffer',
-  -- }
-  --
-  -- env.state.register_provider {
-  --   id = 'lsp.current_symbol',
-  --   events = { 'CursorHold' },
-  --   collect = function()
-  --     -- Get the symbol name under cursor for the winbar
-  --     -- Uses treesitter first (fast), falls back to LSP
-  --     local ok, ts_utils = pcall(require, 'nvim-treesitter.ts_utils')
-  --     if ok then
-  --       local node = ts_utils.get_node_at_cursor()
-  --       if node then
-  --         local node_text = vim.treesitter.get_node_text(node, 0)
-  --         if node_text and #node_text < 50 then return node_text end
-  --       end
-  --     end
-  --     return nil
-  --   end,
-  --   desc = 'Symbol name under cursor (for winbar context)',
-  -- }
-  --
-  -- env.state.register_provider {
-  --   id = 'lsp.capabilities',
-  --   events = { 'LspAttach', 'LspDetach', 'BufEnter' },
-  --   collect = function()
-  --     local caps = {}
-  --     for _, client in ipairs(vim.lsp.get_clients { bufnr = 0 }) do
-  --       caps[client.name] = client.server_capabilities
-  --     end
-  --     return caps
-  --   end,
-  --   desc = 'Server capabilities map for attached LSP clients',
-  -- }
+  -- Feed LSP state into env.state so consumers (statusline, pickers, conditions)
+  -- read from a single source rather than calling vim.lsp.get_clients() directly.
+  env.state.register_provider {
+    id     = 'lsp.attached_servers',
+    events = { 'LspAttach', 'LspDetach', 'BufEnter' },
+    collect = function() return vim.lsp.get_clients { bufnr = 0 } end,
+    desc   = 'LSP clients attached to the current buffer',
+  }
+
+  env.state.register_provider {
+    id     = 'lsp.diagnostics',
+    events = { 'DiagnosticChanged', 'BufEnter' },
+    collect = function() return vim.diagnostic.get(0) end,
+    desc   = 'Diagnostics for the current buffer',
+  }
+
+  env.state.register_provider {
+    id     = 'lsp.current_symbol',
+    events = { 'CursorHold' },
+    collect = function()
+      -- Symbol under cursor: treesitter first (fast, no RPC), LSP as fallback.
+      local node = vim.treesitter.get_node()
+      if node then
+        local text = vim.treesitter.get_node_text(node, 0)
+        if text and #text < 50 and text:match '^[%w_]+$' then return text end
+      end
+      return nil
+    end,
+    desc = 'Symbol name under cursor (for winbar context)',
+  }
+
+  env.state.register_provider {
+    id     = 'lsp.capabilities',
+    events = { 'LspAttach', 'LspDetach', 'BufEnter' },
+    collect = function()
+      local caps = {}
+      for _, client in ipairs(vim.lsp.get_clients { bufnr = 0 }) do
+        caps[client.name] = client.server_capabilities
+      end
+      return caps
+    end,
+    desc = 'Server capabilities map per attached LSP client',
+  }
 end
 
 return M

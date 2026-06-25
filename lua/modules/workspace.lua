@@ -1,13 +1,17 @@
 -- lua/modules/workspace.lua
--- Workspace module
+-- Workspace module: project root detection, project name derivation.
 --
--- Domain: introspection
+-- Registers state:
+--   workspace.root         — project root directory (LSP or marker-based)
+--   workspace.project_name — basename of the root
+--
+-- Domain: workspace
 
 local env = require 'env'
 
 return env.module.register {
-  name = 'introspection',
-  domain = 'introspection',
+  name = 'workspace',
+  domain = 'workspace',
   depends_on = {},
   optional_deps = {},
 
