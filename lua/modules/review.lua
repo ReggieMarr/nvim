@@ -16,22 +16,45 @@
 --   grip (GitHub markdown)
 --   python3 http.server (docs/ fallback)
 --
--- Browser sync:
---   SPC d s  — sync browser to current file + nearest heading
---   SPC d S  — toggle auto-sync on cursor movement
---   File path → URL mapping is project-configurable via .nvim.lua:
---     vim.b.review_url_base = "http://localhost:8080"
---     vim.b.review_path_map = function(file) return "/page" end
+-- Browser sync (two modes):
+--   Page-level  (BufEnter / SPC d s) — uses xdg-open, focus steal OK
+--   Heading-level (auto-sync)        — writes to /tmp/nvim-review-<port>,
+--     a companion Python relay serves it, a userscript in the browser
+--     polls & scrolls without stealing focus
+--
+-- File path -> URL mapping:
+--   Strips docs_root (default 'documentation') from the file path,
+--   removes extension, lowercases.  Configurable via workspace.docs_root
+--   state key or vim.g.review_path_map / vim.b.review_path_map overrides.
+--
+-- Re-export:
+--   SPC d e  — re-run x7-tools pages prepare to regenerate markdown
+--              from the current org source (runs as an overseer task)
 --
 -- Comment format (file-type aware):
 --   org:      #+begin_review AUTHOR TIMESTAMP ... #+end_review
 --   markdown: <!-- REVIEW AUTHOR TIMESTAMP ... -->
 --
 -- Keybindings:  SPC d  (document review prefix)
---
 -- Domain: review
 
 local env = require 'env'
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- CACHED STATE
+-- ══════════════════════════════════════════════════════════════════════════
+
+---@type string|nil  memoised git user.name (session lifetime)
+local cached_author = nil
+
+---@type table<number, string|nil>  last synced heading slug per bufnr
+local last_synced_slug = {}
+
+---@type table<number, boolean>  buffers already warned about boundary check
+local warned_bufs = {}
+
+---@type number|nil  debounce timer handle
+local sync_timer = nil
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- COMMENT SYSTEM
@@ -42,9 +65,13 @@ local function timestamp()
 end
 
 local function author()
+  if cached_author then
+    return cached_author
+  end
   local git_user = vim.fn.systemlist('git config user.name')[1]
   if vim.v.shell_error == 0 and git_user and git_user ~= '' then
-    return git_user
+    cached_author = git_user
+    return cached_author
   end
   return vim.env.USER or 'reviewer'
 end
@@ -118,7 +145,9 @@ local function jump_comment(direction)
   local pats = { 'begin_review', 'REVIEW(', '<!-- REVIEW' }
   for _, pat in ipairs(pats) do
     local found = vim.fn.search(vim.fn.escape(pat, '/\\'), flags)
-    if found > 0 then return end
+    if found > 0 then
+      return
+    end
   end
   vim.notify('No more review comments ' .. direction, vim.log.levels.INFO)
 end
@@ -133,11 +162,17 @@ local function resolve_comment()
   if ft == 'org' then
     local block_start, block_end
     for i = row, 1, -1 do
-      if lines[i]:match '#+begin_review' then block_start = i; break end
+      if lines[i]:match '#+begin_review' then
+        block_start = i
+        break
+      end
     end
     if block_start then
       for i = block_start, #lines do
-        if lines[i]:match '#+end_review' then block_end = i; break end
+        if lines[i]:match '#+end_review' then
+          block_end = i
+          break
+        end
       end
     end
     if block_start and block_end then
@@ -153,11 +188,17 @@ local function resolve_comment()
   elseif ft == 'markdown' or ft == 'quarto' then
     local block_start, block_end
     for i = row, 1, -1 do
-      if lines[i]:match '<!%-%- REVIEW ' then block_start = i; break end
+      if lines[i]:match '<!%-%- REVIEW ' then
+        block_start = i
+        break
+      end
     end
     if block_start then
       for i = block_start, #lines do
-        if lines[i]:match '%-%->' then block_end = i; break end
+        if lines[i]:match '%-%->' then
+          block_end = i
+          break
+        end
       end
     end
     if block_start and block_end then
@@ -166,7 +207,9 @@ local function resolve_comment()
       return
     end
     if line:match '<!%-%- REVIEW%(.*%):' then
-      vim.api.nvim_buf_set_lines(0, row - 1, row, false, { line:gsub('%s*<!%-%- REVIEW%(.-%): ?%-%->', '') })
+      vim.api.nvim_buf_set_lines(0, row - 1, row, false, {
+        line:gsub('%s*<!%-%- REVIEW%(.-%): ?%-%->', ''),
+      })
       vim.notify 'Resolved inline review comment'
       return
     end
@@ -180,10 +223,15 @@ local function list_comments()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local items = {}
   for i, line in ipairs(lines) do
-    if line:match 'REVIEW' and (
-      line:match 'begin_review' or line:match '<!%-%- REVIEW' or
-      line:match 'REVIEW%(' or line:match '# REVIEW'
-    ) then
+    if
+      line:match 'REVIEW'
+      and (
+        line:match 'begin_review'
+        or line:match '<!%-%- REVIEW'
+        or line:match 'REVIEW%('
+        or line:match '# REVIEW'
+      )
+    then
       table.insert(items, {
         filename = vim.api.nvim_buf_get_name(0),
         lnum = i,
@@ -204,42 +252,53 @@ end
 -- ══════════════════════════════════════════════════════════════════════════
 
 ---@class review.PreviewState
----@field task_id number|nil   overseer task id (nil if started externally)
+---@field task_id number|nil   overseer task id for preview server
+---@field relay_task_id number|nil  overseer task id for relay server
 ---@field port number          preview server port
+---@field relay_port number    relay server port (port + 10000)
 ---@field url_base string      e.g. "http://localhost:8080"
----@field managed boolean      true if neovim started it
+---@field managed boolean      true if neovim started the preview server
 local preview = {
   task_id = nil,
+  relay_task_id = nil,
   port = 8080,
+  relay_port = 18080,
   url_base = 'http://localhost:8080',
   managed = false,
 }
 
+---Return the path to the sync URL file for the current port.
+---@return string
+local function sync_url_file()
+  return '/tmp/nvim-review-' .. preview.port
+end
+
 ---Detect the best preview command for the current project.
----Searches multiple known x7-tools layouts.
----@return { cmd: string[], port: number, name: string, cwd: string }|nil
+---@return { cmd: string[], port: number, name: string, cwd: string, env: table|nil }|nil
 local function detect_preview_backend()
   local root = env.state.get 'workspace.root' or vim.fn.getcwd()
 
-  -- Search paths in priority order
   local candidates = {
-    -- Standalone pages-preview.sh wrapper
     {
       path = root .. '/tools/pages-preview.sh',
-      cmd = function(p) return { 'bash', p, '--port', tostring(preview.port) } end,
+      cmd = function(p)
+        return { 'bash', p, '--port', tostring(preview.port) }
+      end,
       name = 'Quartz (pages-preview.sh)',
     },
-    -- x7-forge submodule: run.sh pages preview
     {
       path = root .. '/tools/x7-forge/implementation/x7-tools/run.sh',
-      cmd = function(p) return { 'bash', p, 'pages', 'preview' } end,
+      cmd = function(p)
+        return { 'bash', p, 'pages', 'preview' }
+      end,
       name = 'x7-tools pages preview',
       env = { X7_NO_DOCKER = '1', X7_PROJECT_ROOT = root },
     },
-    -- x7-forge submodule: nested tools/run.sh
     {
       path = root .. '/tools/x7-forge/tools/run.sh',
-      cmd = function(p) return { 'bash', p, 'pages', 'preview' } end,
+      cmd = function(p)
+        return { 'bash', p, 'pages', 'preview' }
+      end,
       name = 'x7-forge pages preview',
       env = { X7_NO_DOCKER = '1', X7_PROJECT_ROOT = root },
     },
@@ -284,6 +343,46 @@ local function detect_preview_backend()
   return nil
 end
 
+---Start the relay server that serves the sync URL file.
+local function start_relay()
+  if preview.relay_task_id then
+    return -- already running
+  end
+
+  local relay_script = vim.fn.stdpath 'config' .. '/scripts/review-relay.py'
+  if vim.fn.filereadable(relay_script) ~= 1 then
+    vim.notify('review: relay script not found at ' .. relay_script, vim.log.levels.WARN)
+    return
+  end
+
+  preview.relay_port = preview.port + 10000
+
+  local overseer = require 'overseer'
+  local task = overseer.new_task {
+    name = '🔗 review-relay :' .. preview.relay_port,
+    cmd = { 'python3', relay_script, tostring(preview.relay_port), sync_url_file() },
+    components = { 'default' },
+    metadata = { is_review_relay = true },
+  }
+  task:start()
+  preview.relay_task_id = task.id
+end
+
+---Stop the relay server.
+local function stop_relay()
+  if not preview.relay_task_id then
+    return
+  end
+  local overseer = require 'overseer'
+  local task = overseer.get_task(preview.relay_task_id)
+  if task and not task:is_complete() then
+    task:stop()
+  end
+  preview.relay_task_id = nil
+  -- Clean up the URL file
+  os.remove(sync_url_file())
+end
+
 ---Start the preview server via overseer.
 local function start_preview()
   local backend = detect_preview_backend()
@@ -306,14 +405,14 @@ local function start_preview()
     local task = overseer.get_task(preview.task_id)
     if task and not task:is_complete() then
       vim.ui.open(preview.url_base)
-      vim.notify('review: preview already running — opened browser', vim.log.levels.INFO)
+      vim.notify('review: preview already running -- opened browser', vim.log.levels.INFO)
       return
     end
   end
 
   local overseer = require 'overseer'
   local task = overseer.new_task {
-    name = '📖 ' .. backend.name,
+    name = string.format('%s %s', '\xF0\x9F\x93\x96', backend.name),
     cmd = backend.cmd,
     cwd = backend.cwd,
     env = backend.env,
@@ -330,6 +429,9 @@ local function start_preview()
   preview.url_base = 'http://localhost:' .. backend.port
   preview.managed = true
 
+  -- Also start the relay for heading-level sync
+  start_relay()
+
   vim.defer_fn(function()
     vim.ui.open(preview.url_base)
   end, 2500)
@@ -337,15 +439,16 @@ local function start_preview()
   vim.notify('review: started ' .. backend.name .. ' on port ' .. backend.port, vim.log.levels.INFO)
 end
 
----Stop the preview server (only if we started it).
+---Stop the preview server.
 local function stop_preview()
   if not preview.task_id then
-    if preview.managed then
-      vim.notify('review: no preview server running', vim.log.levels.INFO)
-    else
+    if not preview.managed then
       preview.url_base = ''
       preview.managed = false
+      stop_relay()
       vim.notify('review: detached from external preview', vim.log.levels.INFO)
+    else
+      vim.notify('review: no preview server running', vim.log.levels.INFO)
     end
     return
   end
@@ -356,7 +459,8 @@ local function stop_preview()
     task:stop()
   end
   preview.task_id = nil
-  preview.managed = true
+  preview.managed = false
+  stop_relay()
   vim.notify('review: stopped preview server', vim.log.levels.INFO)
 end
 
@@ -364,14 +468,17 @@ end
 ---@param port number
 local function attach_preview(port)
   preview.port = port
+  preview.relay_port = port + 10000
   preview.url_base = 'http://localhost:' .. port
   preview.managed = false
   preview.task_id = nil
-  vim.notify('review: attached to http://localhost:' .. port, vim.log.levels.INFO)
+  -- Start relay for heading-level sync even with external server
+  start_relay()
+  vim.notify('review: attached to http://localhost:' .. port .. ' (relay on :' .. preview.relay_port .. ')', vim.log.levels.INFO)
 end
 
 -- ══════════════════════════════════════════════════════════════════════════
--- BROWSER SYNC — navigate browser to match current file + heading
+-- BROWSER SYNC
 -- ══════════════════════════════════════════════════════════════════════════
 
 ---Slugify a heading string the way Quartz/Hugo/most SSGs do.
@@ -380,11 +487,11 @@ end
 local function slugify(heading)
   return heading
     :lower()
-    :gsub('[^%w%s%-]', '')  -- strip non-alnum
-    :gsub('%s+', '-')       -- spaces → hyphens
-    :gsub('%-+', '-')       -- collapse hyphens
-    :gsub('^%-', '')        -- trim leading
-    :gsub('%-$', '')        -- trim trailing
+    :gsub('[^%w%s%-]', '') -- strip non-alnum
+    :gsub('%s+', '-') -- spaces -> hyphens
+    :gsub('%-+', '-') -- collapse hyphens
+    :gsub('^%-', '') -- trim leading
+    :gsub('%-$', '') -- trim trailing
 end
 
 ---Find the nearest heading above (or at) the cursor.
@@ -394,15 +501,12 @@ local function nearest_heading_slug()
   local lines = vim.api.nvim_buf_get_lines(0, 0, row, false)
   local ft = vim.bo.filetype
 
-  -- Search backwards from cursor for the nearest heading
   for i = #lines, 1, -1 do
     local line = lines[i]
     local heading
     if ft == 'org' then
-      -- Org headings: * Heading, ** Sub-heading, etc.
       heading = line:match '^%*+ (.+)$'
     elseif ft == 'markdown' or ft == 'quarto' then
-      -- Markdown headings: # Heading, ## Sub-heading, etc.
       heading = line:match '^#+ (.+)$'
     end
     if heading then
@@ -412,60 +516,104 @@ local function nearest_heading_slug()
   return nil
 end
 
+---Get the docs root for the current project.
+---@return string  relative path from project root (e.g. 'documentation')
+local function get_docs_root()
+  return env.state.get 'workspace.docs_root' or 'documentation'
+end
+
+---Get the full absolute docs root path.
+---@return string
+local function get_full_docs_root()
+  local root = env.state.get 'workspace.root' or vim.fn.getcwd()
+  return root .. '/' .. get_docs_root()
+end
+
+---Validate that the current buffer is a doc file inside the docs root.
+---@return boolean ok
+---@return string|nil reason  human-readable failure reason
+local function validate_sync_target()
+  local ft = vim.bo.filetype
+  if ft ~= 'org' and ft ~= 'markdown' and ft ~= 'quarto' then
+    return false, 'buffer filetype is "' .. ft .. '", not org/markdown/quarto'
+  end
+
+  local file = vim.fn.expand '%:p'
+  local full_docs = get_full_docs_root()
+  if not vim.startswith(file, full_docs) then
+    return false, 'file is outside docs root (' .. get_docs_root() .. '/)'
+  end
+
+  return true, nil
+end
+
 ---Map the current buffer's file path to a preview URL path.
----
----Priority:
----  1. Buffer-local vim.b.review_path_map function
----  2. Project-local g:review_path_map function
----  3. Built-in heuristics for x7-tools / Quartz projects
----
----@return string url_path  e.g. "/Repository_Management_Plan"
+---@return string url_path  e.g. "/plans/icmp/interface_control_model_plan"
 local function file_to_url_path()
   local file = vim.fn.expand '%:p'
-  local root = env.state.get 'workspace.root' or vim.fn.getcwd()
 
-  -- 1. Buffer-local override: vim.b.review_path_map = function(file) ... end
+  -- 1. Buffer-local override
   if vim.b.review_path_map then
     local result = vim.b.review_path_map(file)
-    if result then return result end
+    if result then
+      return result
+    end
   end
 
-  -- 2. Global/project override: vim.g.review_path_map
+  -- 2. Global/project override
   if vim.g.review_path_map then
     local result = vim.g.review_path_map(file)
-    if result then return result end
+    if result then
+      return result
+    end
   end
 
-  -- 3. Built-in: strip project root and known prefixes, convert to URL
-  local rel = file:gsub('^' .. vim.pesc(root) .. '/', '')
+  -- 3. Built-in: strip full_docs_root, strip extension, lowercase
+  local full_docs = get_full_docs_root()
+  local rel = file:gsub('^' .. vim.pesc(full_docs) .. '/', '')
 
-  -- Strip common documentation prefixes
-  rel = rel
-    :gsub('^documentation/', '')
-    :gsub('^content/', '')
-    :gsub('^docs/', '')
-    :gsub('^plans/', '')
+  -- Strip file extension (last .xxx component)
+  rel = rel:gsub('%.[^/]+$', '')
 
-  -- Strip file extension
-  rel = rel:gsub('%.org$', ''):gsub('%.md$', ''):gsub('%.markdown$', '')
+  -- Lowercase the whole relative path
+  rel = rel:lower()
 
-  -- Use the filename as the page slug (Quartz default: flat namespace)
-  -- but also support nested paths
-  local basename = vim.fn.fnamemodify(rel, ':t')
+  return '/' .. rel
+end
 
-  -- Try both: full path and just basename (Quartz flattens by default)
-  return '/' .. basename
+---Write the target URL to the sync file for the relay to serve.
+---Does NOT open the browser (no focus steal).
+---@param url string
+local function write_sync_url(url)
+  local f = io.open(sync_url_file(), 'w')
+  if f then
+    f:write(url)
+    f:close()
+  end
 end
 
 ---Sync the browser to the current file and nearest heading.
----Uses xdg-open which navigates in the existing browser.
-local function sync_browser()
+---Page-level sync: uses xdg-open (focus steal is acceptable for manual action).
+---@param opts { heading_only: boolean }|nil
+local function sync_browser(opts)
+  opts = opts or {}
+
   if preview.url_base == '' then
     vim.notify(
-      'review: no preview attached.\n'
-        .. 'Use SPC d p to start, or :ReviewAttach <port> for external server.',
+      'review: no preview attached.\n' .. 'Use SPC d p to start, or :ReviewAttach <port> for external server.',
       vim.log.levels.WARN
     )
+    return
+  end
+
+  -- Boundary check
+  local ok, reason = validate_sync_target()
+  if not ok then
+    local bufnr = vim.api.nvim_get_current_buf()
+    if not warned_bufs[bufnr] then
+      vim.notify('review: cannot sync -- ' .. (reason or 'unknown'), vim.log.levels.WARN)
+      warned_bufs[bufnr] = true
+    end
     return
   end
 
@@ -476,10 +624,18 @@ local function sync_browser()
     url = url .. '#' .. slug
   end
 
-  vim.ui.open(url)
+  if opts.heading_only then
+    -- Heading-level: write to file, relay serves it, userscript picks it up
+    write_sync_url(url)
+  else
+    -- Page-level: both write to file AND open browser
+    write_sync_url(url)
+    vim.ui.open(url)
+  end
 end
 
----Auto-sync state
+-- ── Auto-sync ───────────────────────────────────────────────────────────
+
 local auto_sync_enabled = false
 local auto_sync_augroup = nil
 
@@ -489,7 +645,7 @@ local function toggle_auto_sync()
   if auto_sync_enabled then
     if preview.url_base == '' then
       vim.notify(
-        'review: cannot enable auto-sync — no preview attached.\n'
+        'review: cannot enable auto-sync -- no preview attached.\n'
           .. 'Use SPC d p to start, or :ReviewAttach <port> first.',
         vim.log.levels.WARN
       )
@@ -497,14 +653,24 @@ local function toggle_auto_sync()
       return
     end
 
+    -- Start relay if not already running
+    start_relay()
+
     auto_sync_augroup = vim.api.nvim_create_augroup('review_auto_sync', { clear = true })
 
-    -- Sync on buffer enter (page-level)
+    -- Page-level sync on buffer enter (uses xdg-open)
     vim.api.nvim_create_autocmd('BufEnter', {
       group = auto_sync_augroup,
       pattern = { '*.org', '*.md', '*.markdown', '*.qmd' },
       callback = function()
-        -- Debounce: only sync after settling
+        if not auto_sync_enabled then
+          return
+        end
+        local bufnr = vim.api.nvim_get_current_buf()
+        -- Clear caches for the new buffer
+        last_synced_slug[bufnr] = nil
+        warned_bufs[bufnr] = nil
+        -- Debounce page-level sync
         vim.defer_fn(function()
           if auto_sync_enabled then
             sync_browser()
@@ -513,25 +679,120 @@ local function toggle_auto_sync()
       end,
     })
 
-    -- Sync on cursor hold (heading-level — less aggressive than CursorMoved)
-    vim.api.nvim_create_autocmd('CursorHold', {
+    -- Heading-level sync on cursor movement (debounced, no focus steal)
+    vim.api.nvim_create_autocmd('CursorMoved', {
       group = auto_sync_augroup,
       pattern = { '*.org', '*.md', '*.markdown', '*.qmd' },
       callback = function()
-        if auto_sync_enabled then
-          sync_browser()
+        if not auto_sync_enabled then
+          return
         end
+
+        -- Only sync if heading changed
+        local bufnr = vim.api.nvim_get_current_buf()
+        local slug = nearest_heading_slug()
+        if slug == last_synced_slug[bufnr] then
+          return -- same heading, skip
+        end
+
+        -- Heading changed: start/restart 500ms debounce
+        if sync_timer then
+          vim.fn.timer_stop(sync_timer)
+        end
+
+        sync_timer = vim.fn.timer_start(500, function()
+          sync_timer = nil
+          -- Re-check: heading might have changed again during debounce
+          local current_slug = nearest_heading_slug()
+          last_synced_slug[bufnr] = current_slug
+          -- Heading-level only: no focus steal
+          vim.schedule(function()
+            sync_browser { heading_only = true }
+          end)
+        end)
       end,
     })
 
-    vim.notify('review: auto-sync ON (syncs on buffer switch + cursor hold)', vim.log.levels.INFO)
+    vim.notify('review: auto-sync ON (page on BufEnter, heading on CursorMoved)', vim.log.levels.INFO)
   else
+    if sync_timer then
+      vim.fn.timer_stop(sync_timer)
+      sync_timer = nil
+    end
     if auto_sync_augroup then
       vim.api.nvim_del_augroup_by_id(auto_sync_augroup)
       auto_sync_augroup = nil
     end
     vim.notify('review: auto-sync OFF', vim.log.levels.INFO)
   end
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- RE-EXPORT (org -> markdown via x7-tools pages prepare)
+-- ══════════════════════════════════════════════════════════════════════════
+
+---Re-export the current org file (or the whole docs tree) to markdown.
+---Runs x7-tools pages prepare as an overseer task.
+---@param current_only boolean  if true, pass only the current file
+local function re_export(current_only)
+  local root = env.state.get 'workspace.root' or vim.fn.getcwd()
+
+  -- Find the x7-tools run.sh
+  local run_sh
+  local candidates = {
+    root .. '/tools/x7-forge/implementation/x7-tools/run.sh',
+    root .. '/tools/x7-forge/tools/run.sh',
+  }
+  for _, c in ipairs(candidates) do
+    if vim.fn.filereadable(c) == 1 then
+      run_sh = c
+      break
+    end
+  end
+
+  if not run_sh then
+    -- Fallback: try pages-preview.sh with --rebuild
+    local pages_sh = root .. '/tools/pages-preview.sh'
+    if vim.fn.filereadable(pages_sh) == 1 then
+      local overseer = require 'overseer'
+      local task = overseer.new_task {
+        name = string.format('%s re-export (pages-preview)', '\xF0\x9F\x94\x84'),
+        cmd = { 'bash', pages_sh, '--rebuild', '--port', tostring(preview.port) },
+        cwd = root,
+        components = { 'default', { 'on_output_quickfix', open = false } },
+      }
+      task:start()
+      vim.notify('review: re-exporting via pages-preview.sh --rebuild', vim.log.levels.INFO)
+      return
+    end
+
+    vim.notify('review: no x7-tools run.sh or pages-preview.sh found', vim.log.levels.WARN)
+    return
+  end
+
+  local cmd = { 'bash', run_sh, 'pages', 'prepare' }
+  if current_only then
+    local file = vim.fn.expand '%:p'
+    table.insert(cmd, file)
+  end
+
+  local overseer = require 'overseer'
+  local task = overseer.new_task {
+    name = string.format(
+      '%s re-export%s',
+      '\xF0\x9F\x94\x84',
+      current_only and ' (' .. vim.fn.expand '%:t' .. ')' or ' (all)'
+    ),
+    cmd = cmd,
+    cwd = root,
+    env = { X7_NO_DOCKER = '1', X7_PROJECT_ROOT = root },
+    components = { 'default', { 'on_output_quickfix', open = false } },
+  }
+  task:start()
+  vim.notify(
+    'review: re-exporting ' .. (current_only and vim.fn.expand '%:t' or 'all docs'),
+    vim.log.levels.INFO
+  )
 end
 
 -- ── Highlight review comments ───────────────────────────────────────────
@@ -559,6 +820,9 @@ return env.module.register {
   plugins = {},
 
   setup = function()
+    -- No hooks registered at load time.  Auto-sync hooks are only
+    -- created when the user enables auto-sync (SPC d S).
+
     ----------------------------------------------------------------
     -- Which-key group
     ----------------------------------------------------------------
@@ -575,11 +839,13 @@ return env.module.register {
     ----------------------------------------------------------------
 
     vim.keymap.set('n', '<leader>dp', start_preview, {
-      desc = 'review.start_preview', silent = true,
+      desc = 'review.start_preview',
+      silent = true,
     })
 
     vim.keymap.set('n', '<leader>dP', stop_preview, {
-      desc = 'review.stop_preview', silent = true,
+      desc = 'review.stop_preview',
+      silent = true,
     })
 
     vim.keymap.set('n', '<leader>do', function()
@@ -589,19 +855,46 @@ return env.module.register {
         start_preview()
       end
     end, {
-      desc = 'review.open_browser', silent = true,
+      desc = 'review.open_browser',
+      silent = true,
     })
 
     ----------------------------------------------------------------
     -- Browser sync (SPC d s / SPC d S)
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>ds', sync_browser, {
-      desc = 'review.sync_browser', silent = true,
+    vim.keymap.set('n', '<leader>ds', function()
+      -- Manual sync: clear slug cache so it always fires
+      local bufnr = vim.api.nvim_get_current_buf()
+      last_synced_slug[bufnr] = nil
+      warned_bufs[bufnr] = nil
+      sync_browser()
+    end, {
+      desc = 'review.sync_browser',
+      silent = true,
     })
 
     vim.keymap.set('n', '<leader>dS', toggle_auto_sync, {
-      desc = 'review.toggle_auto_sync', silent = true,
+      desc = 'review.toggle_auto_sync',
+      silent = true,
+    })
+
+    ----------------------------------------------------------------
+    -- Re-export (SPC d e / SPC d E)
+    ----------------------------------------------------------------
+
+    vim.keymap.set('n', '<leader>de', function()
+      re_export(true)
+    end, {
+      desc = 'review.re_export_current',
+      silent = true,
+    })
+
+    vim.keymap.set('n', '<leader>dE', function()
+      re_export(false)
+    end, {
+      desc = 'review.re_export_all',
+      silent = true,
     })
 
     ----------------------------------------------------------------
@@ -609,7 +902,8 @@ return env.module.register {
     ----------------------------------------------------------------
 
     vim.keymap.set('n', '<leader>dc', insert_comment, {
-      desc = 'review.add_comment', silent = true,
+      desc = 'review.add_comment',
+      silent = true,
     })
 
     vim.keymap.set('v', '<leader>dc', function()
@@ -618,31 +912,41 @@ return env.module.register {
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
       insert_comment('RE: ' .. selection)
     end, {
-      desc = 'review.comment_on_selection', silent = true,
+      desc = 'review.comment_on_selection',
+      silent = true,
     })
 
     vim.keymap.set('n', '<leader>di', insert_inline_comment, {
-      desc = 'review.inline_comment', silent = true,
+      desc = 'review.inline_comment',
+      silent = true,
     })
 
     vim.keymap.set('n', '<leader>dr', resolve_comment, {
-      desc = 'review.resolve_comment', silent = true,
+      desc = 'review.resolve_comment',
+      silent = true,
     })
 
     vim.keymap.set('n', '<leader>dl', list_comments, {
-      desc = 'review.list_comments', silent = true,
+      desc = 'review.list_comments',
+      silent = true,
     })
 
     ----------------------------------------------------------------
     -- Comment navigation (]r / [r)
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', ']r', function() jump_comment 'next' end, {
-      desc = 'review.next_comment', silent = true,
+    vim.keymap.set('n', ']r', function()
+      jump_comment 'next'
+    end, {
+      desc = 'review.next_comment',
+      silent = true,
     })
 
-    vim.keymap.set('n', '[r', function() jump_comment 'prev' end, {
-      desc = 'review.prev_comment', silent = true,
+    vim.keymap.set('n', '[r', function()
+      jump_comment 'prev'
+    end, {
+      desc = 'review.prev_comment',
+      silent = true,
     })
 
     ----------------------------------------------------------------
@@ -659,11 +963,12 @@ return env.module.register {
         preview = true,
       }
     end, {
-      desc = 'review.grep_comments', silent = true,
+      desc = 'review.grep_comments',
+      silent = true,
     })
 
     ----------------------------------------------------------------
-    -- Auto-highlight review comments
+    -- Auto-highlight review comments (FileType is lightweight)
     ----------------------------------------------------------------
 
     vim.api.nvim_create_autocmd('FileType', {
@@ -677,7 +982,11 @@ return env.module.register {
     ----------------------------------------------------------------
 
     vim.api.nvim_create_user_command('ReviewPreview', function(opts)
-      if opts.bang then stop_preview() else start_preview() end
+      if opts.bang then
+        stop_preview()
+      else
+        start_preview()
+      end
     end, {
       bang = true,
       desc = 'Start (or stop with !) the document preview server',
@@ -699,7 +1008,10 @@ return env.module.register {
       preview.url_base = ''
       preview.managed = false
       preview.task_id = nil
-      if auto_sync_enabled then toggle_auto_sync() end
+      stop_relay()
+      if auto_sync_enabled then
+        toggle_auto_sync()
+      end
       vim.notify('review: detached', vim.log.levels.INFO)
     end, {
       desc = 'Detach from preview server (stop sync, keep server running)',
@@ -712,7 +1024,12 @@ return env.module.register {
       desc = 'Insert a review comment (optional body text)',
     })
 
-    vim.api.nvim_create_user_command('ReviewSync', sync_browser, {
+    vim.api.nvim_create_user_command('ReviewSync', function()
+      local bufnr = vim.api.nvim_get_current_buf()
+      last_synced_slug[bufnr] = nil
+      warned_bufs[bufnr] = nil
+      sync_browser()
+    end, {
       desc = 'Sync browser to current file + heading',
     })
 
@@ -723,11 +1040,42 @@ return env.module.register {
         return
       end
       preview.port = port
+      preview.relay_port = port + 10000
       preview.url_base = 'http://localhost:' .. port
       vim.notify('review: port set to ' .. port, vim.log.levels.INFO)
     end, {
       nargs = '?',
       desc = 'Get or set the preview server port',
+    })
+
+    vim.api.nvim_create_user_command('ReviewExport', function(opts)
+      re_export(not opts.bang)
+    end, {
+      bang = true,
+      desc = 'Re-export current file (or all with !) via x7-tools pages prepare',
+    })
+
+    vim.api.nvim_create_user_command('ReviewDocsRoot', function(opts)
+      if opts.args == '' then
+        vim.notify('docs_root: ' .. get_docs_root() .. '\nfull: ' .. get_full_docs_root(), vim.log.levels.INFO)
+      else
+        env.state.set('workspace.docs_root', opts.args)
+        vim.notify('review: docs_root set to ' .. opts.args, vim.log.levels.INFO)
+      end
+    end, {
+      nargs = '?',
+      desc = 'Get or set the docs root (relative to project root)',
+    })
+
+    ----------------------------------------------------------------
+    -- Cleanup on exit
+    ----------------------------------------------------------------
+
+    vim.api.nvim_create_autocmd('VimLeavePre', {
+      group = vim.api.nvim_create_augroup('review_cleanup', { clear = true }),
+      callback = function()
+        os.remove(sync_url_file())
+      end,
     })
   end,
 }

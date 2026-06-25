@@ -243,7 +243,9 @@ Leader: `SPC` · Local leader: `;` (org-mode buffer keymaps)
 | `SPC d P` | Stop preview server / detach external |
 | `SPC d o` | Open browser to preview |
 | `SPC d s` | Sync browser to current file + heading |
-| `SPC d S` | Toggle auto-sync (BufEnter + CursorHold) |
+| `SPC d S` | Toggle auto-sync (page on BufEnter, heading on CursorMoved) |
+| `SPC d e` | Re-export current file (org -> markdown via x7-tools) |
+| `SPC d E` | Re-export all docs |
 | `SPC d c` | Add review comment block below cursor |
 | `SPC d c` | Comment on selection (visual mode) |
 | `SPC d i` | Add inline review comment at end of line |
@@ -568,21 +570,54 @@ grep across the project with `SPC d g`, resolve (delete) with `SPC d r`.
 
 ### Browser Sync
 
-`SPC d s` navigates the browser to the page matching your current file,
-scrolled to the nearest heading. The file→URL mapping works automatically
-for Quartz projects (strips `documentation/`, `content/`, `docs/` prefixes,
-uses filename as page slug).
+Two sync modes, designed for a split-desktop workflow:
 
-For custom mappings, set in your `.nvim.lua`:
+| Mode | Trigger | Browser behaviour |
+|------|---------|--------------------|
+| **Page-level** | `SPC d s`, `BufEnter` (auto-sync) | `xdg-open` navigates browser (may steal focus) |
+| **Heading-level** | `CursorMoved` (auto-sync) | Writes URL to `/tmp/nvim-review-<port>`, relay serves it, userscript scrolls smoothly — **no focus steal** |
+
+Heading-level sync uses a debounced `CursorMoved` hook: `nearest_heading_slug()` is
+called on each movement, but the 500ms timer only starts when the slug changes.
+Rapid scrolling within a section never triggers sync.
+
+**File → URL mapping:**
+- Strips `docs_root` (default `documentation`) from the file path
+- Removes file extension, lowercases the whole relative path
+- Example: `documentation/plans/icmp/Interface_Control_Model_Plan.org`
+  → `/plans/icmp/interface_control_model_plan`
+
+**Configuring docs_root** (per-project):
+```lua
+-- In .nvim.lua at project root, or via :ReviewDocsRoot
+vim.g.review_docs_root = 'documentation'  -- default
+```
+
+**Custom path mapping** (overrides built-in logic):
 ```lua
 vim.g.review_path_map = function(file)
-  -- custom file → URL path logic
   return '/my-custom-path'
 end
 ```
 
-`SPC d S` enables auto-sync: the browser follows your buffer switches
-(on `BufEnter`) and scrolls to headings (on `CursorHold`).
+**Auto-sync** (`SPC d S`) is OFF by default. When enabled:
+- `BufEnter` → page-level sync (navigates browser)
+- `CursorMoved` → heading-level sync (smooth scroll via relay, no focus steal)
+- All hooks are removed when auto-sync is toggled off
+
+#### Relay + Userscript Setup
+
+For heading-level sync without focus stealing:
+
+1. The relay server starts automatically with preview (or `:ReviewAttach`)
+2. Install `scripts/review-sync.user.js` in Violentmonkey/Greasemonkey
+3. The userscript polls `http://127.0.0.1:<port+10000>/` and scrolls to anchors
+
+### Re-export
+
+`SPC d e` re-runs `x7-tools pages prepare` for the current org file to
+regenerate its markdown output after edits. `SPC d E` re-exports all docs.
+Also available as `:ReviewExport` (current) / `:ReviewExport!` (all).
 
 ### Commands
 
@@ -593,7 +628,10 @@ end
 | `:ReviewAttach <port>` | Attach to external server on `<port>` |
 | `:ReviewDetach` | Detach (stop sync, keep server running) |
 | `:ReviewSync` | Sync browser to current file + heading |
+| `:ReviewExport` | Re-export current file (org → md) |
+| `:ReviewExport!` | Re-export all docs |
 | `:ReviewPort [port]` | Get or set the preview port (default: 8080) |
+| `:ReviewDocsRoot [path]` | Get or set the docs root directory |
 | `:ReviewComment [text]` | Insert a review comment |
 
 ---
