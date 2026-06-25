@@ -70,6 +70,7 @@ else
 		"$SPECS_DIR/language_spec.lua" \
 		"$SPECS_DIR/plugin_deps_spec.lua" \
 		"$SPECS_DIR/module_registration_spec.lua" \
+		"$SPECS_DIR/review_url_spec.lua" \
 		"$SPECS_DIR/keymap_spec.lua"; do
 		if [ -f "$spec" ]; then
 			run_spec "$spec"

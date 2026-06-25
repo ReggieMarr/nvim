@@ -1,15 +1,13 @@
 // ==UserScript==
 // @name         Neovim Review Sync
 // @namespace    nvim-review
-// @version      1.0
-// @description  Polls neovim review-relay and scrolls to the target heading
-//               without stealing browser focus.  Install via Violentmonkey
-//               or Greasemonkey.
+// @version      2.0
+// @description  Connects to neovim's WebSocket relay and scrolls to the
+//               target heading without stealing browser focus.
+//               Install via Violentmonkey or Greasemonkey.
 // @match        http://localhost:*/*
 // @match        http://127.0.0.1:*/*
-// @grant        GM_xmlhttpRequest
-// @connect      127.0.0.1
-// @connect      localhost
+// @grant        none
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -17,92 +15,86 @@
   "use strict";
 
   // ── Configuration ─────────────────────────────────────────────────────
-  const POLL_INTERVAL_MS = 500;
+  const RECONNECT_DELAY_MS = 2000;
 
   // Relay port = preview port + 10000.  Auto-detect from current page.
   const previewPort = window.location.port || "8080";
   const relayPort = String(Number(previewPort) + 10000);
-  const RELAY_URL = `http://127.0.0.1:${relayPort}/`;
+  const WS_URL = `ws://127.0.0.1:${relayPort}`;
 
   let lastUrl = "";
-  let relayReachable = false;
-  let failCount = 0;
-  const MAX_SILENT_FAILS = 20; // Stop warning after this many consecutive fails
+  let ws = null;
 
-  // ── Polling loop ──────────────────────────────────────────────────────
+  // ── WebSocket connection ──────────────────────────────────────────────
 
-  function poll() {
-    // Use GM_xmlhttpRequest to bypass CORS restrictions
-    if (typeof GM_xmlhttpRequest !== "undefined") {
-      GM_xmlhttpRequest({
-        method: "GET",
-        url: RELAY_URL,
-        timeout: 1000,
-        onload: function (response) {
-          failCount = 0;
-          if (!relayReachable) {
-            relayReachable = true;
-            console.log(
-              `[nvim-review] Connected to relay on :${relayPort}`
-            );
-          }
-          handleResponse(response.responseText);
-        },
-        onerror: function () {
-          failCount++;
-          if (relayReachable && failCount === 1) {
-            console.log("[nvim-review] Relay disconnected, will retry...");
-          }
-          relayReachable = false;
-        },
-        ontimeout: function () {
-          failCount++;
-          relayReachable = false;
-        },
-      });
-    } else {
-      // Fallback: standard fetch (may hit CORS issues)
-      fetch(RELAY_URL, { cache: "no-store" })
-        .then((r) => r.text())
-        .then((text) => {
-          failCount = 0;
-          if (!relayReachable) {
-            relayReachable = true;
-            console.log(
-              `[nvim-review] Connected to relay on :${relayPort}`
-            );
-          }
-          handleResponse(text);
-        })
-        .catch(() => {
-          failCount++;
-          relayReachable = false;
-        });
+  function connect() {
+    try {
+      ws = new WebSocket(WS_URL);
+    } catch (e) {
+      setTimeout(connect, RECONNECT_DELAY_MS);
+      return;
     }
+
+    ws.onopen = function () {
+      console.log(`[nvim-review] Connected to relay on :${relayPort}`);
+    };
+
+    ws.onmessage = function (event) {
+      try {
+        const msg = JSON.parse(event.data);
+        handleMessage(msg);
+      } catch (e) {
+        console.warn("[nvim-review] Invalid message:", event.data);
+      }
+    };
+
+    ws.onclose = function () {
+      console.log("[nvim-review] Relay disconnected, reconnecting...");
+      ws = null;
+      setTimeout(connect, RECONNECT_DELAY_MS);
+    };
+
+    ws.onerror = function () {
+      // onclose will fire after this, triggering reconnect
+    };
   }
 
-  function handleResponse(targetUrl) {
+  // ── Message handling ──────────────────────────────────────────────────
+
+  function handleMessage(msg) {
+    // msg: { type: "scroll"|"navigate", url, path, anchor }
+    const targetUrl = msg.url;
     if (!targetUrl || targetUrl === lastUrl) return;
     lastUrl = targetUrl;
 
-    try {
-      const target = new URL(targetUrl);
-      const current = window.location;
+    const currentPath = window.location.pathname;
+    const targetPath = msg.path || "/";
+    const targetAnchor = msg.anchor || "";
 
-      // Same page, different anchor → smooth scroll
-      if (target.pathname === current.pathname) {
-        if (target.hash) {
-          scrollToAnchor(target.hash.slice(1));
-          // Update URL bar without navigation
-          history.replaceState(null, "", target.hash);
+    if (msg.type === "navigate" || targetPath !== currentPath) {
+      // Page-level: navigate (full page load or SPA nav)
+      if (targetPath !== currentPath) {
+        // Try Quartz SPA navigation first (looks for internal links)
+        const spaLink = document.querySelector(
+          `a[href="${targetPath}"], a[href="${targetPath}/"]`
+        );
+        if (spaLink) {
+          spaLink.click();
+          // After SPA nav, scroll to anchor
+          if (targetAnchor) {
+            setTimeout(() => scrollToAnchor(targetAnchor), 300);
+          }
+        } else {
+          window.location.href = targetUrl;
         }
         return;
       }
+    }
 
-      // Different page → navigate (this will reload)
-      window.location.href = targetUrl;
-    } catch (e) {
-      console.warn("[nvim-review] Invalid URL from relay:", targetUrl);
+    // Same page: scroll to anchor
+    if (targetAnchor) {
+      scrollToAnchor(targetAnchor);
+      history.replaceState(null, "", "#" + targetAnchor);
     }
   }
 
@@ -123,10 +115,7 @@
   // ── Start ─────────────────────────────────────────────────────────────
 
   console.log(
-    `[nvim-review] Userscript active — polling relay at :${relayPort}`
+    `[nvim-review] Userscript v2.0 active — WebSocket relay at :${relayPort}`
   );
-  setInterval(poll, POLL_INTERVAL_MS);
-
-  // Initial poll
-  poll();
+  connect();
 })();

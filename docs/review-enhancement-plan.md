@@ -344,15 +344,17 @@ SPC d m                    Push comments to MR (interactive, shows preview)
 
 ## 5. Migration Path
 
-### Step 1 (Current) ✅
+### Step 1 (Done)
 - File-based relay (`review-relay.py`) + userscript polling
 - Heading-level sync only
-- Works today, no Quartz changes needed
+- Superseded by Step 2
 
-### Step 2 (Next)
-- Replace Python relay with Lua WebSocket server (from live-preview.nvim)
-- Keep userscript but switch from HTTP polling to WebSocket
-- Still heading-level sync, but lower latency and no external process
+### Step 2 (Current) ✅
+- Lua WebSocket server (`lua/utils/websocket.lua`) adapted from live-preview.nvim
+- Userscript v2.0 connects via WebSocket (push-based, no polling)
+- Heading-level sync with debounced CursorMoved + slug comparison
+- Auto-detect docs_root (`documentation/content` > `documentation` > `docs`)
+- No external process needed
 
 ### Step 3 (Quartz Integration)
 - Create `quartz-nvim-sync` transformer plugin
@@ -377,8 +379,8 @@ SPC d m                    Push comments to MR (interactive, shows preview)
 | File | Role |
 |------|------|
 | `lua/modules/review.lua` | Main module (current) |
-| `scripts/review-relay.py` | Python relay (Step 1, replaced in Step 2) |
-| `scripts/review-sync.user.js` | Browser userscript (Step 1, replaced in Step 3) |
+| `lua/utils/websocket.lua` | Lua WebSocket server (Step 2, replaces Python relay) |
+| `scripts/review-sync.user.js` | Browser userscript v2.0 (WebSocket, Step 2) |
 | `lua/modules/review-websocket.lua` | Lua WebSocket server (Step 2) |
 | `quartz-plugins/nvim-sync.ts` | Quartz transformer+client (Step 3) |
 | `quartz-plugins/review-comments.ts` | Quartz comment component (Step 4) |

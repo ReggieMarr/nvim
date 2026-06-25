@@ -575,23 +575,20 @@ Two sync modes, designed for a split-desktop workflow:
 | Mode | Trigger | Browser behaviour |
 |------|---------|--------------------|
 | **Page-level** | `SPC d s`, `BufEnter` (auto-sync) | `xdg-open` navigates browser (may steal focus) |
-| **Heading-level** | `CursorMoved` (auto-sync) | Writes URL to `/tmp/nvim-review-<port>`, relay serves it, userscript scrolls smoothly — **no focus steal** |
+| **Heading-level** | `CursorMoved` (auto-sync) | Pushes URL via in-process WebSocket relay (`lua/utils/websocket.lua`), userscript scrolls smoothly — **no focus steal** |
 
 Heading-level sync uses a debounced `CursorMoved` hook: `nearest_heading_slug()` is
 called on each movement, but the 500ms timer only starts when the slug changes.
 Rapid scrolling within a section never triggers sync.
 
 **File → URL mapping:**
-- Strips `docs_root` (default `documentation`) from the file path
-- Removes file extension, lowercases the whole relative path
-- Example: `documentation/plans/icmp/Interface_Control_Model_Plan.org`
+- Auto-detects `docs_root` by scanning for known content directories:
+  `documentation/content` > `documentation` > `docs` > `content`
+- Strips `docs_root` from file path, removes extension, lowercases
+- Example: `documentation/content/plans/icmp/Interface_Control_Model_Plan.org`
   → `/plans/icmp/interface_control_model_plan`
 
-**Configuring docs_root** (per-project):
-```lua
--- In .nvim.lua at project root, or via :ReviewDocsRoot
-vim.g.review_docs_root = 'documentation'  -- default
-```
+**Override docs_root** (per-project, via `:ReviewDocsRoot <path>`).
 
 **Custom path mapping** (overrides built-in logic):
 ```lua
@@ -605,13 +602,14 @@ end
 - `CursorMoved` → heading-level sync (smooth scroll via relay, no focus steal)
 - All hooks are removed when auto-sync is toggled off
 
-#### Relay + Userscript Setup
+#### WebSocket Relay + Userscript Setup
 
 For heading-level sync without focus stealing:
 
-1. The relay server starts automatically with preview (or `:ReviewAttach`)
+1. The WebSocket relay starts automatically inside Neovim (no external process)
+   when you start preview (`SPC d p`) or attach (`:ReviewAttach <port>`)
 2. Install `scripts/review-sync.user.js` in Violentmonkey/Greasemonkey
-3. The userscript polls `http://127.0.0.1:<port+10000>/` and scrolls to anchors
+3. The userscript connects to `ws://127.0.0.1:<port+10000>/` and scrolls to anchors
 
 ### Re-export
 

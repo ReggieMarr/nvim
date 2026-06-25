@@ -18,14 +18,15 @@
 --
 -- Browser sync (two modes):
 --   Page-level  (BufEnter / SPC d s) — uses xdg-open, focus steal OK
---   Heading-level (auto-sync)        — writes to /tmp/nvim-review-<port>,
---     a companion Python relay serves it, a userscript in the browser
---     polls & scrolls without stealing focus
+--   Heading-level (auto-sync)        — pushes via in-process WebSocket
+--     relay (lua/utils/websocket.lua), a userscript in the browser
+--     connects and scrolls without stealing focus
 --
 -- File path -> URL mapping:
---   Strips docs_root (default 'documentation') from the file path,
---   removes extension, lowercases.  Configurable via workspace.docs_root
---   state key or vim.g.review_path_map / vim.b.review_path_map overrides.
+--   Auto-detects docs_root by searching for known content directories
+--   (documentation/content > documentation > docs).  Strips docs_root
+--   from file path, removes extension, lowercases.
+--   Override: workspace.docs_root state key, vim.g/b.review_path_map.
 --
 -- Re-export:
 --   SPC d e  — re-run x7-tools pages prepare to regenerate markdown
@@ -253,25 +254,19 @@ end
 
 ---@class review.PreviewState
 ---@field task_id number|nil   overseer task id for preview server
----@field relay_task_id number|nil  overseer task id for relay server
+---@field ws_server table|nil  websocket.Server instance for heading-level sync
 ---@field port number          preview server port
----@field relay_port number    relay server port (port + 10000)
+---@field relay_port number    WebSocket relay port (port + 10000)
 ---@field url_base string      e.g. "http://localhost:8080"
 ---@field managed boolean      true if neovim started the preview server
 local preview = {
   task_id = nil,
-  relay_task_id = nil,
+  ws_server = nil,
   port = 8080,
   relay_port = 18080,
   url_base = 'http://localhost:8080',
   managed = false,
 }
-
----Return the path to the sync URL file for the current port.
----@return string
-local function sync_url_file()
-  return '/tmp/nvim-review-' .. preview.port
-end
 
 ---Detect the best preview command for the current project.
 ---@return { cmd: string[], port: number, name: string, cwd: string, env: table|nil }|nil
@@ -343,44 +338,32 @@ local function detect_preview_backend()
   return nil
 end
 
----Start the relay server that serves the sync URL file.
+---Start the WebSocket relay server for heading-level sync.
+---Runs inside Neovim via vim.uv (no external process).
 local function start_relay()
-  if preview.relay_task_id then
+  if preview.ws_server and preview.ws_server:is_running() then
     return -- already running
   end
 
-  local relay_script = vim.fn.stdpath 'config' .. '/scripts/review-relay.py'
-  if vim.fn.filereadable(relay_script) ~= 1 then
-    vim.notify('review: relay script not found at ' .. relay_script, vim.log.levels.WARN)
+  local websocket = require 'utils.websocket'
+  preview.relay_port = preview.port + 10000
+  local ws = websocket.new(preview.relay_port)
+
+  local ok, err = ws:start()
+  if not ok then
+    vim.notify('review: WebSocket relay failed to start on :' .. preview.relay_port .. ' -- ' .. tostring(err), vim.log.levels.WARN)
     return
   end
 
-  preview.relay_port = preview.port + 10000
-
-  local overseer = require 'overseer'
-  local task = overseer.new_task {
-    name = '🔗 review-relay :' .. preview.relay_port,
-    cmd = { 'python3', relay_script, tostring(preview.relay_port), sync_url_file() },
-    components = { 'default' },
-    metadata = { is_review_relay = true },
-  }
-  task:start()
-  preview.relay_task_id = task.id
+  preview.ws_server = ws
 end
 
----Stop the relay server.
+---Stop the WebSocket relay server.
 local function stop_relay()
-  if not preview.relay_task_id then
-    return
+  if preview.ws_server then
+    preview.ws_server:stop()
+    preview.ws_server = nil
   end
-  local overseer = require 'overseer'
-  local task = overseer.get_task(preview.relay_task_id)
-  if task and not task:is_complete() then
-    task:stop()
-  end
-  preview.relay_task_id = nil
-  -- Clean up the URL file
-  os.remove(sync_url_file())
 end
 
 ---Start the preview server via overseer.
@@ -429,14 +412,18 @@ local function start_preview()
   preview.url_base = 'http://localhost:' .. backend.port
   preview.managed = true
 
-  -- Also start the relay for heading-level sync
+  -- Also start the WebSocket relay for heading-level sync
   start_relay()
 
   vim.defer_fn(function()
     vim.ui.open(preview.url_base)
   end, 2500)
 
-  vim.notify('review: started ' .. backend.name .. ' on port ' .. backend.port, vim.log.levels.INFO)
+  vim.notify(
+    'review: started ' .. backend.name .. ' on port ' .. backend.port
+      .. (preview.ws_server and ' (ws relay :' .. preview.relay_port .. ')' or ''),
+    vim.log.levels.INFO
+  )
 end
 
 ---Stop the preview server.
@@ -472,9 +459,13 @@ local function attach_preview(port)
   preview.url_base = 'http://localhost:' .. port
   preview.managed = false
   preview.task_id = nil
-  -- Start relay for heading-level sync even with external server
+  -- Start WebSocket relay for heading-level sync even with external server
   start_relay()
-  vim.notify('review: attached to http://localhost:' .. port .. ' (relay on :' .. preview.relay_port .. ')', vim.log.levels.INFO)
+  vim.notify(
+    'review: attached to http://localhost:' .. port
+      .. (preview.ws_server and ' (ws relay :' .. preview.relay_port .. ')' or ''),
+    vim.log.levels.INFO
+  )
 end
 
 -- ══════════════════════════════════════════════════════════════════════════
@@ -516,17 +507,41 @@ local function nearest_heading_slug()
   return nil
 end
 
----Get the docs root for the current project.
----@return string  relative path from project root (e.g. 'documentation')
-local function get_docs_root()
-  return env.state.get 'workspace.docs_root' or 'documentation'
+---Auto-detect the docs root for the current project.
+---Searches for known content directories in priority order.
+---@param root string|nil  project root (defaults to workspace.root)
+---@return string  relative path from project root (e.g. 'documentation/content')
+local function get_docs_root(root)
+  -- Manual override takes priority
+  local override = env.state.get 'workspace.docs_root'
+  if override then
+    return override
+  end
+
+  root = root or env.state.get 'workspace.root' or vim.fn.getcwd()
+
+  -- Search in priority order: most specific first
+  local candidates = {
+    'documentation/content',  -- x7-cavorite layout
+    'documentation',          -- x7-wiki layout
+    'docs',                   -- generic
+    'content',                -- Hugo/Quartz direct
+  }
+  for _, candidate in ipairs(candidates) do
+    if vim.fn.isdirectory(root .. '/' .. candidate) == 1 then
+      return candidate
+    end
+  end
+
+  return 'documentation' -- fallback
 end
 
 ---Get the full absolute docs root path.
+---@param root string|nil  project root (defaults to workspace.root)
 ---@return string
-local function get_full_docs_root()
-  local root = env.state.get 'workspace.root' or vim.fn.getcwd()
-  return root .. '/' .. get_docs_root()
+local function get_full_docs_root(root)
+  root = root or env.state.get 'workspace.root' or vim.fn.getcwd()
+  return root .. '/' .. get_docs_root(root)
 end
 
 ---Validate that the current buffer is a doc file inside the docs root.
@@ -581,14 +596,22 @@ local function file_to_url_path()
   return '/' .. rel
 end
 
----Write the target URL to the sync file for the relay to serve.
+---Push the target URL to all connected WebSocket clients.
 ---Does NOT open the browser (no focus steal).
 ---@param url string
-local function write_sync_url(url)
-  local f = io.open(sync_url_file(), 'w')
-  if f then
-    f:write(url)
-    f:close()
+---@param msg_type string|nil  "scroll" or "navigate" (default "scroll")
+local function push_sync_url(url, msg_type)
+  if preview.ws_server and preview.ws_server:is_running() then
+    -- Parse URL to extract path and anchor separately
+    local path_part = url:match 'https?://[^/]+(.*)' or '/'
+    local anchor = path_part:match '#(.+)$'
+    local clean_path = path_part:gsub('#.*$', '')
+    preview.ws_server:broadcast_json {
+      type = msg_type or 'scroll',
+      url = url,
+      path = clean_path,
+      anchor = anchor or '',
+    }
   end
 end
 
@@ -625,11 +648,11 @@ local function sync_browser(opts)
   end
 
   if opts.heading_only then
-    -- Heading-level: write to file, relay serves it, userscript picks it up
-    write_sync_url(url)
+    -- Heading-level: push via WebSocket, no focus steal
+    push_sync_url(url, 'scroll')
   else
-    -- Page-level: both write to file AND open browser
-    write_sync_url(url)
+    -- Page-level: push via WebSocket AND open browser
+    push_sync_url(url, 'navigate')
     vim.ui.open(url)
   end
 end
@@ -1074,8 +1097,18 @@ return env.module.register {
     vim.api.nvim_create_autocmd('VimLeavePre', {
       group = vim.api.nvim_create_augroup('review_cleanup', { clear = true }),
       callback = function()
-        os.remove(sync_url_file())
+        stop_relay()
       end,
     })
   end,
+
+  -- Expose internals for testing (not part of the public API)
+  _test = {
+    get_docs_root = get_docs_root,
+    get_full_docs_root = get_full_docs_root,
+    file_to_url_path = file_to_url_path,
+    slugify = slugify,
+    nearest_heading_slug = nearest_heading_slug,
+    validate_sync_target = validate_sync_target,
+  },
 }
