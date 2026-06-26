@@ -49,8 +49,13 @@ it('slugify: special characters stripped', function()
   eq(T.slugify('Intra-Device Interfaces: The EHOS Platform'), 'intra-device-interfaces-the-ehos-platform')
 end)
 
-it('slugify: multiple spaces collapse', function()
-  eq(T.slugify('One   Two   Three'), 'one-two-three')
+it('slugify: multiple spaces become individual hyphens (github-slugger compat)', function()
+  eq(T.slugify('One   Two   Three'), 'one---two---three')
+end)
+
+it('slugify: em dash produces double hyphen (github-slugger compat)', function()
+  -- em dash is stripped, leaving two adjacent spaces → two hyphens
+  eq(T.slugify('Intra-Device Interfaces \u{2014} The EHOS Platform'), 'intra-device-interfaces--the-ehos-platform')
 end)
 
 it('slugify: leading/trailing hyphens trimmed', function()

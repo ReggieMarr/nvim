@@ -1,6 +1,6 @@
 # Review Module Enhancement Plan
 
-## Status: Design — Not Yet Implemented
+## Status: Steps 1–3 Complete, Step 4 Planned
 
 This document evaluates how to leverage `live-preview.nvim` and its dependencies
 to improve the review module's browser sync and enable a future commenting→MR
@@ -349,27 +349,30 @@ SPC d m                    Push comments to MR (interactive, shows preview)
 - Heading-level sync only
 - Superseded by Step 2
 
-### Step 2 (Current) ✅
+### Step 2 (Done) ✅
 - Lua WebSocket server (`lua/utils/websocket.lua`) adapted from live-preview.nvim
-- Userscript v2.0 connects via WebSocket (push-based, no polling)
+- Push-based WebSocket messaging (no polling)
 - Heading-level sync with debounced CursorMoved + slug comparison
 - Auto-detect docs_root (`documentation/content` > `documentation` > `docs`)
 - No external process needed
 
-### Step 3 (Quartz Integration)
-- Create `quartz-nvim-sync` transformer plugin
-- Inject `data-source-line` attributes for line-level sync
-- Client-side JS in Quartz replaces userscript entirely
-- Add to x7-wiki's `quartz.config.yaml`
+### Step 3 (Done) ✅
+- Review-sync client embedded in `source-positions` plugin via `externalResources`
+- Client JS injected into every Quartz page automatically (no userscript manager)
+- SPA-aware navigation (synthetic `<a>` click + Quartz `"nav"` event listener)
+- Slug algorithm fixed to match `github-slugger` (em dash double-hyphen compat)
+- BufEnter auto-sync uses WebSocket push-only (no `xdg-open` focus steal)
+- Performance: heading index cache + binary search, docs-root cache
+- Standalone userscript v3.0 kept as fallback for non-Quartz servers
 
-### Step 4 (Commenting)
+### Step 4 (Planned)
+- Inject `data-source-line` attributes via rehype plugin for line-level sync
 - Add Quartz component plugin for comment UI
 - WebSocket bidirectional: Neovim sends scroll, browser sends comments
 - `glab` integration for MR workflow
 
 ### Dependencies Between Steps
-- Step 2 is independent (can do anytime)
-- Step 3 requires Step 2 (needs WebSocket server)
+- Steps 1–3 complete
 - Step 4 requires Step 3 (needs line numbers + WebSocket)
 
 ---
@@ -378,12 +381,11 @@ SPC d m                    Push comments to MR (interactive, shows preview)
 
 | File | Role |
 |------|------|
-| `lua/modules/review.lua` | Main module (current) |
-| `lua/utils/websocket.lua` | Lua WebSocket server (Step 2, replaces Python relay) |
-| `scripts/review-sync.user.js` | Browser userscript v2.0 (WebSocket, Step 2) |
-| `lua/modules/review-websocket.lua` | Lua WebSocket server (Step 2) |
-| `quartz-plugins/nvim-sync.ts` | Quartz transformer+client (Step 3) |
-| `quartz-plugins/review-comments.ts` | Quartz comment component (Step 4) |
+| `lua/modules/review.lua` | Main module (preview, sync, comments) |
+| `lua/utils/websocket.lua` | Pure-Lua WebSocket server (vim.uv) |
+| `scripts/review-sync.user.js` | Standalone userscript v3.0 (fallback) |
+| `docs/review.md` | Full module documentation |
+| `tests/spec/review_url_spec.lua` | URL mapping + slugify tests |
 
 ## 7. live-preview.nvim Source Reference
 

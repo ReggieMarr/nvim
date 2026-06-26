@@ -209,7 +209,7 @@ return env.module.register {
     -- mini.pick: custom file browser in pickers.lua uses the low-level mutation
     -- API (set_picker_query, set_picker_items, set_picker_match_inds, etc.)
     -- that snacks.picker does not expose — keep this alongside snacks.
-    ['echasnovski/mini.pick'] = {
+    ['nvim-mini/mini.pick'] = {
       version = false,
       lazy = false, -- used as vim.ui.select backend too
       config = function()

@@ -285,8 +285,13 @@ return env.module.register {
           { '<leader>q', group = 'quit' },
           -- AI agents
           { '<leader>a', group = 'agents' },
-          -- Document review
-          { '<leader>d', group = 'review' },
+          -- DAP debugging (Doom: SPC d)
+          { '<leader>d', group = 'debug' },
+          { '<leader>db', group = 'breakpoints' },
+          { '<leader>de', group = 'eval' },
+          { '<leader>dd', group = 'debug (recent)' },
+          -- Document review (moved to SPC D to free SPC d for DAP)
+          { '<leader>D', group = 'review' },
         },
       },
     },

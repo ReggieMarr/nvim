@@ -53,7 +53,10 @@ return env.module.register {
       dependencies = { 'mason-org/mason.nvim' },
       lazy = false,
       opts = {
-        ensure_installed = languages.get_mason_tool_packages(),
+        ensure_installed = vim.list_extend(
+          languages.get_mason_tool_packages(),
+          { 'debugpy' } -- DAP adapter for Python (used by modules.debugging)
+        ),
         auto_update = false,
         run_on_start = true,
       },
@@ -235,7 +238,7 @@ return env.module.register {
 
     -- mini.extra: buf_lines picker for <leader>sb (in-buffer fuzzy line search).
     -- Uses mini.pick internally; both must be loaded together.
-    ['echasnovski/mini.extra'] = { version = false },
+    ['nvim-mini/mini.extra'] = { version = false },
   },
 
   -- ── Setup ─────────────────────────────────────────────────────────────

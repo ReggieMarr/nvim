@@ -60,12 +60,12 @@ M.dependencies = {
 
   -- ── Text manipulation ──────────────────────────────────────────────────────
   {
-    'echasnovski/mini.trailspace',
+    'nvim-mini/mini.trailspace',
     version = '*',
     event = { 'BufReadPost', 'BufNewFile' },
   },
   {
-    'echasnovski/mini.move',
+    'nvim-mini/mini.move',
     version = '*',
     event = { 'BufReadPost', 'BufNewFile' },
   },

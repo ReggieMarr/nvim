@@ -48,9 +48,10 @@ return {
           if venv then
             config.settings.python = config.settings.python or {}
             config.settings.python.pythonPath = venv .. '/bin/python'
-            config.settings.basedpyright = config.settings.basedpyright or {}
-            config.settings.basedpyright.venvPath = vim.fn.fnamemodify(venv, ':h')
-            config.settings.basedpyright.venv = vim.fn.fnamemodify(venv, ':t')
+            -- basedpyright reads venvPath/venv from the 'python' namespace,
+            -- NOT from 'basedpyright' (same as upstream pyright).
+            config.settings.python.venvPath = vim.fn.fnamemodify(venv, ':h')
+            config.settings.python.venv = vim.fn.fnamemodify(venv, ':t')
           end
         end,
         settings = {

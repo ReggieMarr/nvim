@@ -35,6 +35,7 @@ local module_files = {
   'modules.agents',
   'modules.terminal',
   'modules.review',
+  'modules.debugging',
   -- 'modules.external_operations'
 }
 

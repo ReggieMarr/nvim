@@ -111,7 +111,8 @@ return env.module.register {
           -- Only valid status commands from the validator list:
           status = {
             ['<tab>'] = 'Toggle',
-            ['<space>'] = 'Stage',
+            -- NOTE: Do NOT map <space> here — it shadows <leader> (space)
+            -- since Neogit sets buffer-local keymaps. Use 's' for staging.
             ['s'] = 'Stage',
             ['S'] = 'StageAll',
             ['u'] = 'Unstage',
@@ -512,6 +513,63 @@ return env.module.register {
             message = msg or '',
           }) end
         end)
+      end,
+    })
+
+    -- ── Neogit buffer navigation keymaps ─────────────────────────────
+    -- Neogit buffers are nofile/nowrite and set their own buffer-local
+    -- keymaps. Re-apply the core navigation keymaps (SPC . / SPC SPC /
+    -- SPC / / SPC ,) so the user can navigate away from the Neogit
+    -- buffer using familiar shortcuts. The cwd is resolved to the git
+    -- root that Neogit is operating on.
+    vim.api.nvim_create_autocmd('FileType', {
+      group = vc_augroup,
+      pattern = {
+        'NeogitStatus', 'NeogitCommitMessage', 'NeogitLogView',
+        'NeogitGitCommandHistory', 'NeogitCommitView',
+        'NeogitConsole', 'NeogitDiffView', 'NeogitRebaseTodo',
+      },
+      callback = function(event)
+        local bufnr = event.buf
+        -- Resolve the git root for this Neogit buffer
+        local root = vim.fn.getcwd()
+        local git_root = vim.fn.systemlist('git -C ' .. vim.fn.shellescape(root) .. ' rev-parse --show-toplevel')[1]
+        if vim.v.shell_error == 0 and git_root and git_root ~= '' then root = git_root end
+
+        -- SPC . — find file
+        vim.keymap.set('n', '<leader>.', function()
+          vim.ui.picker.files { cwd = root }
+        end, { buffer = bufnr, silent = true, desc = 'base.find_file' })
+
+        -- SPC SPC — project find file
+        vim.keymap.set('n', '<leader><space>', function()
+          vim.ui.picker.files { cwd = root }
+        end, { buffer = bufnr, silent = true, desc = 'base.project_find_file' })
+
+        -- SPC / — search project
+        vim.keymap.set('n', '<leader>/', function()
+          vim.ui.picker.grep { cwd = root }
+        end, { buffer = bufnr, silent = true, desc = 'base.search_project' })
+
+        -- SPC , — switch buffer
+        vim.keymap.set('n', '<leader>,', function()
+          vim.ui.picker.buffers()
+        end, { buffer = bufnr, silent = true, desc = 'base.switch_buffer' })
+
+        -- SPC : — command palette
+        vim.keymap.set('n', '<leader>:', function()
+          vim.ui.picker.commands()
+        end, { buffer = bufnr, silent = true, desc = 'base.command_palette' })
+
+        -- SPC p f — project find file
+        vim.keymap.set('n', '<leader>pf', function()
+          vim.ui.picker.files { cwd = root }
+        end, { buffer = bufnr, silent = true, desc = 'project.find_file' })
+
+        -- SPC p g — project grep
+        vim.keymap.set('n', '<leader>pg', function()
+          vim.ui.picker.grep { cwd = root }
+        end, { buffer = bufnr, silent = true, desc = 'project.grep' })
       end,
     })
   end,

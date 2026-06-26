@@ -80,7 +80,7 @@ local declared = collect_declared_plugins()
 -- Plugins that are intentionally provided by a meta-package or known alias
 -- Add entries here when the require name differs from the spec key.
 local KNOWN_ALIASES = {
-  -- mini.* from nvim-mini/* or echasnovski/*
+  -- mini.* from nvim-mini/* or nvim-mini/*
   ['mini.files']    = true,
   ['mini.icons']    = true,
   ['mini.sessions'] = true,
@@ -102,6 +102,8 @@ local KNOWN_ALIASES = {
   ['modules.text_editing.languages.lua'] = true,
   ['modules.text_editing.languages.python'] = true,
   ['modules.text_editing.languages.c']   = true,
+  ['modules.text_editing.lsp']             = true,
+  ['modules.text_editing.pickers']         = true,
   ['modules.filesystem.pickers']         = true,
   ['modules.filesystem.utils']           = true,
   ['utils.file_browsing.directory_editor'] = true,
@@ -124,8 +126,8 @@ local MUST_HAVE_SPEC = {
   { require_name = 'tokyonight', spec = 'folke/tokyonight.nvim' },
 
   -- filesystem module
-  { require_name = 'mini.pick',     spec = 'echasnovski/mini.pick' },
-  { require_name = 'mini.extra',    spec = 'echasnovski/mini.extra' },
+  { require_name = 'mini.pick',     spec = 'nvim-mini/mini.pick' },
+  { require_name = 'mini.extra',    spec = 'nvim-mini/mini.extra' },
   { require_name = 'mini.files',    spec = 'nvim-mini/mini.files' },
   { require_name = 'mini.icons',    spec = 'nvim-mini/mini.icons' },
   { require_name = 'mini.sessions', spec = 'nvim-mini/mini.sessions' },
@@ -150,6 +152,12 @@ local MUST_HAVE_SPEC = {
 
   -- terminal module
   { require_name = 'overseer',  spec = 'stevearc/overseer.nvim' },
+
+  -- debugging module
+  { require_name = 'dap',                   spec = 'mfussenegger/nvim-dap' },
+  { require_name = 'dapui',                  spec = 'rcarriga/nvim-dap-ui' },
+  { require_name = 'dap-python',             spec = 'mfussenegger/nvim-dap-python' },
+  { require_name = 'nvim-dap-virtual-text',  spec = 'theHamsta/nvim-dap-virtual-text' },
 }
 
 for _, entry in ipairs(MUST_HAVE_SPEC) do
@@ -170,14 +178,17 @@ end
 -- Ensure plugins are declared in the correct module (not just anywhere).
 
 local MODULE_LOCATION_CHECKS = {
-  { file = 'filesystem/init.lua',     plugin = 'echasnovski/mini.pick', label = 'mini.pick in filesystem' },
-  { file = 'text_editing/init.lua',   plugin = 'echasnovski/mini.extra', label = 'mini.extra in text_editing' },
+  { file = 'filesystem/init.lua',     plugin = 'nvim-mini/mini.pick', label = 'mini.pick in filesystem' },
+  { file = 'text_editing/init.lua',   plugin = 'nvim-mini/mini.extra', label = 'mini.extra in text_editing' },
   { file = 'version_control.lua',     plugin = 'NeogitOrg/neogit', label = 'neogit in version_control' },
   { file = 'version_control.lua',     plugin = 'lewis6991/gitsigns.nvim', label = 'gitsigns in version_control' },
   { file = 'orgmode.lua',             plugin = 'nvim-orgmode/orgmode', label = 'orgmode in orgmode module' },
   { file = 'orgmode.lua',             plugin = 'nvim-orgmode/org-bullets.nvim', label = 'org-bullets in orgmode module' },
   { file = 'orgmode.lua',             plugin = 'lukas-reineke/headlines.nvim', label = 'headlines in orgmode module' },
   { file = 'terminal.lua',            plugin = 'stevearc/overseer.nvim', label = 'overseer in terminal module' },
+  { file = 'debugging.lua',           plugin = 'mfussenegger/nvim-dap', label = 'nvim-dap in debugging module' },
+  { file = 'debugging.lua',           plugin = 'rcarriga/nvim-dap-ui', label = 'nvim-dap-ui in debugging module' },
+  { file = 'debugging.lua',           plugin = 'mfussenegger/nvim-dap-python', label = 'nvim-dap-python in debugging module' },
   { file = 'interface.lua',           plugin = 'folke/snacks.nvim', label = 'snacks in interface module' },
   { file = 'interface.lua',           plugin = 'stevearc/oil.nvim', label = 'oil in interface module' },
   { file = 'interface.lua',           plugin = 'folke/which-key.nvim', label = 'which-key in interface module' },

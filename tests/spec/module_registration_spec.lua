@@ -39,6 +39,7 @@ local EXPECTED_MODULES = {
   'modules.agents',
   'modules.terminal',
   'modules.review',
+  'modules.debugging',
 }
 
 -- ── Each module file can be required without error ───────────────────────

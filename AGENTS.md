@@ -28,6 +28,15 @@ both the user and AI agents. Read the full architecture in README.md.
    must have a corresponding `['author/plugin_name']` in some module's
    `plugins` table. The `plugin_deps_spec.lua` test enforces this.
 
+6. **CI.** The GitHub Actions workflow (`.github/workflows/verify.yml`)
+   runs the full test suite, module DAG validation, and stylua formatting
+   checks on every push and PR. All checks must pass.
+
+7. **Keymap prefix ownership.** `SPC d` is DAP debugging (Doom-compatible).
+   `SPC D` is document review. Do not reassign these prefixes without
+   updating `interface.lua` which-key groups, `README.md`, and the
+   `keymap_spec.lua` duplicate-detection tests.
+
 ## Architecture Quick Reference
 
 ### Module system
@@ -91,6 +100,10 @@ both the user and AI agents. Read the full architecture in README.md.
 | Git integration | `lua/modules/version_control.lua` |
 | File navigation | `lua/modules/filesystem/init.lua` |
 | Custom file browser | `lua/modules/filesystem/pickers.lua` |
+| Debugging (DAP) | `lua/modules/debugging.lua` |
+| Review module | `lua/modules/review.lua` |
+| Review docs | `docs/review.md` |
+| WebSocket relay | `lua/utils/websocket.lua` |
 | Tests | `tests/spec/*.lua` |
 | Test runner | `tests/run.sh` |
 

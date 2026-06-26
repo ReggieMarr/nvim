@@ -1,0 +1,75 @@
+name: Verify Neovim Config
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Run test suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Neovim (stable)
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Verify Neovim version
+        run: nvim --version | head -3
+
+      - name: Run test suite
+        run: bash tests/run.sh
+
+      - name: Validate module DAG (startup check)
+        run: |
+          nvim --headless --noplugin \
+            -u tests/minimal_init.lua \
+            -c "lua local ok, errs = require('lib.module').validate(); if not ok then for _, e in ipairs(errs) do print('ERROR: ' .. e) end; vim.cmd('cq 1') else print('Module DAG valid') end" \
+            -c 'qa!'
+
+  lint:
+    name: Check Lua formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stylua check
+        uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --check .
+
+  lua-syntax:
+    name: Lua syntax check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Lua syntax (all files)
+        run: |
+          errors=0
+          while IFS= read -r file; do
+            if ! luac -p "$file" 2>/dev/null; then
+              echo "SYNTAX ERROR: $file"
+              luac -p "$file" 2>&1 || true
+              errors=$((errors + 1))
+            fi
+          done < <(find lua/ -name '*.lua' -type f)
+
+          if [ $errors -gt 0 ]; then
+            echo "Found $errors file(s) with syntax errors"
+            exit 1
+          fi
+          echo "All Lua files parse OK"

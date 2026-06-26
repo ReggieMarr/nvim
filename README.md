@@ -48,7 +48,8 @@ same file management (dired → oil.nvim), same org-mode workflow (org-mode → 
 │   │   ├── workspace.lua             # Project management, sessions, switching (SPC p)
 │   │   ├── orgmode.lua               # Org-mode: agenda, capture, export (SPC o, ;)
 │   │   ├── agents.lua                # AI coding agents: pi, claude code (SPC a)
-│   │   └── terminal.lua              # Terminal UX + overseer task runner (SPC t, SPC o s)
+│   │   ├── terminal.lua              # Terminal UX + overseer task runner (SPC t, SPC o s)
+│   │   └── debugging.lua             # DAP debugging: nvim-dap, dap-ui, debugpy (SPC d)
 │   └── utils/
 │       └── file_browsing/            # Shared dired-style column rendering
 │           ├── columns.lua           # Column width/gap/highlight definitions
@@ -83,6 +84,7 @@ lazy.nvim call, then runs each module's `setup()` in dependency order.
 | `orgmode` | orgmode | Org-mode: agenda, capture, TODO workflow |
 | `agents` | agents | AI coding agents (pi, claude code) |
 | `terminal` | terminal | Terminal UX, overseer task runner |
+| `debugging` | debugging | DAP debugging (nvim-dap, dap-ui, debugpy), overseer tasks |
 | `review` | review | Document review: live preview + inline comments |
 
 ---
@@ -235,23 +237,46 @@ Leader: `SPC` · Local leader: `;` (org-mode buffer keymaps)
 | `SPC a s` | Send selection to agent (visual) |
 | `` C-` `` | Global agent/terminal toggle |
 
-#### `SPC d` — Document Review
+#### `SPC d` — Debug (DAP)
+
+| Key | Action | Doom Equivalent |
+|-----|--------|------------------|
+| `SPC d s` | Start / continue | `dap-debug` |
+| `SPC d c` | Continue | `dap-continue` |
+| `SPC d n` | Step over (next) | `dap-next` |
+| `SPC d i` | Step into | `dap-step-in` |
+| `SPC d o` | Step out | `dap-step-out` |
+| `SPC d r` | Restart | `dap-debug-restart` |
+| `SPC d l` | REPL | `dap-ui-repl` |
+| `SPC d C` | Cleanup / terminate | `dap-cleanup` |
+| `SPC d d r` | Run last config | `dap-debug-last` |
+| `SPC d b b` | Toggle breakpoint | `dap-breakpoint-toggle` |
+| `SPC d b c` | Conditional breakpoint | `dap-breakpoint-condition` |
+| `SPC d b h` | Hit count breakpoint | `dap-breakpoint-hit-condition` |
+| `SPC d b l` | Log point | `dap-breakpoint-log-message` |
+| `SPC d e e` | Eval expression | `dap-eval` |
+| `SPC d e s` | Eval at cursor | `dap-eval-thing-at-point` |
+| `SPC d u` | Toggle DAP UI | — |
+| `SPC d t` | Run task (overseer) | — |
+| `SPC d T` | Toggle task list | — |
+
+#### `SPC D` — Document Review
 
 | Key | Action |
 |-----|--------|
-| `SPC d p` | Start preview server (auto-detects backend) |
-| `SPC d P` | Stop preview server / detach external |
-| `SPC d o` | Open browser to preview |
-| `SPC d s` | Sync browser to current file + heading |
-| `SPC d S` | Toggle auto-sync (page on BufEnter, heading on CursorMoved) |
-| `SPC d e` | Re-export current file (org -> markdown via x7-tools) |
-| `SPC d E` | Re-export all docs |
-| `SPC d c` | Add review comment block below cursor |
-| `SPC d c` | Comment on selection (visual mode) |
-| `SPC d i` | Add inline review comment at end of line |
-| `SPC d r` | Resolve (delete) review comment at cursor |
-| `SPC d l` | List all review comments in buffer (loclist) |
-| `SPC d g` | Grep all review comments across project |
+| `SPC D p` | Start preview server (auto-detects backend) |
+| `SPC D P` | Stop preview server / detach external |
+| `SPC D o` | Open browser to preview |
+| `SPC D s` | Sync browser to current file + heading |
+| `SPC D S` | Toggle auto-sync (page on BufEnter, heading on CursorMoved) |
+| `SPC D e` | Re-export current file (org -> markdown via x7-tools) |
+| `SPC D E` | Re-export all docs |
+| `SPC D c` | Add review comment block below cursor |
+| `SPC D c` | Comment on selection (visual mode) |
+| `SPC D i` | Add inline review comment at end of line |
+| `SPC D r` | Resolve (delete) review comment at cursor |
+| `SPC D l` | List all review comments in buffer (loclist) |
+| `SPC D g` | Grep all review comments across project |
 | `]r` / `[r` | Next / previous review comment |
 
 #### `SPC x` — Files / Dired
@@ -378,12 +403,17 @@ Leader: `SPC` · Local leader: `;` (org-mode buffer keymaps)
 | Key | Action | Magit Equivalent |
 |-----|--------|------------------|
 | `TAB` | Toggle section | `magit-section-toggle` |
-| `SPC` / `s` | Stage | `magit-stage` |
+| `s` | Stage | `magit-stage` |
 | `S` | Stage all | `magit-stage-modified` |
 | `u` | Unstage | `magit-unstage` |
 | `x` | Discard | `magit-discard` |
 | `CR` | Open or scroll down | `magit-visit-thing` |
 | `q` | Close | `magit-mode-bury-buffer` |
+| `SPC .` | Find file (project root) | Navigation override |
+| `SPC SPC` | Project find file | Navigation override |
+| `SPC /` | Search project | Navigation override |
+| `SPC ,` | Switch buffer | Navigation override |
+| `SPC :` | Command palette | Navigation override |
 
 ---
 
@@ -402,29 +432,33 @@ Leader: `SPC` · Local leader: `;` (org-mode buffer keymaps)
 
 ## Plugin Stack
 
-| Category | Plugin | Purpose |
-|----------|--------|---------|
-| **Core UI** | tokyonight.nvim | Colorscheme (storm, transparent bg) |
-| | lualine.nvim | Statusline (doom-modeline layout + overseer) |
-| | which-key.nvim | Keymap discovery and hints |
-| | snacks.nvim | Pickers, terminal, input, scope, scratch |
-| **File Management** | oil.nvim | Directory editor (dired-style) |
-| | mini.files | File explorer with preview and dired columns |
-| **Completion** | blink.cmp | Completion engine (Tab/S-Tab/CR) |
-| **Formatting** | conform.nvim | Format-on-save (language-spec driven) |
-| **LSP** | mason + mason-tool-installer | LSP/tool installation |
-| **Treesitter** | nvim-treesitter + textobjects + context | Syntax, navigation, sticky headers |
-| **Git** | neogit | Magit-style git interface |
-| | gitsigns.nvim | Sign column, blame, hunk operations |
-| | diffview.nvim | Side-by-side diff viewer + file history |
-| **Tasks** | overseer.nvim | Task runner (just/make/cargo/npm/vscode) |
-| **Org** | nvim-orgmode | Org-mode (agenda, capture, export) |
-| | org-bullets.nvim | Pretty org heading bullets |
-| | headlines.nvim | Org headline highlighting |
-| **Pickers** | mini.pick | Custom Vertico-style file browser |
-| | mini.extra | Buffer-lines picker |
-| | fff.nvim | File search + live grep |
-| **Sessions** | mini.sessions | Session save/restore |
+| Category            | Plugin                                  | Purpose                                      |
+|---------------------|-----------------------------------------|----------------------------------------------|
+| **Core UI**         | tokyonight.nvim                         | Colorscheme (storm, transparent bg)          |
+|                     | lualine.nvim                            | Statusline (doom-modeline layout + overseer) |
+|                     | which-key.nvim                          | Keymap discovery and hints                   |
+|                     | snacks.nvim                             | Pickers, terminal, input, scope, scratch     |
+| **File Management** | oil.nvim                                | Directory editor (dired-style)               |
+|                     | mini.files                              | File explorer with preview and dired columns |
+| **Completion**      | blink.cmp                               | Completion engine (Tab/S-Tab/CR)             |
+| **Formatting**      | conform.nvim                            | Format-on-save (language-spec driven)        |
+| **LSP**             | mason + mason-tool-installer            | LSP/tool installation                        |
+| **Treesitter**      | nvim-treesitter + textobjects + context | Syntax, navigation, sticky headers           |
+| **Git**             | neogit                                  | Magit-style git interface                    |
+|                     | gitsigns.nvim                           | Sign column, blame, hunk operations          |
+|                     | diffview.nvim                           | Side-by-side diff viewer + file history      |
+| **Tasks**           | overseer.nvim                           | Task runner (just/make/cargo/npm/vscode)     |
+| **Org**             | nvim-orgmode                            | Org-mode (agenda, capture, export)           |
+|                     | org-bullets.nvim                        | Pretty org heading bullets                   |
+|                     | headlines.nvim                          | Org headline highlighting                    |
+| **Pickers**         | mini.pick                               | Custom Vertico-style file browser            |
+|                     | mini.extra                              | Buffer-lines picker                          |
+|                     | fff.nvim                                | File search + live grep                      |
+| **Sessions**        | mini.sessions                           | Session save/restore                         |
+| **Debugging**       | nvim-dap                                | DAP client (breakpoints, stepping, REPL)     |
+|                     | nvim-dap-ui                             | Scopes, watches, stacks, console panels      |
+|                     | nvim-dap-python                         | Python adapter (debugpy)                     |
+|                     | nvim-dap-virtual-text                   | Inline variable values during debug          |
 
 ---
 
@@ -432,21 +466,22 @@ Leader: `SPC` · Local leader: `;` (org-mode buffer keymaps)
 
 All state is queryable via `env.state.get('key')`.
 
-| Key | Module | Description |
-|-----|--------|-------------|
-| `workspace.cwd` | core | Current working directory |
-| `workspace.root` | workspace | Project root (LSP → markers → git → cwd) |
-| `workspace.project_name` | workspace | Basename of project root |
-| `vcs.branch` | version_control | Current git branch |
-| `vcs.status` | version_control | Working tree status (staged/unstaged/untracked) |
-| `vcs.head_commit` | version_control | HEAD hash + message |
-| `vcs.is_repo` | version_control | Whether cwd is a git repo |
-| `vcs.hunk_count` | version_control | Changed hunks in current buffer |
-| `lsp.attached_servers` | text_editing | Attached LSP server names |
-| `lsp.diagnostics` | text_editing | Diagnostic counts by severity |
-| `lsp.current_symbol` | text_editing | Symbol under cursor |
-| `lsp.capabilities` | text_editing | Aggregated LSP capabilities |
-| `filesystem.tree_visible` | filesystem | Whether file tree is showing |
+| Key                       | Module          | Description                                     |
+|---------------------------|-----------------|-------------------------------------------------|
+| `workspace.cwd`           | core            | Current working directory                       |
+| `workspace.root`          | workspace       | Project root (LSP → markers → git → cwd)        |
+| `workspace.project_name`  | workspace       | Basename of project root                        |
+| `vcs.branch`              | version_control | Current git branch                              |
+| `vcs.status`              | version_control | Working tree status (staged/unstaged/untracked) |
+| `vcs.head_commit`         | version_control | HEAD hash + message                             |
+| `vcs.is_repo`             | version_control | Whether cwd is a git repo                       |
+| `vcs.hunk_count`          | version_control | Changed hunks in current buffer                 |
+| `lsp.attached_servers`    | text_editing    | Attached LSP server names                       |
+| `lsp.diagnostics`         | text_editing    | Diagnostic counts by severity                   |
+| `lsp.current_symbol`      | text_editing    | Symbol under cursor                             |
+| `lsp.capabilities`        | text_editing    | Aggregated LSP capabilities                     |
+| `filesystem.tree_visible` | filesystem      | Whether file tree is showing                    |
+| `debug.active`            | debugging       | Whether a DAP session is active                 |
 
 ---
 
@@ -457,9 +492,15 @@ the corresponding Neogit popup (commit, push, pull, branch, rebase, stash, log).
 Inside the Neogit status buffer, the keybindings match Magit conventions:
 
 - **`TAB`** toggles section fold (like `magit-section-toggle`)
-- **`s`/`SPC`** stages, **`u`** unstages, **`x`** discards
+- **`s`** stages, **`u`** unstages, **`x`** discards
+- **`SPC .`**, **`SPC SPC`**, **`SPC /`**, **`SPC ,`**, **`SPC :`** — navigation keymaps work
+  from Neogit buffers (buffer-local overrides using the git root as cwd)
 - **`CR`** visits the file/hunk
 - Transient popups (commit, push, etc.) appear inline
+
+> **Note:** `SPC` is no longer mapped to Stage in Neogit buffers (use `s`).
+> This avoids shadowing the `<leader>` key, which enables all `SPC`-prefixed
+> navigation keymaps to work from within Neogit.
 
 Configuration mirrors Doom's Magit settings:
 - `diff_viewer = 'codediff'` for side-by-side diffs
@@ -496,18 +537,18 @@ column system. Both surfaces are visually identical.
 
 Overseer auto-discovers tasks from project files:
 
-| Source | Detected From |
-|--------|---------------|
-| Just | `Justfile`, `justfile` |
-| Make | `Makefile`, `GNUmakefile` |
-| Cargo | `Cargo.toml` |
-| npm | `package.json` |
-| VS Code | `.vscode/tasks.json` |
-| Tox | `tox.ini` |
-| Mix | `mix.exs` |
-| Deno | `deno.json` |
-| Rake | `Rakefile` |
-| Mise | `mise.toml` |
+| Source  | Detected From             |
+|---------|---------------------------|
+| Just    | `Justfile`, `justfile`    |
+| Make    | `Makefile`, `GNUmakefile` |
+| Cargo   | `Cargo.toml`              |
+| npm     | `package.json`            |
+| VS Code | `.vscode/tasks.json`      |
+| Tox     | `tox.ini`                 |
+| Mix     | `mix.exs`                 |
+| Deno    | `deno.json`               |
+| Rake    | `Rakefile`                |
+| Mise    | `mise.toml`               |
 
 Task output can be piped to quickfix/diagnostics. The `:Make` command
 provides async make with output parsed through `errorformat`.
@@ -527,16 +568,16 @@ editor on one side, live-reloading preview in a browser on the other.
 
 Auto-detected in priority order:
 
-| Backend | Detected By | Use Case |
-|---------|-------------|----------|
-| **Quartz** (pages-preview.sh) | `tools/pages-preview.sh` | x7-forge org→md pipeline |
-| **x7-tools pages preview** | `tools/x7-forge/implementation/x7-tools/run.sh` | x7-forge submodule (system repos) |
-| **x7-forge tools** | `tools/x7-forge/tools/run.sh` | x7-forge nested layout |
-| **grip** | `grip` in PATH | GitHub-flavored markdown |
-| **python3 http.server** | `docs/` directory | Static HTML fallback |
+| Backend                       | Detected By                                     | Use Case                          |
+|-------------------------------|-------------------------------------------------|-----------------------------------|
+| **Quartz** (pages-preview.sh) | `tools/pages-preview.sh`                        | x7-forge org→md pipeline          |
+| **x7-tools pages preview**    | `tools/x7-forge/implementation/x7-tools/run.sh` | x7-forge submodule (system repos) |
+| **x7-forge tools**            | `tools/x7-forge/tools/run.sh`                   | x7-forge nested layout            |
+| **grip**                      | `grip` in PATH                                  | GitHub-flavored markdown          |
+| **python3 http.server**       | `docs/` directory                               | Static HTML fallback              |
 
 The preview server runs as an overseer task — visible in `SPC t l`,
-stoppable with `SPC d P`, output captured in the task list.
+stoppable with `SPC D P`, output captured in the task list.
 
 **External server:** If you start the preview externally, attach with
 `:ReviewAttach <port>` (e.g. `:ReviewAttach 8080`). Neovim will sync
@@ -566,16 +607,16 @@ The system shall...  # REVIEW(Reg Marr 2026-06-25 14:30): verify against SRS
 ```
 
 Comments are highlighted with a warm background. Navigate with `]r`/`[r`,
-grep across the project with `SPC d g`, resolve (delete) with `SPC d r`.
+grep across the project with `SPC D g`, resolve (delete) with `SPC D r`.
 
 ### Browser Sync
 
 Two sync modes, designed for a split-desktop workflow:
 
-| Mode | Trigger | Browser behaviour |
-|------|---------|--------------------|
-| **Page-level** | `SPC d s`, `BufEnter` (auto-sync) | `xdg-open` navigates browser (may steal focus) |
-| **Heading-level** | `CursorMoved` (auto-sync) | Pushes URL via in-process WebSocket relay (`lua/utils/websocket.lua`), userscript scrolls smoothly — **no focus steal** |
+| Mode              | Trigger                           | Browser behaviour                                                                                                       |
+|-------------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| **Page-level**    | `SPC D s`, `BufEnter` (auto-sync) | `xdg-open` navigates browser (may steal focus)                                                                          |
+| **Heading-level** | `CursorMoved` (auto-sync)         | Pushes URL via in-process WebSocket relay (`lua/utils/websocket.lua`), userscript scrolls smoothly — **no focus steal** |
 
 Heading-level sync uses a debounced `CursorMoved` hook: `nearest_heading_slug()` is
 called on each movement, but the 500ms timer only starts when the slug changes.
@@ -619,18 +660,18 @@ Also available as `:ReviewExport` (current) / `:ReviewExport!` (all).
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `:ReviewPreview` | Start the preview server |
-| `:ReviewPreview!` | Stop the preview server |
-| `:ReviewAttach <port>` | Attach to external server on `<port>` |
-| `:ReviewDetach` | Detach (stop sync, keep server running) |
-| `:ReviewSync` | Sync browser to current file + heading |
-| `:ReviewExport` | Re-export current file (org → md) |
-| `:ReviewExport!` | Re-export all docs |
-| `:ReviewPort [port]` | Get or set the preview port (default: 8080) |
-| `:ReviewDocsRoot [path]` | Get or set the docs root directory |
-| `:ReviewComment [text]` | Insert a review comment |
+| Command                  | Description                                 |
+|--------------------------|---------------------------------------------|
+| `:ReviewPreview`         | Start the preview server                    |
+| `:ReviewPreview!`        | Stop the preview server                     |
+| `:ReviewAttach <port>`   | Attach to external server on `<port>`       |
+| `:ReviewDetach`          | Detach (stop sync, keep server running)     |
+| `:ReviewSync`            | Sync browser to current file + heading      |
+| `:ReviewExport`          | Re-export current file (org → md)           |
+| `:ReviewExport!`         | Re-export all docs                          |
+| `:ReviewPort [port]`     | Get or set the preview port (default: 8080) |
+| `:ReviewDocsRoot [path]` | Get or set the docs root directory          |
+| `:ReviewComment [text]`  | Insert a review comment                     |
 
 ---
 

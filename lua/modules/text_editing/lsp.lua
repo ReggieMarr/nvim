@@ -282,6 +282,22 @@ function M.setup()
       end
     end
 
+    -- ── Adapt root_dir for native vim.lsp API ──────────────────
+    -- Language specs use lspconfig convention: root_dir(fname) -> string|nil
+    -- Neovim's native vim.lsp.config() passes root_dir(bufnr, on_dir) instead.
+    -- Wrap the function to translate the signature so specs stay portable.
+    if type(config.root_dir) == 'function' then
+      local lspconfig_root_dir = config.root_dir
+      config.root_dir = function(bufnr_arg, on_dir)
+        local fname = vim.api.nvim_buf_get_name(bufnr_arg)
+        local root = lspconfig_root_dir(fname)
+        if root and on_dir then
+          on_dir(root)
+        end
+        return root
+      end
+    end
+
     vim.lsp.config(server_name, config)
     vim.lsp.enable(server_name)
   end

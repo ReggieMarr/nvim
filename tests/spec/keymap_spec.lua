@@ -49,31 +49,59 @@ local function lua_files(dir)
 end
 
 ---Extract vim.keymap.set('n', '<leader>xx', ...) calls from a file.
----Returns a list of { mode, lhs, file, line_num } tables.
+---Returns a list of { mode, lhs, file, line_num, buffer_local } tables.
+---buffer_local is true if the surrounding context contains `buffer =`.
 local function extract_keymaps(path)
   local keymaps = {}
   local f = io.open(path, 'r')
   if not f then return keymaps end
-  local line_num = 0
+  -- Read all lines into an array for lookahead
+  local lines = {}
   for line in f:lines() do
-    line_num = line_num + 1
+    table.insert(lines, line)
+  end
+  f:close()
+
+  for line_num, line in ipairs(lines) do
     -- Skip comments
     if not line:match '^%s*%-%-' then
       -- Match vim.keymap.set patterns:
       --   vim.keymap.set('n', '<leader>xx', ...)
       --   vim.keymap.set({'n','v'}, '<leader>xx', ...)
+      -- Also match aliased calls like: map('n', '<leader>xx', ...)
+      -- where `local map = vim.keymap.set` is used in some modules.
       local mode, lhs = line:match "vim%.keymap%.set%(%s*'([^']*)'%s*,%s*'([^']*)'%s*,"
+      if not mode then
+        mode, lhs = line:match "map%(%s*'([^']*)'%s*,%s*'([^']*)'%s*,"
+      end
       if mode and lhs then
+        -- Detect buffer-local keymaps: check if 'buffer' appears
+        -- within the same vim.keymap.set call (same line or nearby lines).
+        -- Buffer-local keymaps intentionally shadow globals in specific buffers.
+        -- Look at current line and next 5 lines for { buffer = ... }
+        local is_buffer_local = false
+        for offset = 0, 5 do
+          local check_line = lines[line_num + offset]
+          if not check_line then break end
+          if check_line:find 'buffer' then
+            is_buffer_local = true
+            break
+          end
+          -- Stop at next vim.keymap.set or blank line
+          if offset > 0 and (check_line:find 'vim%.keymap%.set' or check_line:match '^%s*$') then
+            break
+          end
+        end
         table.insert(keymaps, {
           mode = mode,
           lhs = lhs,
           file = path:gsub(config_root .. '/', ''),
           line = line_num,
+          buffer_local = is_buffer_local,
         })
       end
     end
   end
-  f:close()
   return keymaps
 end
 
@@ -105,7 +133,9 @@ local leader_keymaps = {}
 local duplicates = {}
 
 for _, km in ipairs(all_keymaps) do
-  if km.mode == 'n' and km.lhs:match '<leader>' then
+  -- Buffer-local keymaps intentionally shadow globals (e.g. Neogit
+  -- buffers re-apply SPC . / SPC SPC so navigation works). Skip them.
+  if km.mode == 'n' and km.lhs:match '<leader>' and not km.buffer_local then
     local key = km.mode .. ':' .. km.lhs
     if leader_keymaps[key] then
       local prev = leader_keymaps[key]

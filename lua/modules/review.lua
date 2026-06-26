@@ -475,50 +475,112 @@ end
 ---Slugify a heading string the way Quartz/Hugo/most SSGs do.
 ---@param heading string  raw heading text (without the # or * prefix)
 ---@return string slug    URL-safe anchor
+--- Slugify a heading to match github-slugger (used by Quartz/rehype-slug).
+--- Key difference from a naive slugify: each space becomes ONE hyphen
+--- independently, consecutive hyphens are NOT collapsed.  This matters
+--- for headings containing em dashes ("A — B" → "a--b", not "a-b").
 local function slugify(heading)
   return heading
     :lower()
-    :gsub('[^%w%s%-]', '') -- strip non-alnum
-    :gsub('%s+', '-') -- spaces -> hyphens
-    :gsub('%-+', '-') -- collapse hyphens
-    :gsub('^%-', '') -- trim leading
-    :gsub('%-$', '') -- trim trailing
+    :gsub('[^%w%s%-]', '') -- strip non-alnum (keep [a-zA-Z0-9_ ], spaces, hyphens)
+    :gsub(' ', '-') -- each space → one hyphen (do NOT collapse %s+)
+    :gsub('^%-+', '') -- trim leading hyphens
+    :gsub('%-+$', '') -- trim trailing hyphens
 end
 
 ---Find the nearest heading above (or at) the cursor.
 ---@return string|nil heading_slug
-local function nearest_heading_slug()
-  local row = vim.api.nvim_win_get_cursor(0)[1]
-  local lines = vim.api.nvim_buf_get_lines(0, 0, row, false)
-  local ft = vim.bo.filetype
+--- Heading index cache: maps bufnr → { tick, headings }.
+--- headings is a sorted list of { row, slug } entries built from a single
+--- full-buffer scan.  The cache is invalidated when b:changedtick advances
+--- (any buffer edit) so we never re-scan on cursor movement alone.
+---@type table<number, { tick: number, headings: { row: number, slug: string }[] }>
+local heading_cache = {}
 
-  for i = #lines, 1, -1 do
-    local line = lines[i]
-    local heading
-    if ft == 'org' then
-      heading = line:match '^%*+ (.+)$'
-    elseif ft == 'markdown' or ft == 'quarto' then
-      heading = line:match '^#+ (.+)$'
-    end
+--- Build (or return cached) heading index for the current buffer.
+---@return { row: number, slug: string }[]
+local function get_heading_index()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local tick = vim.api.nvim_buf_get_changedtick(bufnr)
+  local cached = heading_cache[bufnr]
+  if cached and cached.tick == tick then
+    return cached.headings
+  end
+
+  local ft = vim.bo[bufnr].filetype
+  local pat
+  if ft == 'org' then
+    pat = '^%*+ (.+)$'
+  elseif ft == 'markdown' or ft == 'quarto' then
+    pat = '^#+ (.+)$'
+  else
+    heading_cache[bufnr] = { tick = tick, headings = {} }
+    return {}
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local headings = {}
+  for i, line in ipairs(lines) do
+    local heading = line:match(pat)
     if heading then
-      return slugify(heading)
+      headings[#headings + 1] = { row = i, slug = slugify(heading) }
     end
   end
-  return nil
+
+  heading_cache[bufnr] = { tick = tick, headings = headings }
+  return headings
 end
+
+--- Find the nearest heading at or above the cursor.
+--- Uses the cached heading index — O(log N) binary search on a list that
+--- is rebuilt only when the buffer text changes, not on every cursor move.
+---@return string|nil heading_slug
+local function nearest_heading_slug()
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  local headings = get_heading_index()
+  if #headings == 0 then
+    return nil
+  end
+
+  -- Binary search: find the last heading with row <= cursor row
+  local lo, hi = 1, #headings
+  local best = nil
+  while lo <= hi do
+    local mid = math.floor((lo + hi) / 2)
+    if headings[mid].row <= row then
+      best = mid
+      lo = mid + 1
+    else
+      hi = mid - 1
+    end
+  end
+
+  return best and headings[best].slug or nil
+end
+
+--- Docs-root cache: avoids repeated isdirectory() syscalls on every sync.
+--- Invalidated when workspace.root changes (keyed on project root path).
+---@type table<string, string>  project_root -> relative docs root
+local docs_root_cache = {}
 
 ---Auto-detect the docs root for the current project.
 ---Searches for known content directories in priority order.
+---Result is cached per project root (isdirectory is only called on first use).
 ---@param root string|nil  project root (defaults to workspace.root)
 ---@return string  relative path from project root (e.g. 'documentation/content')
 local function get_docs_root(root)
-  -- Manual override takes priority
+  -- Manual override takes priority (not cached — can change at runtime)
   local override = env.state.get 'workspace.docs_root'
   if override then
     return override
   end
 
   root = root or env.state.get 'workspace.root' or vim.fn.getcwd()
+
+  -- Cache hit
+  if docs_root_cache[root] then
+    return docs_root_cache[root]
+  end
 
   -- Search in priority order: most specific first
   local candidates = {
@@ -527,13 +589,16 @@ local function get_docs_root(root)
     'docs',                   -- generic
     'content',                -- Hugo/Quartz direct
   }
+  local result = 'documentation' -- fallback
   for _, candidate in ipairs(candidates) do
     if vim.fn.isdirectory(root .. '/' .. candidate) == 1 then
-      return candidate
+      result = candidate
+      break
     end
   end
 
-  return 'documentation' -- fallback
+  docs_root_cache[root] = result
+  return result
 end
 
 ---Get the full absolute docs root path.
@@ -616,8 +681,10 @@ local function push_sync_url(url, msg_type)
 end
 
 ---Sync the browser to the current file and nearest heading.
----Page-level sync: uses xdg-open (focus steal is acceptable for manual action).
----@param opts { heading_only: boolean }|nil
+---@param opts { heading_only: boolean, push_only: boolean }|nil
+---  heading_only — send "scroll" type (heading-level, same page assumed)
+---  push_only   — send "navigate" type via WebSocket but do NOT open browser
+---               (used by auto-sync BufEnter to avoid stealing window focus)
 local function sync_browser(opts)
   opts = opts or {}
 
@@ -650,8 +717,11 @@ local function sync_browser(opts)
   if opts.heading_only then
     -- Heading-level: push via WebSocket, no focus steal
     push_sync_url(url, 'scroll')
+  elseif opts.push_only then
+    -- Page-level via WebSocket only (auto-sync BufEnter: no focus steal)
+    push_sync_url(url, 'navigate')
   else
-    -- Page-level: push via WebSocket AND open browser
+    -- Manual sync (SPC d s): push via WebSocket AND open browser
     push_sync_url(url, 'navigate')
     vim.ui.open(url)
   end
@@ -681,7 +751,9 @@ local function toggle_auto_sync()
 
     auto_sync_augroup = vim.api.nvim_create_augroup('review_auto_sync', { clear = true })
 
-    -- Page-level sync on buffer enter (uses xdg-open)
+    -- Page-level sync on buffer enter (WebSocket push, no focus steal).
+    -- Uses "navigate" type so the userscript triggers SPA navigation in
+    -- the browser without opening a new tab or stealing window focus.
     vim.api.nvim_create_autocmd('BufEnter', {
       group = auto_sync_augroup,
       pattern = { '*.org', '*.md', '*.markdown', '*.qmd' },
@@ -693,16 +765,19 @@ local function toggle_auto_sync()
         -- Clear caches for the new buffer
         last_synced_slug[bufnr] = nil
         warned_bufs[bufnr] = nil
-        -- Debounce page-level sync
+        -- Debounce page-level sync (push only, no xdg-open)
         vim.defer_fn(function()
           if auto_sync_enabled then
-            sync_browser()
+            sync_browser { heading_only = false, push_only = true }
           end
         end, 300)
       end,
     })
 
-    -- Heading-level sync on cursor movement (debounced, no focus steal)
+    -- Heading-level sync on cursor movement (debounced, no focus steal).
+    -- Performance: nearest_heading_slug() uses a cached heading index that
+    -- rebuilds only when the buffer text changes (changedtick), so the
+    -- CursorMoved callback is a cheap O(log N) binary search on cache hit.
     vim.api.nvim_create_autocmd('CursorMoved', {
       group = auto_sync_augroup,
       pattern = { '*.org', '*.md', '*.markdown', '*.qmd' },
@@ -711,24 +786,24 @@ local function toggle_auto_sync()
           return
         end
 
-        -- Only sync if heading changed
+        -- Quick check: same heading as last sync? (O(log N) with cache)
         local bufnr = vim.api.nvim_get_current_buf()
         local slug = nearest_heading_slug()
         if slug == last_synced_slug[bufnr] then
           return -- same heading, skip
         end
 
-        -- Heading changed: start/restart 500ms debounce
+        -- Heading changed: start/restart 500ms debounce.
+        -- Capture the slug now so the timer callback doesn't need to
+        -- recompute it (avoids a redundant second call).
         if sync_timer then
           vim.fn.timer_stop(sync_timer)
         end
 
+        local pending_slug = slug
         sync_timer = vim.fn.timer_start(500, function()
           sync_timer = nil
-          -- Re-check: heading might have changed again during debounce
-          local current_slug = nearest_heading_slug()
-          last_synced_slug[bufnr] = current_slug
-          -- Heading-level only: no focus steal
+          last_synced_slug[bufnr] = pending_slug
           vim.schedule(function()
             sync_browser { heading_only = true }
           end)
@@ -853,7 +928,7 @@ return env.module.register {
     local ok_wk, wk = pcall(require, 'which-key')
     if ok_wk then
       wk.add {
-        { '<leader>d', group = 'review' },
+        { '<leader>D', group = 'review' },
       }
     end
 
@@ -861,17 +936,17 @@ return env.module.register {
     -- Preview management (SPC d p / SPC d P / SPC d o)
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>dp', start_preview, {
+    vim.keymap.set('n', '<leader>Dp', start_preview, {
       desc = 'review.start_preview',
       silent = true,
     })
 
-    vim.keymap.set('n', '<leader>dP', stop_preview, {
+    vim.keymap.set('n', '<leader>DP', stop_preview, {
       desc = 'review.stop_preview',
       silent = true,
     })
 
-    vim.keymap.set('n', '<leader>do', function()
+    vim.keymap.set('n', '<leader>Do', function()
       if preview.url_base ~= '' then
         vim.ui.open(preview.url_base)
       else
@@ -886,7 +961,7 @@ return env.module.register {
     -- Browser sync (SPC d s / SPC d S)
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>ds', function()
+    vim.keymap.set('n', '<leader>Ds', function()
       -- Manual sync: clear slug cache so it always fires
       local bufnr = vim.api.nvim_get_current_buf()
       last_synced_slug[bufnr] = nil
@@ -897,7 +972,7 @@ return env.module.register {
       silent = true,
     })
 
-    vim.keymap.set('n', '<leader>dS', toggle_auto_sync, {
+    vim.keymap.set('n', '<leader>DS', toggle_auto_sync, {
       desc = 'review.toggle_auto_sync',
       silent = true,
     })
@@ -906,14 +981,14 @@ return env.module.register {
     -- Re-export (SPC d e / SPC d E)
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>de', function()
+    vim.keymap.set('n', '<leader>De', function()
       re_export(true)
     end, {
       desc = 'review.re_export_current',
       silent = true,
     })
 
-    vim.keymap.set('n', '<leader>dE', function()
+    vim.keymap.set('n', '<leader>DE', function()
       re_export(false)
     end, {
       desc = 'review.re_export_all',
@@ -924,12 +999,12 @@ return env.module.register {
     -- Comments (SPC d c / SPC d i / SPC d r / SPC d l / SPC d g)
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>dc', insert_comment, {
+    vim.keymap.set('n', '<leader>Dc', insert_comment, {
       desc = 'review.add_comment',
       silent = true,
     })
 
-    vim.keymap.set('v', '<leader>dc', function()
+    vim.keymap.set('v', '<leader>Dc', function()
       vim.cmd 'normal! "vy'
       local selection = vim.fn.getreg 'v'
       vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
@@ -939,17 +1014,17 @@ return env.module.register {
       silent = true,
     })
 
-    vim.keymap.set('n', '<leader>di', insert_inline_comment, {
+    vim.keymap.set('n', '<leader>Di', insert_inline_comment, {
       desc = 'review.inline_comment',
       silent = true,
     })
 
-    vim.keymap.set('n', '<leader>dr', resolve_comment, {
+    vim.keymap.set('n', '<leader>Dr', resolve_comment, {
       desc = 'review.resolve_comment',
       silent = true,
     })
 
-    vim.keymap.set('n', '<leader>dl', list_comments, {
+    vim.keymap.set('n', '<leader>Dl', list_comments, {
       desc = 'review.list_comments',
       silent = true,
     })
@@ -976,7 +1051,7 @@ return env.module.register {
     -- Grep comments across project
     ----------------------------------------------------------------
 
-    vim.keymap.set('n', '<leader>dg', function()
+    vim.keymap.set('n', '<leader>Dg', function()
       local root = env.state.get 'workspace.root' or vim.fn.getcwd()
       Snacks.picker.grep {
         search = 'REVIEW|begin_review',
